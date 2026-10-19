@@ -1,0 +1,497 @@
+.converter {
+  min-height: 100dvh;
+  background: var(--background);
+}
+.conversion-header {
+  height: 72px;
+  padding: 0 32px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  border-bottom: 1px solid var(--border);
+}
+.conversion-header > .button {
+  margin-left: auto;
+}
+.conversion-breadcrumb {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--muted);
+}
+.conversion-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  padding: 40px 32px 28px;
+}
+.conversion-heading h1 {
+  font-size: clamp(24px, 2.7vw, 36px);
+  font-weight: 500;
+  letter-spacing: -1px;
+  margin: 8px 0;
+}
+.conversion-heading p {
+  color: var(--muted);
+  margin: 0;
+}
+.conversion-heading > .button {
+  flex-shrink: 0;
+}
+.conversion-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 288px;
+  border-top: 1px solid var(--border);
+}
+.conversion-main {
+  min-width: 0;
+  padding: 24px 32px;
+}
+.conversion-inspector {
+  min-width: 0;
+  border-left: 1px solid var(--border);
+  background: var(--panel);
+  padding: 20px;
+}
+.conversion-upload {
+  border: 1px dashed var(--border);
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: var(--panel);
+}
+.conversion-upload[data-dragging="true"] {
+  border-color: var(--accent);
+  background: var(--raised);
+}
+.conversion-upload h2 {
+  font-size: 16px;
+  font-weight: 500;
+  margin: 0;
+}
+.conversion-upload p {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 6px 0 0;
+}
+.conversion-upload-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.conversion-upload-button {
+  position: relative;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid var(--border);
+  padding: 10px 14px;
+  cursor: pointer;
+  border-radius: 6px;
+  white-space: nowrap;
+  background: var(--raised);
+}
+.conversion-upload-button input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+.conversion-upload-button:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.conversion-status {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.conversion-status button {
+  padding: 6px 12px;
+}
+.conversion-empty {
+  height: 480px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  padding: 24px;
+  text-align: center;
+}
+.conversion-empty pre {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 24px;
+  line-height: 1.5;
+  color: var(--accent);
+  margin: 0 0 24px;
+}
+.conversion-empty h2 {
+  font-size: 18px;
+  font-weight: 400;
+  margin: 0;
+}
+.conversion-empty p {
+  color: var(--muted);
+  font-size: 13px;
+}
+.conversion-preview {
+  background: var(--background);
+  border: 1px solid var(--border);
+  min-width: 0;
+}
+.conversion-preview:fullscreen {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+}
+.conversion-preview:fullscreen .conversion-viewport {
+  flex: 1;
+}
+.conversion-preview-tools {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+}
+.conversion-views,
+.conversion-zoom {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.conversion-preview-tools button {
+  padding: 7px 10px;
+  font-size: 12px;
+}
+.conversion-preview-tools button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--raised);
+}
+.conversion-zoom output {
+  font:
+    11px "IBM Plex Mono",
+    monospace;
+  min-width: 40px;
+  text-align: center;
+}
+.conversion-viewport {
+  height: 480px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  touch-action: none;
+  cursor: grab;
+  background: repeating-conic-gradient(
+      var(--panel) 0% 25%,
+      var(--raised) 0% 50%
+    )
+    0 0/20px 20px;
+  min-width: 0;
+  padding: 20px;
+}
+.conversion-viewport:active {
+  cursor: grabbing;
+}
+.conversion-art-wrap {
+  position: relative;
+  display: flex;
+  flex: none;
+  margin: auto;
+  min-width: 0;
+}
+.conversion-art-wrap img {
+  display: block;
+  flex: none;
+  object-fit: fill;
+  pointer-events: none;
+}
+.converted-art {
+  position: relative;
+  flex: none;
+}
+.converted-art canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.conversion-art-wrap:has(> img) > .converted-art {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+.conversion-art-wrap > .comparison-layer {
+  position: absolute;
+  inset: 0;
+}
+.comparison-control {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px;
+  font-size: 12px;
+}
+.comparison-control input {
+  flex: 1;
+  min-width: 80px;
+  accent-color: var(--accent);
+}
+.conversion-hint {
+  font-size: 11px;
+  color: var(--muted);
+  padding: 0 12px;
+}
+.conversion-text {
+  border-top: 1px solid var(--border);
+  padding: 12px;
+}
+.conversion-text summary {
+  cursor: pointer;
+}
+.conversion-text pre {
+  max-height: 240px;
+  overflow: auto;
+  font:
+    12px/1.2 "IBM Plex Mono",
+    monospace;
+}
+.conversion-exports {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 24px 0;
+}
+.conversion-exports > span {
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--muted);
+  margin-right: 8px;
+}
+.conversion-exports button {
+  padding: 8px 14px;
+}
+.conversion-exports p {
+  width: 100%;
+  font-size: 11px;
+  color: var(--muted);
+}
+.conversion-settings-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.conversion-settings-heading h2 {
+  font-size: 16px;
+  font-weight: 500;
+}
+.conversion-settings-heading button {
+  font-size: 11px;
+  padding: 6px;
+}
+.conversion-settings {
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.conversion-settings section {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+.conversion-settings h2 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--muted);
+  margin: 0 0 16px;
+}
+.conversion-settings label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  margin-bottom: 12px;
+  min-width: 0;
+}
+.conversion-settings input:not([type="checkbox"]):not([type="range"]),
+.conversion-settings select {
+  width: 100%;
+  min-width: 0;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px;
+  color: var(--text);
+}
+.conversion-settings input[type="color"] {
+  height: 36px;
+  padding: 3px !important;
+}
+.conversion-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.conversion-settings .conversion-check {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+.conversion-check input {
+  accent-color: var(--accent);
+}
+.conversion-settings p {
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--muted);
+  margin: 0 0 16px;
+}
+.conversion-range > span {
+  display: flex;
+  justify-content: space-between;
+}
+.conversion-range .range-value {
+  font-family: "IBM Plex Mono", monospace;
+  color: var(--muted);
+}
+.conversion-range input {
+  width: 100%;
+  accent-color: var(--accent);
+}
+.conversion-error {
+  border: 1px solid #ff9c9c;
+  color: #ff9c9c;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+.conversion-error p {
+  margin: 0 0 8px;
+}
+.conversion-error button {
+  padding: 8px 12px;
+  margin-right: 8px;
+}
+@media (max-width: 1100px) {
+  .conversion-heading {
+    align-items: flex-start;
+  }
+  .conversion-main {
+    padding: 20px;
+  }
+  .conversion-upload {
+    flex-wrap: wrap;
+  }
+  .conversion-breadcrumb {
+    display: none;
+  }
+}
+@media (max-width: 900px) {
+  .conversion-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .conversion-inspector {
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
+  .conversion-settings {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 32px;
+  }
+  .conversion-viewport,
+  .conversion-empty {
+    height: 360px;
+  }
+}
+@media (max-width: 600px) {
+  .conversion-header {
+    height: 64px;
+    padding: 0 16px;
+    gap: 12px;
+  }
+  .conversion-header .wordmark {
+    font-size: 16px;
+  }
+  .conversion-header .button {
+    font-size: 12px;
+  }
+  .conversion-heading {
+    padding: 28px 16px 20px;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .conversion-heading h1 {
+    letter-spacing: -0.6px;
+    font-size: 27px;
+  }
+  .conversion-heading > .button {
+    width: 100%;
+    justify-content: center;
+  }
+  .conversion-main {
+    padding: 16px;
+    min-width: 0;
+  }
+  .conversion-upload {
+    padding: 16px;
+  }
+  .conversion-upload-actions {
+    width: 100%;
+  }
+  .conversion-upload h2 {
+    overflow-wrap: anywhere;
+  }
+  .conversion-viewport,
+  .conversion-empty {
+    height: 300px;
+  }
+  .conversion-empty pre {
+    font-size: 20px;
+  }
+  .conversion-empty h2 {
+    font-size: 16px;
+  }
+  .conversion-settings {
+    display: block;
+  }
+  .converter button,
+  .conversion-upload-button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .conversion-preview-tools {
+    gap: 8px;
+  }
+  .conversion-preview-tools button {
+    padding: 6px 9px;
+  }
+  .conversion-settings input:not([type="checkbox"]),
+  .conversion-settings select,
+  .comparison-control input {
+    min-height: 44px;
+  }
+  .conversion-settings .conversion-check {
+    min-height: 44px;
+  }
+  .conversion-check input {
+    width: 20px;
+    height: 20px;
+  }
+  .conversion-exports {
+    padding-bottom: 8px;
+  }
+}
