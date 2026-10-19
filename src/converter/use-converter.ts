@@ -23,6 +23,7 @@ export function useConverter() {
     source: Source;
     settings: ConversionSettings;
   } | null>(null);
+  const [engine, setEngine] = useState("Waiting for conversion");
   const [retry, setRetry] = useState(0),
     [cancelled, setCancelled] = useState(false);
   const uploadId = useRef(0),
@@ -106,6 +107,7 @@ export function useConverter() {
             settings,
             ac.signal,
             coverage,
+            (value) => { if (!ac.signal.aborted) setEngine(value); },
           );
           if (!ac.signal.aborted) {
             doc.name = source.name;
@@ -143,6 +145,7 @@ export function useConverter() {
   };
   return {
     settings,
+    engine,
     update,
     source,
     loading,

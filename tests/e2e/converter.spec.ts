@@ -75,7 +75,9 @@ test("local conversion, settings, previews, exports and editable handoff preserv
   });
   expect(
     await page.evaluate(
-      () => document.documentElement.scrollWidth <= innerWidth,
+      () =>
+        document.documentElement.scrollWidth <=
+        document.documentElement.clientWidth,
     ),
   ).toBe(true);
   await page
@@ -120,7 +122,9 @@ test("local conversion, settings, previews, exports and editable handoff preserv
   expect(names).toContain("gradient");
   expect(
     await page.evaluate(
-      () => document.documentElement.scrollWidth <= innerWidth,
+      () =>
+        document.documentElement.scrollWidth <=
+        document.documentElement.clientWidth,
     ),
   ).toBe(true);
   expect(errors).toEqual([]);
@@ -270,14 +274,18 @@ test("all processing controls, reset, keyboard targets and tablet layout", async
   expect(zoom!.height).toBeGreaterThanOrEqual(44);
   expect(
     await page.evaluate(
-      () => document.documentElement.scrollWidth <= innerWidth,
+      () =>
+        document.documentElement.scrollWidth <=
+        document.documentElement.clientWidth,
     ),
   ).toBe(true);
   await page.setViewportSize({ width: 768, height: 1024 });
   await page.getByRole("button", { name: "Side by side", exact: true }).click();
   expect(
     await page.evaluate(
-      () => document.documentElement.scrollWidth <= innerWidth,
+      () =>
+        document.documentElement.scrollWidth <=
+        document.documentElement.clientWidth,
     ),
   ).toBe(true);
 });
@@ -318,7 +326,9 @@ test("large conversion remains editable on high DPR displays and cancellation st
   await expect(page.locator(".editor-message")).toHaveCount(0);
   expect(
     await page.evaluate(
-      () => document.documentElement.scrollWidth <= innerWidth,
+      () =>
+        document.documentElement.scrollWidth <=
+        document.documentElement.clientWidth,
     ),
   ).toBe(true);
   expect(info.project.name).toMatch(/desktop|mobile/);
@@ -346,13 +356,11 @@ test("drag and drop uses local decoding and rejects oversized dimensions before 
   await expect(page.getByTestId("conversion-status")).toContainText("Ready");
   await transfer.dispose();
   bytes.writeUInt32BE(20000, 16);
-  await page
-    .getByLabel("Browse image")
-    .setInputFiles({
-      name: "too-wide.png",
-      mimeType: "image/png",
-      buffer: bytes,
-    });
+  await page.getByLabel("Browse image").setInputFiles({
+    name: "too-wide.png",
+    mimeType: "image/png",
+    buffer: bytes,
+  });
   await expect(page.locator(".conversion-error")).toContainText(/dimensions/i);
   await expect(
     page.getByRole("button", { name: "Edit in Studio", exact: true }),

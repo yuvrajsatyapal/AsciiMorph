@@ -15,6 +15,7 @@ export interface ConversionSettings {
   sharpness: number;
   edge: number;
   dithering: boolean;
+  smartEdges?: boolean;
   mode: "monochrome" | "grayscale" | "color";
   fg: string;
   bg: string | null;
@@ -36,6 +37,7 @@ export const DEFAULT_SETTINGS: ConversionSettings = {
   sharpness: 0,
   edge: 0,
   dithering: false,
+  smartEdges: false,
   mode: "monochrome",
   fg: "#e9b86e",
   bg: null,
@@ -65,6 +67,7 @@ export function validateSettings(s: ConversionSettings) {
     )
       throw new Error(`Invalid ${key}`);
   }
+  if (s.smartEdges !== undefined && typeof s.smartEdges !== "boolean") throw new Error("Invalid smartEdges");
   for (const key of ["preserveAspect", "invert", "dithering"] as const)
     if (typeof s[key] !== "boolean") throw new Error(`Invalid ${key}`);
   if (!["monochrome", "grayscale", "color"].includes(s.mode))

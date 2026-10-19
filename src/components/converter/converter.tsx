@@ -85,6 +85,7 @@ export default function Converter() {
           <span>AsciiMorph</span>
         </Link>
         <span className="conversion-breadcrumb">IMAGE → CHARACTERS</span>
+        <Link href="/create" className="button quiet">Creative tools</Link>
         <Link href="/studio" className="button quiet">
           Open Studio <ArrowRight size={15} />
         </Link>
@@ -164,7 +165,7 @@ export default function Converter() {
                 : c.processing
                   ? "Processing image…"
                   : c.result
-                    ? `Ready · ${c.result.width} × ${c.result.height} editable cells`
+                    ? `Ready · ${c.result.width} × ${c.result.height} editable cells · ${c.engine}`
                     : c.error
                       ? "Conversion unavailable"
                       : "Choose an image to begin."}

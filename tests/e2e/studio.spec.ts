@@ -146,13 +146,11 @@ test("imports text, performs shape gestures, and exports all supported formats",
   page,
 }) => {
   await blank(page);
-  await page
-    .locator("input[type=file]")
-    .setInputFiles({
-      name: "test.txt",
-      mimeType: "text/plain",
-      buffer: Buffer.from(" A\nBC\n"),
-    });
+  await page.locator("input[type=file]").setInputFiles({
+    name: "test.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from(" A\nBC\n"),
+  });
   await expect(page.getByTestId("document-text")).toContainText("BC");
   const input = page.getByTestId("canvas-input");
   for (const name of ["Line", "Rectangle", "Filled rectangle", "Ellipse"]) {

@@ -62,6 +62,7 @@ export default function Home() {
         <nav aria-label="Main navigation">
           <a href="#playground">Playground</a>
           <a href="#possibilities">The possibilities</a>
+          <Link href="/create">Creative tools</Link>
         </nav>
         <Link href="/studio" className="header-studio">
           Open Studio <ArrowUpRight size={15} />
@@ -196,6 +197,7 @@ export default function Home() {
                 Letters, symbols, blocks, and everything in between. Your
                 palette is hiding on your keyboard.
               </p>
+              <Link href="/create">Explore creative tools <ArrowRight size={14} /></Link>
             </div>
           </article>
           <article>
@@ -219,6 +221,7 @@ export default function Home() {
           AsciiMorph.
         </Link>
         <span>Made for the joy of making.</span>
+        <Link href="/create">Explore all creative tools →</Link>
         <span className="footer-ascii">[ a little less ordinary ]</span>
       </footer>
     </main>

@@ -23,6 +23,7 @@ export interface AsciiDocument {
   fontSize: number;
   background: string | null;
   layers: Layer[];
+  activeLayerId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -165,6 +166,8 @@ export function validateDocument(value: unknown): AsciiDocument {
       }),
     };
   });
+  if (d.activeLayerId !== undefined && !layerIds.has(d.activeLayerId as string))
+    fail("active layer does not exist");
   return {
     version: 1,
     id: string(d.id, "id", 128),
@@ -176,6 +179,9 @@ export function validateDocument(value: unknown): AsciiDocument {
     fontSize: number(d.fontSize, "font size", 1, 96),
     background: color(d.background, true),
     layers,
+    ...(d.activeLayerId !== undefined
+      ? { activeLayerId: string(d.activeLayerId, "active layer id", 128) }
+      : {}),
     createdAt: timestamp(d.createdAt),
     updatedAt: timestamp(d.updatedAt),
   };
