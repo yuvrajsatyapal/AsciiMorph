@@ -1,3 +1,4 @@
+import { activeLayer } from "./layers";
 import { blankCell, type AsciiDocument, type Cell } from "./document";
 import { editCells, inside, type Point, type Rect } from "./grid";
 export interface Clipboard {
@@ -13,7 +14,7 @@ export function capture(doc: AsciiDocument, r: Rect): Clipboard {
       const x = r.x + (i % r.width),
         y = r.y + Math.floor(i / r.width);
       return inside(doc, x, y)
-        ? { ...doc.layers[0].cells[y * doc.width + x] }
+        ? { ...activeLayer(doc).cells[y * doc.width + x] }
         : blankCell();
     }),
   };

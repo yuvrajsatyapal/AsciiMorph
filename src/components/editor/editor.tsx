@@ -38,6 +38,12 @@ import { useEditor, type Tool } from "@/editor/use-editor";
 import { PanelDialog } from "@/components/ui/dialog";
 import { EditorCanvas } from "./canvas";
 import { SymbolPanel, ColorPanel, CanvasPanel } from "./panels";
+import { LayerPanel } from "./layers";
+import {
+  openAnimation,
+  frameEditFor,
+  updateAnimationFrame,
+} from "@/animation/handoff";
 import "./editor.css";
 const tools: { id: Tool; name: string; hint: string; Icon: typeof Pencil }[] = [
   { id: "pencil", name: "Pencil", hint: "P", Icon: Pencil },
@@ -68,6 +74,7 @@ export default function Editor() {
     [find, setFind] = useState(""),
     [replacement, setReplacement] = useState("");
   const d = e.doc;
+  const linkedFrame = d ? frameEditFor(d.id) : null;
   const fullscreen = () =>
     e.run(async () => {
       try {
@@ -137,6 +144,55 @@ export default function Editor() {
           />
         </div>
         <div className="editor-file-actions">
+          {linkedFrame && (
+            <>
+              <button
+                onClick={() =>
+                  e.run(async () => {
+                    await updateAnimationFrame(d);
+                    e.notify(
+                      `Updated animation frame ${linkedFrame.index + 1}.`,
+                    );
+                  })
+                }
+              >
+                Update animation frame
+              </button>
+              <button
+                onClick={() =>
+                  e.run(async () => {
+                    await saveActiveDraft();
+                    router.push("/animate");
+                  })
+                }
+              >
+                Back to animation
+              </button>
+            </>
+          )}
+          <button
+            aria-label="Creative tools"
+            onClick={() =>
+              e.run(async () => {
+                await saveActiveDraft();
+                router.push("/create");
+              })
+            }
+          >
+            Create
+          </button>
+          <button
+            aria-label="Animate artwork"
+            onClick={() =>
+              e.run(async () => {
+                await saveActiveDraft();
+                await openAnimation([{ doc: d, duration: 100 }]);
+                router.push("/animate");
+              })
+            }
+          >
+            Animate
+          </button>
           <button
             className="convert-image-action"
             aria-label="Convert image"
@@ -330,6 +386,7 @@ export default function Editor() {
           aria-label="Properties"
         >
           <ColorPanel e={e} />
+          <LayerPanel e={e} />
           <div className="panel-divider" />
           <button
             className="button quiet full-width"
@@ -353,6 +410,7 @@ export default function Editor() {
       <nav className="mobile-panels" aria-label="Studio panels">
         <button onClick={() => e.setPanel("symbols")}>Symbols</button>
         <button onClick={() => e.setPanel("colors")}>Colors</button>
+        <button onClick={() => e.setPanel("layers")}>Layers</button>
         <button onClick={() => e.setPanel("canvas")}>Canvas</button>
         <button onClick={() => e.setPanel("edit")}>Edit</button>
       </nav>
@@ -387,6 +445,7 @@ export default function Editor() {
           {
             symbols: "Character library",
             colors: "Color & brush",
+            layers: "Layers & effects",
             canvas: "Canvas settings",
             export: "Export artwork",
             edit: "Edit artwork",
@@ -402,6 +461,7 @@ export default function Editor() {
         {e.panel === "symbols" && <SymbolPanel e={e} />}{" "}
         {e.panel === "colors" && <ColorPanel e={e} />}{" "}
         {e.panel === "canvas" && <CanvasPanel e={e} />}
+        {e.panel === "layers" && <LayerPanel e={e} />}
         {e.panel === "export" && (
           <>
             <p className="muted">

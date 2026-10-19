@@ -1,3 +1,4 @@
+import { activeLayer } from "./layers";
 import {
   blankCell,
   createDocument,
@@ -25,13 +26,14 @@ export function editCells(
   doc: AsciiDocument,
   edit: (cells: Cell[]) => void,
 ): AsciiDocument {
-  if (doc.layers[0].locked) return doc;
-  const cells = doc.layers[0].cells.slice();
+  const layer = activeLayer(doc);
+  if (layer.locked) return doc;
+  const cells = layer.cells.slice();
   edit(cells);
-  if (cells.every((c, i) => c === doc.layers[0].cells[i])) return doc;
+  if (cells.every((c, i) => c === layer.cells[i])) return doc;
   return {
     ...doc,
-    layers: doc.layers.map((l, i) => (i === 0 ? { ...l, cells } : l)),
+    layers: doc.layers.map((l) => (l.id === layer.id ? { ...l, cells } : l)),
     updatedAt: new Date().toISOString(),
   };
 }

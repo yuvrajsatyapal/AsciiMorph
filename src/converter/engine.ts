@@ -1,5 +1,6 @@
 import { createDocument, type Cell, MAX_CELLS } from "@/core/document";
 import { characterSet, type Calibration } from "./presets";
+import type { NumericEngine } from "./wasm";
 import { type ConversionSettings, validateSettings } from "./settings";
 export interface Pixels {
   width: number;
@@ -97,6 +98,7 @@ export async function convert(
   signal?: AbortSignal,
   yieldRow: () => Promise<void> = () => Promise.resolve(),
   calibration?: Calibration,
+  numeric?: NumericEngine,
 ) {
   abort(signal);
   validateSettings(s);
@@ -121,11 +123,13 @@ export async function convert(
   const rgb = new Float32Array(n * 3),
     alphas = new Float32Array(n),
     values = new Float32Array(n);
+  const samples = numeric?.sample(im, sw, sh);
+  abort(signal);
   for (let y = 0; y < sh; y++) {
     abort(signal);
     for (let x = 0; x < sw; x++) {
       const i = y * sw + x,
-        [r, g, b, a] = sample(im, x, y, sw, sh),
+        [r, g, b, a] = samples ? samples.subarray(i * 4, i * 4 + 4) : sample(im, x, y, sw, sh),
         gray = luminance(r, g, b);
       const rr = tone(gray + ((r - gray) * s.saturation) / 100, s),
         gg = tone(gray + ((g - gray) * s.saturation) / 100, s),
@@ -138,6 +142,9 @@ export async function convert(
     if (y % 8 === 0) await yieldRow();
   }
   const filtered = values.slice();
+  const gradients = numeric?.gradients(values, sw, sh);
+  const directions = s.smartEdges && !braille ? new Array<string | undefined>(n) : undefined;
+  abort(signal);
   const at = (x: number, y: number) =>
     values[
       Math.max(0, Math.min(sh - 1, y)) * sw + Math.max(0, Math.min(sw - 1, x))
@@ -147,23 +154,27 @@ export async function convert(
     for (let x = 0; x < sw; x++) {
       const i = y * sw + x,
         v = values[i];
-      let blur = 0;
-      for (let dy = -1; dy <= 1; dy++)
+      let blur = gradients?.[i * 3] ?? 0;
+      if (!gradients) for (let dy = -1; dy <= 1; dy++)
         for (let dx = -1; dx <= 1; dx++) blur += at(x + dx, y + dy) / 9;
-      const gx =
+      const gx = gradients?.[i * 3 + 1] ?? (
         -at(x - 1, y - 1) +
         at(x + 1, y - 1) -
         2 * at(x - 1, y) +
         2 * at(x + 1, y) -
         at(x - 1, y + 1) +
-        at(x + 1, y + 1);
-      const gy =
+        at(x + 1, y + 1));
+      const gy = gradients?.[i * 3 + 2] ?? (
         -at(x - 1, y - 1) -
         2 * at(x, y - 1) -
         at(x + 1, y - 1) +
         at(x - 1, y + 1) +
         2 * at(x, y + 1) +
-        at(x + 1, y + 1);
+        at(x + 1, y + 1));
+      if (directions && Math.hypot(gx, gy) >= 100) {
+        const angle = ((Math.atan2(gy, gx) * 180 / Math.PI) + 180) % 180;
+        directions[i] = angle < 22.5 || angle >= 157.5 ? "|" : angle < 67.5 ? "/" : angle < 112.5 ? "-" : "\\";
+      }
       const sharp = clamp(v + ((v - blur) * s.sharpness) / 25);
       filtered[i] =
         255 *
@@ -194,7 +205,7 @@ export async function convert(
           ? "1"
           : "0"
         : densityCharacter(value, ramp, 1, cov);
-      mapped[i] = char;
+      mapped[i] = directions?.[i] ?? char;
       if (s.dithering) {
         const index = ramp.indexOf(char);
         const quant = braille

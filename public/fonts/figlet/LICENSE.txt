@@ -1,0 +1,15 @@
+Morph Grid FIGlet font
+Copyright 2026 AsciiMorph contributors
+SPDX-License-Identifier: CC0-1.0
+
+The Morph Grid glyph designs and the morph-grid.flf font file were authored
+specifically for AsciiMorph. No third-party FIGlet glyph artwork was copied.
+The lowercase alphabet intentionally shares the uppercase glyph designs.
+
+To the extent possible under law, the authors have waived all copyright and
+related or neighboring rights to this font under the Creative Commons CC0 1.0
+Universal Public Domain Dedication. You may copy, modify, distribute and use
+this work, including commercially, without permission or attribution.
+
+The work is provided without warranty. Full legal terms:
+https://creativecommons.org/publicdomain/zero/1.0/legalcode

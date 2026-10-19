@@ -9,7 +9,11 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "build:wasm": "node scripts/build-wasm.mjs",
+    "test:rust": "cargo test --manifest-path rust/Cargo.toml --offline",
+    "bench:rust": "cargo run --manifest-path rust/Cargo.toml --release --offline --example benchmark",
+    "bench:wasm": "node scripts/benchmark-wasm.mjs"
   },
   "dependencies": {
     "@fontsource/ibm-plex-mono": "^5.2.0",

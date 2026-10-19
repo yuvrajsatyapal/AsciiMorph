@@ -170,6 +170,11 @@ export function Settings({
         {range("sharpness", "Sharpness", 0, 100)}
         {range("edge", "Edge detection", 0, 100)}
         <label className="conversion-check">
+          <input type="checkbox" checked={s.smartEdges ?? false} disabled={s.charset === "braille"} onChange={(e) => update({ smartEdges: e.target.checked })} />
+          Smart directional edges
+        </label>
+        <p>Uses line characters along strong contours. Sharpness and contrast enhance local detail.</p>
+        <label className="conversion-check">
           <input
             type="checkbox"
             checked={s.invert}

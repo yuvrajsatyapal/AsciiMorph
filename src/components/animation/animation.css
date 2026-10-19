@@ -1,0 +1,259 @@
+.animation-page {
+  max-width: 1440px;
+  margin: auto;
+  padding: 28px 40px 64px;
+}
+.animation-page > header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 32px;
+  border-bottom: 1px solid #303236;
+}
+.animation-page nav {
+  display: flex;
+  gap: 24px;
+}
+.animation-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 24px;
+  margin: 44px 0 24px;
+}
+.animation-heading h1 {
+  font-size: clamp(28px, 4vw, 48px);
+  line-height: 1.12;
+  letter-spacing: -0.04em;
+  margin: 10px 0 16px;
+}
+.animation-heading p {
+  color: #a2a3aa;
+}
+.animation-heading > div:last-child {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.animation-name {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 24px 0;
+}
+.animation-page input:not([type="checkbox"]) {
+  background: #17191d;
+  border: 1px solid #3b3e44;
+  border-radius: 5px;
+  padding: 10px 12px;
+  min-height: 44px;
+  color: #eee;
+  max-width: 100%;
+}
+.animation-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 24px;
+}
+.animation-preview {
+  min-width: 0;
+  padding: 24px;
+  background: #111316;
+  border: 1px solid #33363c;
+  border-radius: 10px;
+  align-self: start;
+}
+.animation-canvas-stack {
+  position: relative;
+  background: repeating-conic-gradient(#17191c 0% 25%, #131517 0% 50%) 0/16px
+    16px;
+  max-height: 65vh;
+  max-width: 100%;
+  margin: auto;
+}
+.animation-canvas-stack canvas {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.animation-canvas-stack .onion {
+  opacity: 0.2;
+  filter: sepia(1) saturate(4);
+  pointer-events: none;
+}
+.animation-canvas-stack .onion-next {
+  opacity: 0.15;
+  filter: hue-rotate(120deg);
+}
+.animation-playback {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px;
+  margin: 24px 0 12px;
+}
+.animation-playback label {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+}
+.animation-page details pre {
+  overflow: auto;
+  max-height: 400px;
+  font-family: "IBM Plex Mono", monospace;
+}
+.animation-controls {
+  border-left: 1px solid #33363c;
+  padding-left: 24px;
+}
+.animation-controls h2 {
+  font-size: 18px;
+  margin: 8px 0 16px;
+}
+.animation-controls h2:not(:first-child) {
+  margin-top: 28px;
+}
+.animation-action-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 12px 0 20px;
+}
+.animation-action-grid button {
+  border: 1px solid #3b3e44;
+  padding: 8px 12px;
+  min-height: 44px;
+  border-radius: 5px;
+  font-size: 13px;
+}
+.animation-page button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.animation-controls > label {
+  display: grid;
+  gap: 8px;
+  font-size: 13px;
+  margin: 16px 0;
+}
+.animation-controls p {
+  font-size: 12px;
+  line-height: 1.6;
+}
+.animation-file input {
+  width: 100%;
+}
+.animation-timeline {
+  display: flex;
+  list-style: none;
+  gap: 12px;
+  padding: 24px 0;
+  margin: 18px 0;
+  overflow-x: auto;
+}
+.animation-timeline li {
+  flex: 0 0 145px;
+}
+.animation-timeline button {
+  width: 100%;
+  text-align: left;
+  border: 1px solid #33363c;
+  border-radius: 6px;
+  padding: 12px;
+  min-height: 140px;
+  background: #17191d;
+}
+.animation-timeline button[aria-pressed="true"] {
+  border-color: #e9b86e;
+  background: #24211b;
+}
+.animation-timeline pre {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 5px;
+  line-height: 1.1;
+  height: 65px;
+  overflow: hidden;
+  color: #e9b86e;
+  margin: 12px 0;
+}
+.animation-timeline small {
+  color: #a2a3aa;
+}
+.animation-message {
+  display: flex;
+  justify-content: space-between;
+  padding: 14px;
+  border: 1px solid #e9b86e;
+  border-radius: 6px;
+}
+.animation-message button {
+  min-width: 44px;
+}
+.animation-page :focus-visible {
+  outline: 2px solid #e9b86e;
+  outline-offset: 3px;
+}
+@media (max-width: 800px) {
+  .animation-page {
+    padding: 20px;
+  }
+  .animation-heading {
+    display: block;
+    margin-top: 28px;
+  }
+  .animation-heading > div:last-child {
+    margin: 24px 0;
+  }
+  .animation-workspace {
+    grid-template-columns: 1fr;
+  }
+  .animation-controls {
+    border-left: 0;
+    border-top: 1px solid #33363c;
+    padding: 24px 0 0;
+  }
+  .animation-preview {
+    padding: 12px;
+  }
+  .animation-playback {
+    gap: 12px;
+    font-size: 12px;
+  }
+  .animation-name {
+    align-items: start;
+    flex-direction: column;
+  }
+}
+/* Keep both ghosts visible above frames with an opaque document background. */
+.animation-canvas-stack .onion {
+  z-index: 1;
+}
+.animation-canvas-stack .onion-next {
+  z-index: 2;
+}
+.animation-page button:disabled,
+.layer-panel button:disabled {
+  opacity: 1;
+  color: var(--muted);
+}
+.animation-name {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 24px;
+}
+.animation-name label {
+  display: grid;
+  gap: 6px;
+}
+.animation-name select {
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  min-height: 44px;
+  padding: 8px;
+  max-width: 100%;
+}

@@ -185,3 +185,12 @@ it("diffuses error in density-adjusted luminance space", async () => {
   });
   expect(doc.layers[0].cells.map((c) => c.char).join("")).toBe(" @  ");
 });
+
+it("uses directional characters on strong contours only when requested", async () => {
+  const im = image([0, 0, 255, 255, 0, 0, 255, 255, 0, 0, 255, 255], 4, 3);
+  const s = { ...settings, width: 4, height: 3, smartEdges: true };
+  const smart = await convert(im, s);
+  expect(smart.layers[0].cells[1].char).toBe("|");
+  const plain = await convert(im, { ...s, smartEdges: false });
+  expect(plain.layers[0].cells[1].char).not.toBe("|");
+});

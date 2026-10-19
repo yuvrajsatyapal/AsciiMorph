@@ -7,6 +7,7 @@ export function runConversion(
   settings: ConversionSettings,
   signal: AbortSignal,
   calibration?: Calibration,
+  onEngine?: (engine: string) => void,
 ): Promise<AsciiDocument> {
   if (signal.aborted)
     return Promise.reject(
@@ -19,6 +20,7 @@ export function runConversion(
       type: "module",
     });
   } catch {
+    onEngine?.("JavaScript fallback (worker unavailable)");
     return convert(
       pixels,
       settings,
@@ -42,8 +44,11 @@ export function runConversion(
       finish(new DOMException("Conversion cancelled", "AbortError"));
     signal.addEventListener("abort", cancel, { once: true });
     worker.onmessage = (
-      e: MessageEvent<{ doc?: AsciiDocument; error?: string }>,
-    ) => finish(e.data.error ? new Error(e.data.error) : undefined, e.data.doc);
+      e: MessageEvent<{ doc?: AsciiDocument; error?: string; engine?: string }>,
+    ) => {
+      if (e.data.engine) onEngine?.(e.data.engine);
+      finish(e.data.error ? new Error(e.data.error) : undefined, e.data.doc);
+    };
     worker.onerror = (e) => {
       e.preventDefault();
       finish(new Error(e.message || "Conversion worker failed."));
