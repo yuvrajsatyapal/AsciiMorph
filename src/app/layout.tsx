@@ -4,6 +4,8 @@ import "@fontsource/ibm-plex-sans/500.css";
 import "@fontsource/ibm-plex-sans/600.css";
 import "@fontsource/ibm-plex-mono/400.css";
 import "./globals.css";
+import "@/components/workspace/workspace.css";
+import { WorkspaceNavigation } from "@/components/workspace/navigation";
 export const metadata: Metadata = {
   title: "AsciiMorph — Your Imagination. In Characters.",
   description:
@@ -14,7 +16,10 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" data-scroll-behavior="smooth">
-      <body>{children}</body>
+      <body>
+        <WorkspaceNavigation />
+        {children}
+      </body>
     </html>
   );
 }

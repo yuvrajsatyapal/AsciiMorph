@@ -3,6 +3,7 @@ import { createDocument } from "@/core/document";
 import {
   createAnimation,
   validateAnimation,
+  validateAnimationChange,
   duplicateFrame,
   removeFrame,
   moveFrame,
@@ -30,6 +31,36 @@ describe("animation project", () => {
       ]),
     ).toThrow();
     expect(parseAnimation(serializeAnimation(p))).toEqual(p);
+  });
+  it("preserves unchanged documents in internal edits and validates all changed data", () => {
+    const project = createAnimation();
+    const renamed = validateAnimationChange(project, {
+      ...project,
+      name: "Renamed",
+    });
+    expect(renamed.frames[0].doc).toBe(project.frames[0].doc);
+    expect(() =>
+      validateAnimationChange(project, {
+        ...project,
+        frames: [{ ...project.frames[0], duration: 0 }],
+      }),
+    ).toThrow(/duration/i);
+    const changed = { ...project.frames[0].doc, name: "Changed" };
+    const revised = validateAnimationChange(project, {
+      ...project,
+      frames: [{ doc: changed, duration: 100 }],
+    });
+    expect(revised.frames[0].doc.name).toBe("Changed");
+    expect(revised.frames[0].doc).not.toBe(changed);
+    expect(() =>
+      validateAnimationChange(project, {
+        ...project,
+        frames: [{ doc: { ...changed, width: -1 }, duration: 100 }],
+      }),
+    ).toThrow();
+    expect(validateAnimation(project).frames[0].doc).not.toBe(
+      project.frames[0].doc,
+    );
   });
   it("keeps frames independent through duplication and respects per-frame playback timing", () => {
     const p = createAnimation([

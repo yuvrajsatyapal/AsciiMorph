@@ -5,13 +5,22 @@ import {
   DEFAULT_GENERATOR,
   type GeneratorSettings,
 } from "@/creative/generators";
+import { usePersistentState } from "@/workspace/preferences";
 import { CreativeShell } from "./shell";
 import { Artwork, ArtworkActions } from "./artwork";
 import { MotionActions } from "./motion-actions";
+import { generatorTimeline } from "@/creative/generator-timeline";
 export function GeneratorTool() {
-  const [settings, setSettings] = useState(DEFAULT_GENERATOR),
+  const [settings, setSettings] = usePersistentState<GeneratorSettings>(
+      "generator.settings",
+      DEFAULT_GENERATOR,
+    ),
     [time, setTime] = useState(0),
-    [playing, setPlaying] = useState(false);
+    [playing, setPlaying] = useState(false),
+    [presets, setPresets] = usePersistentState<
+      { name: string; settings: GeneratorSettings }[]
+    >("generator.presets", []),
+    [presetName, setPresetName] = useState("My preset");
   useEffect(() => {
     if (!playing) return;
     let raf = 0,
@@ -53,6 +62,131 @@ export function GeneratorTool() {
                 <option key={m}>{m}</option>
               ))}
             </select>
+          </label>
+          <label>
+            Saved presets
+            <select
+              aria-label="Saved generator preset"
+              value=""
+              onChange={(e) => {
+                const preset = presets[Number(e.target.value)];
+                if (preset) {
+                  setSettings(preset.settings);
+                  setTime(0);
+                }
+              }}
+            >
+              <option value="">Choose a preset</option>
+              {presets.map((p, i) => (
+                <option key={i} value={i}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Preset name
+            <input
+              maxLength={60}
+              value={presetName}
+              onChange={(e) => setPresetName(e.target.value)}
+            />
+          </label>
+          <button
+            disabled={!presetName.trim() || presets.length >= 50}
+            onClick={() =>
+              setPresets((p) => [
+                ...p.filter((v) => v.name !== presetName.trim()),
+                { name: presetName.trim(), settings: { ...settings } },
+              ])
+            }
+          >
+            Save generator preset
+          </button>
+          {settings.mode === "waves" && (
+            <label>
+              Wave frequency
+              <input
+                type="range"
+                min={1}
+                max={30}
+                value={settings.frequency ?? 9}
+                onChange={(e) => set("frequency", +e.target.value)}
+              />
+            </label>
+          )}
+          {settings.mode === "particles" && (
+            <label>
+              Particle count
+              <input
+                type="range"
+                min={1}
+                max={128}
+                value={settings.density ?? 32}
+                onChange={(e) => set("density", +e.target.value)}
+              />
+            </label>
+          )}
+          {settings.mode === "fractal" && (
+            <label>
+              Fractal iterations
+              <input
+                type="range"
+                min={5}
+                max={100}
+                value={settings.iterations ?? 40}
+                onChange={(e) => set("iterations", +e.target.value)}
+              />
+            </label>
+          )}
+          <label>
+            Combine generator
+            <select
+              value={settings.combine ?? "none"}
+              onChange={(e) =>
+                set("combine", e.target.value as GeneratorSettings["combine"])
+              }
+            >
+              {["none", "noise", "waves", "particles", "fractal"].map(
+                (mode) => (
+                  <option key={mode}>{mode}</option>
+                ),
+              )}
+            </select>
+          </label>
+          <label>
+            Combination mix
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
+              value={settings.mix ?? 0.5}
+              onChange={(e) => set("mix", +e.target.value)}
+            />
+          </label>
+          <label>
+            Seamless loop seconds (0 disables)
+            <input
+              type="number"
+              min={0}
+              max={30}
+              value={settings.loopSeconds ?? 0}
+              onChange={(e) =>
+                set("loopSeconds", Math.max(0, Math.min(30, +e.target.value)))
+              }
+            />
+          </label>
+          <label>
+            Animate scale
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
+              value={settings.animateScale ?? 0}
+              onChange={(e) => set("animateScale", +e.target.value)}
+            />
           </label>
           <label>
             Seed
@@ -125,8 +259,8 @@ export function GeneratorTool() {
             Reset time
           </button>
           <p>
-            Playback begins only when you press Play. Motion export captures 30
-            frames over 3 seconds from the current time.
+            Playback begins only when you press Play. Motion export captures the
+            chosen loop, or 3 seconds when looping is disabled.
           </p>
         </aside>
         <section>
@@ -134,10 +268,12 @@ export function GeneratorTool() {
           <ArtworkActions doc={doc} />
           <MotionActions
             build={() =>
-              Array.from({ length: 30 }, (_, i) => ({
-                doc: generate(settings, time + i / 10),
-                duration: 100,
-              }))
+              generatorTimeline(settings.loopSeconds, time).map(
+                ({ time: frameTime, duration }) => ({
+                  doc: generate(settings, frameTime),
+                  duration,
+                }),
+              )
             }
           />
         </section>

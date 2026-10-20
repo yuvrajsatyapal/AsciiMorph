@@ -6,6 +6,10 @@ import { documentText } from "@/core/render";
 import { listProjects } from "@/editor/persistence";
 import {
   galleryEntries,
+  readCustomTemplates,
+  saveCustomTemplate,
+  deleteCustomTemplate,
+  type CustomTemplate,
   readFavorites,
   searchGallery,
   writeFavorites,
@@ -26,6 +30,10 @@ const categories: GalleryCategory[] = [
   "My creations",
 ];
 export default function Gallery() {
+  const [custom, setCustom] = useState<CustomTemplate[]>([]),
+    [collection, setCollection] = useState("All"),
+    [collectionName, setCollectionName] = useState("My templates"),
+    [tags, setTags] = useState("");
   const [projects, setProjects] = useState<AsciiDocument[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -41,6 +49,7 @@ export default function Gallery() {
       if (!live) return;
       try {
         setFavorites(readFavorites(window.localStorage));
+        setCustom(readCustomTemplates(window.localStorage));
       } catch {
         setMessage("Favorites storage is unavailable in this browser.");
       }
@@ -70,13 +79,33 @@ export default function Gallery() {
       window.removeEventListener("storage", onStorage);
     };
   }, []);
-  const entries = useMemo(() => galleryEntries(projects), [projects]);
+  const entries = useMemo(
+    () => [
+      ...galleryEntries(projects),
+      ...custom.map((item) => ({
+        id: `custom:${item.id}`,
+        name: item.name,
+        category: "My creations" as const,
+        description: `Reusable template · ${item.collection}`,
+        tags: item.tags,
+        document: item.document,
+      })),
+    ],
+    [projects, custom],
+  );
   const filtered = useMemo(
     () =>
       searchGallery(entries, query, category).filter(
-        (entry) => !onlyFavorites || favorites.includes(entry.id),
+        (entry) =>
+          (!onlyFavorites || favorites.includes(entry.id)) &&
+          (collection === "All" ||
+            custom.some(
+              (item) =>
+                `custom:${item.id}` === entry.id &&
+                item.collection === collection,
+            )),
       ),
-    [entries, query, category, onlyFavorites, favorites],
+    [entries, query, category, onlyFavorites, favorites, collection, custom],
   );
   const selected = entries.find((entry) => entry.id === selection);
   function toggleFavorite(id: string) {
@@ -94,13 +123,13 @@ export default function Gallery() {
   return (
     <main className="type-page gallery-page">
       <header className="type-header">
-        <Link href="/" className="mono">
+        <Link prefetch={false} href="/" className="mono">
           {"{ }"} AsciiMorph
         </Link>
         <nav aria-label="Creative tools">
-          <Link href="/create">All tools</Link>
-          <Link href="/type">Typography</Link>
-          <Link href="/studio">Studio</Link>
+          <Link prefetch={false} href="/create">All tools</Link>
+          <Link prefetch={false} href="/type">Typography</Link>
+          <Link prefetch={false} href="/studio">Studio</Link>
         </nav>
       </header>
       <div className="type-title">
@@ -134,6 +163,20 @@ export default function Gallery() {
             {categories.map((value) => (
               <option key={value}>{value}</option>
             ))}
+          </select>
+        </label>
+        <label>
+          Template collection
+          <select
+            value={collection}
+            onChange={(e) => setCollection(e.target.value)}
+          >
+            <option>All</option>
+            {[...new Set(custom.map((item) => item.collection))].map(
+              (value) => (
+                <option key={value}>{value}</option>
+              ),
+            )}
           </select>
         </label>
         <button
@@ -178,6 +221,7 @@ export default function Gallery() {
                 <div>
                   <h2>{entry.name}</h2>
                   <p>{entry.category}</p>
+                  <p>{entry.tags.map((tag) => `#${tag}`).join(" ")}</p>
                 </div>
                 <button
                   className="gallery-favorite"
@@ -203,7 +247,7 @@ export default function Gallery() {
                   ? "Save a project in Studio, then return to see it here."
                   : "Try another search, category, or favorite filter."}
               </p>
-              <Link href="/studio">Open Studio →</Link>
+              <Link prefetch={false} href="/studio">Open Studio →</Link>
             </div>
           )}
         </section>
@@ -224,6 +268,74 @@ export default function Gallery() {
                 Fully editable
               </p>
               <ArtworkActions doc={selected.document} />
+              <section
+                className="type-controls"
+                aria-label="Reusable template settings"
+              >
+                <h3>Save as reusable template</h3>
+                <label>
+                  Tags (comma separated)
+                  <input
+                    maxLength={500}
+                    value={tags}
+                    onChange={(e) => setTags(e.target.value)}
+                  />
+                </label>
+                <label>
+                  Collection name
+                  <input
+                    maxLength={80}
+                    value={collectionName}
+                    onChange={(e) => setCollectionName(e.target.value)}
+                  />
+                </label>
+                <button
+                  onClick={() => {
+                    try {
+                      saveCustomTemplate(
+                        selected.document,
+                        tags.split(","),
+                        collectionName,
+                        localStorage,
+                      );
+                      setCustom(readCustomTemplates(localStorage));
+                      setMessage(
+                        "Reusable template saved. Open it in Studio to start a fresh copy.",
+                      );
+                    } catch (error) {
+                      setMessage(`Could not save template: ${String(error)}`);
+                    }
+                  }}
+                >
+                  Save reusable template
+                </button>
+                {selected.id.startsWith("custom:") && (
+                  <button
+                    onClick={() => {
+                      try {
+                        deleteCustomTemplate(
+                          selected.id.slice(7),
+                          localStorage,
+                        );
+                        setCustom(readCustomTemplates(localStorage));
+                        setSelection("template:orbital");
+                        setMessage(
+                          "Template removed; original projects remain saved.",
+                        );
+                      } catch (error) {
+                        setMessage(String(error));
+                      }
+                    }}
+                  >
+                    Delete custom template
+                  </button>
+                )}
+                <p className="type-help">
+                  Templates keep colors and layers. Search tags or filter by
+                  collection. Export a whole-library backup in Projects to
+                  protect this library.
+                </p>
+              </section>
               <details className="type-text">
                 <summary>ASCII text view</summary>
                 <pre>{documentText(selected.document)}</pre>

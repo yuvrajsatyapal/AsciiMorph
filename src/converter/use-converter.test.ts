@@ -72,3 +72,30 @@ it("disables stale results immediately and rejects obsolete worker completion", 
   expect(result.current.result).toBeNull();
   expect(result.current.cancelled).toBe(true);
 });
+
+it("reopens retained source settings as a separate conversion revision", async () => {
+  const { requestConversionRevision } = await import("./revision");
+  const { encodePixels } = await import("./engine");
+  const { DEFAULT_SETTINGS } = await import("./settings");
+  const doc = createDocument(1, 1, "Original");
+  doc.conversion = {
+    source: { width: 1, height: 1, data: encodePixels(pixels.data) },
+    settings: { ...DEFAULT_SETTINGS, brightness: 12 },
+  };
+  requestConversionRevision(doc);
+  vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
+    createImageData: () => ({ data: new Uint8ClampedArray(4) }),
+    putImageData: vi.fn(),
+  } as unknown as CanvasRenderingContext2D);
+  vi.spyOn(HTMLCanvasElement.prototype, "toDataURL").mockReturnValue(
+    "data:image/png;base64,AA==",
+  );
+  const { result } = renderHook(() => useConverter());
+  await waitFor(() =>
+    expect(result.current.result?.name).toBe("Original revised"),
+  );
+  expect(result.current.settings.brightness).toBe(12);
+  expect(result.current.source?.pixels.data).toEqual(pixels.data);
+  expect(doc.name).toBe("Original");
+  vi.restoreAllMocks();
+});

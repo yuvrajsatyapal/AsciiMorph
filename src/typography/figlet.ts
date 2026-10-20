@@ -2,6 +2,7 @@ import {
   createDocument,
   validateDocument,
   type AsciiDocument,
+  type Cell,
 } from "@/core/document";
 
 export interface FigletFont {
@@ -13,6 +14,10 @@ export interface TypographyOptions {
   spacing?: number;
   foreground?: string;
   background?: string | null;
+  kerning?: boolean;
+  lineSpacing?: number;
+  outline?: boolean;
+  gradient?: string;
 }
 
 /** Reads full-width FIGlet fonts. Kerning/smushing is deliberately disabled. */
@@ -57,6 +62,9 @@ export function renderTypography(
   text: string,
   options: TypographyOptions = {},
 ): string[] {
+  const lineSpacing = options.lineSpacing ?? 1;
+  if (!Number.isInteger(lineSpacing) || lineSpacing < 0 || lineSpacing > 8)
+    throw new Error("Line spacing must be between 0 and 8.");
   const spacing = options.spacing ?? 1,
     alignment = options.alignment ?? "left";
   if (!Number.isInteger(spacing) || spacing < 0 || spacing > 8)
@@ -66,7 +74,7 @@ export function renderTypography(
   if (text.length > 1000)
     throw new Error("Text must be at most 1,000 characters.");
   const paragraphs = text.replaceAll("\r", "").split("\n");
-  if (paragraphs.length * (font.height + 1) - 1 > 300)
+  if (paragraphs.length * (font.height + lineSpacing) - 1 > 300)
     throw new Error("Typography exceeds 300 rows.");
   const blocks = paragraphs.map((paragraph) => {
     const glyphs = Array.from(paragraph).map((char) => {
@@ -75,7 +83,15 @@ export function renderTypography(
         throw new Error(
           `Unsupported character: ${char}. Use printable ASCII characters.`,
         );
-      return glyph;
+      if (!options.kerning || char === " ") return glyph;
+      const occupied = glyph.flatMap((row) =>
+        Array.from(row).flatMap((v, i) => (v.trim() ? [i] : [])),
+      );
+      const left = Math.min(...occupied),
+        right = Math.max(...occupied);
+      return occupied.length
+        ? glyph.map((row) => row.slice(left, right + 1))
+        : glyph;
     });
     return Array.from({ length: font.height }, (_, row) =>
       glyphs.map((glyph) => glyph[row]).join(" ".repeat(spacing)),
@@ -86,7 +102,7 @@ export function renderTypography(
     throw new Error(
       "Typography exceeds 300 columns. Shorten the text or add a new line.",
     );
-  const height = paragraphs.length * (font.height + 1) - 1;
+  const height = paragraphs.length * (font.height + lineSpacing) - 1;
   if (width * height > 60000)
     throw new Error("Typography exceeds 60,000 cells.");
   return blocks.flatMap((block, index) => {
@@ -100,7 +116,12 @@ export function renderTypography(
     const rows = block.map((row) =>
       (" ".repeat(left) + row).padEnd(width, " "),
     );
-    return index === blocks.length - 1 ? rows : [...rows, " ".repeat(width)];
+    return index === blocks.length - 1
+      ? rows
+      : [
+          ...rows,
+          ...Array.from({ length: lineSpacing }, () => " ".repeat(width)),
+        ];
   });
 }
 
@@ -109,7 +130,46 @@ export function typographyDocument(
   text: string,
   options: TypographyOptions = {},
 ): AsciiDocument {
-  const rows = renderTypography(font, text, options);
+  let rows = renderTypography(font, text, options);
+  if (options.outline) {
+    const base = rows;
+    const width = base[0].length + 2;
+    rows = Array.from({ length: base.length + 2 }, (_, y) =>
+      Array.from({ length: width }, (_, x) => {
+        const char = base[y - 1]?.[x - 1] ?? " ";
+        if (char.trim()) return char;
+        return [
+          [-1, 0],
+          [1, 0],
+          [0, -1],
+          [0, 1],
+        ].some(([dx, dy]) => (base[y - 1 + dy]?.[x - 1 + dx] ?? " ").trim())
+          ? "."
+          : " ";
+      }).join(""),
+    );
+  }
+  if (options.gradient && !/^#[a-f0-9]{6}$/i.test(options.gradient))
+    throw new Error("Invalid gradient color");
+  const colorAt = (row: number) => {
+    const start = options.foreground ?? "#E9B86E";
+    if (!options.gradient) return start;
+    const fraction = row / Math.max(1, rows.length - 1);
+    return (
+      "#" +
+      [1, 3, 5]
+        .map((offset) =>
+          Math.round(
+            parseInt(start.slice(offset, offset + 2), 16) * (1 - fraction) +
+              parseInt(options.gradient!.slice(offset, offset + 2), 16) *
+                fraction,
+          )
+            .toString(16)
+            .padStart(2, "0"),
+        )
+        .join("")
+    );
+  };
   const doc = createDocument(
     rows[0].length,
     rows.length,
@@ -117,13 +177,63 @@ export function typographyDocument(
   );
   doc.background = options.background ?? null;
   doc.layers[0].name = "Morph Grid typography";
-  doc.layers[0].cells = rows.flatMap((row) =>
+  doc.layers[0].cells = rows.flatMap((row, index) =>
     Array.from(row, (char) => ({
       char,
-      fg: options.foreground ?? "#E9B86E",
+      fg: colorAt(index),
       bg: null,
       alpha: 1,
     })),
   );
   return validateDocument(doc);
+}
+
+/** Places visible glyphs into a new, clipped layer. The target remains untouched. */
+export function placeTypography(
+  target: AsciiDocument,
+  lettering: AsciiDocument,
+  x: number,
+  y: number,
+): AsciiDocument {
+  validateDocument(target);
+  validateDocument(lettering);
+  if (!Number.isInteger(x) || !Number.isInteger(y))
+    throw new Error("Placement must use whole cells");
+  if (target.layers.length >= 8)
+    throw new Error("Project already has the maximum number of layers");
+  const cells: Cell[] = Array.from(
+    { length: target.width * target.height },
+    () => ({ char: " ", fg: "#E9B86E", bg: null, alpha: 0 }),
+  );
+  for (let row = 0; row < lettering.height; row++)
+    for (let col = 0; col < lettering.width; col++) {
+      const cell = lettering.layers[0].cells[row * lettering.width + col],
+        tx = x + col,
+        ty = y + row;
+      if (
+        cell.char.trim() &&
+        tx >= 0 &&
+        tx < target.width &&
+        ty >= 0 &&
+        ty < target.height
+      )
+        cells[ty * target.width + tx] = { ...cell };
+    }
+  const id = crypto.randomUUID();
+  return validateDocument({
+    ...target,
+    updatedAt: new Date().toISOString(),
+    activeLayerId: id,
+    layers: [
+      ...target.layers,
+      {
+        id,
+        name: "Typography: " + lettering.name.slice(0, 70),
+        visible: true,
+        locked: false,
+        opacity: 1,
+        cells,
+      },
+    ],
+  });
 }

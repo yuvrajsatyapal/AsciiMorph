@@ -1,0 +1,4117 @@
+{
+  "schemaVersion": 1,
+  "capturedOn": "2026-10-20",
+  "target": "https://www.ascii-magic.com/app/",
+  "status": "bounded-static-catalog-inventory",
+  "sources": {
+    "catalog-bundle": {
+      "url": "https://www.ascii-magic.com/app/_next/static/chunks/2cjp552-p57it.js",
+      "path": "/tmp/asciimorph-reference-2026-10-20/2cjp552-p57it.js",
+      "bytes": 38560,
+      "sha256": "2fa1a9c48e2be92a5d2dec4249877599900cec1df4ab2694495278cc22fc3149",
+      "offsetUnit": "zero-based Unicode character",
+      "rangeEnd": "exclusive"
+    }
+  },
+  "method": "Parsed literal object/array/string/number/boolean data with a restricted Python grammar; expanded only the explicitly inspected glass tile and shader parameter data helpers. Never evaluated or imported shipped JavaScript. These are ordinary STATIC observations; no completed REA semantic analysis or REA Evidence IDs are claimed.",
+  "counts": {
+    "literalStyleTiles": 90,
+    "glassVariantTiles": 10,
+    "shaderTiles": 5,
+    "browseTiles": 105,
+    "distinctSelectableModes": 96,
+    "categories": 10,
+    "unknownDynamicTiles": null
+  },
+  "tagVocabulary": [
+    "retro",
+    "glitch",
+    "minimal",
+    "dense",
+    "color",
+    "mono",
+    "geometric",
+    "organic"
+  ],
+  "categories": [
+    {
+      "id": "ascii",
+      "label": "ASCII & Text"
+    },
+    {
+      "id": "pixel",
+      "label": "Pixel & Blocks"
+    },
+    {
+      "id": "print",
+      "label": "Print & Paper"
+    },
+    {
+      "id": "geometric",
+      "label": "Geometric"
+    },
+    {
+      "id": "distort",
+      "label": "Distort"
+    },
+    {
+      "id": "blur",
+      "label": "Blur & Focus"
+    },
+    {
+      "id": "glitch",
+      "label": "Glitch & Signal"
+    },
+    {
+      "id": "light",
+      "label": "Light & Color"
+    },
+    {
+      "id": "glass",
+      "label": "Glass"
+    },
+    {
+      "id": "material",
+      "label": "Material & Texture"
+    }
+  ],
+  "featuredTileId": "cyanotype",
+  "newThisWeekTileIds": [
+    "cyanotype",
+    "anodized",
+    "oilpool",
+    "hexhalftone",
+    "paperstock",
+    "blueprint"
+  ],
+  "tiles": [
+    {
+      "mode": "characters",
+      "label": "Characters",
+      "category": "ascii",
+      "tags": [
+        "dense",
+        "mono",
+        "retro"
+      ],
+      "id": "characters",
+      "origin": "literal-style",
+      "order": 0,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "asciiStudio",
+      "label": "ASCII Studio",
+      "glyph": "◉",
+      "category": "ascii",
+      "tags": [
+        "color",
+        "geometric",
+        "dense"
+      ],
+      "isNew": true,
+      "id": "asciiStudio",
+      "origin": "literal-style",
+      "order": 1,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "dither",
+      "label": "Dither",
+      "glyph": "▚",
+      "category": "print",
+      "tags": [
+        "retro",
+        "dense",
+        "mono"
+      ],
+      "id": "dither",
+      "origin": "literal-style",
+      "order": 2,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "block-chars",
+      "label": "Block",
+      "glyph": "▛",
+      "category": "ascii",
+      "tags": [
+        "minimal",
+        "mono",
+        "geometric"
+      ],
+      "id": "block-chars",
+      "origin": "literal-style",
+      "order": 3,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "dots",
+      "label": "Dots",
+      "category": "ascii",
+      "tags": [
+        "minimal",
+        "organic",
+        "mono"
+      ],
+      "id": "dots",
+      "origin": "literal-style",
+      "order": 4,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "frostedglass",
+      "label": "Frosted Glass",
+      "glyph": "▩",
+      "category": "glass",
+      "tags": [
+        "minimal",
+        "organic",
+        "color"
+      ],
+      "isNew": true,
+      "id": "frostedglass",
+      "origin": "literal-style",
+      "order": 5,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "motionblur",
+      "label": "Motion Blur",
+      "glyph": "⇉",
+      "category": "blur",
+      "tags": [
+        "minimal",
+        "organic",
+        "mono"
+      ],
+      "isNew": true,
+      "id": "motionblur",
+      "origin": "literal-style",
+      "order": 6,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "mixed",
+      "label": "Mixed",
+      "category": "ascii",
+      "tags": [
+        "dense",
+        "mono",
+        "retro"
+      ],
+      "id": "mixed",
+      "origin": "literal-style",
+      "order": 7,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "pixel",
+      "label": "Pixel Art",
+      "glyph": "◧",
+      "category": "pixel",
+      "tags": [
+        "retro",
+        "color",
+        "geometric"
+      ],
+      "isNew": true,
+      "id": "pixel",
+      "origin": "literal-style",
+      "order": 8,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "mosaic",
+      "label": "Mosaic",
+      "glyph": "▣",
+      "category": "pixel",
+      "tags": [
+        "color",
+        "geometric",
+        "minimal"
+      ],
+      "id": "mosaic",
+      "origin": "literal-style",
+      "order": 9,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "lego",
+      "label": "LEGO",
+      "glyph": "▦",
+      "thumbStyle": {
+        "objectPosition": "center top"
+      },
+      "category": "pixel",
+      "tags": [
+        "color",
+        "geometric",
+        "dense"
+      ],
+      "id": "lego",
+      "origin": "literal-style",
+      "order": 10,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "cross",
+      "label": "Cross",
+      "category": "geometric",
+      "tags": [
+        "geometric",
+        "mono",
+        "dense"
+      ],
+      "id": "cross",
+      "origin": "literal-style",
+      "order": 11,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "diamond",
+      "label": "Diamond",
+      "category": "geometric",
+      "tags": [
+        "geometric",
+        "mono",
+        "minimal"
+      ],
+      "id": "diamond",
+      "origin": "literal-style",
+      "order": 12,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "lines",
+      "label": "Lines",
+      "category": "geometric",
+      "tags": [
+        "minimal",
+        "geometric",
+        "mono"
+      ],
+      "id": "lines",
+      "origin": "literal-style",
+      "order": 13,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "diagonal",
+      "label": "Diagonal",
+      "category": "geometric",
+      "tags": [
+        "geometric",
+        "minimal",
+        "mono"
+      ],
+      "id": "diagonal",
+      "origin": "literal-style",
+      "order": 14,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "braille",
+      "label": "Braille",
+      "glyph": "⣷⠛⣠",
+      "category": "ascii",
+      "tags": [
+        "dense",
+        "mono",
+        "minimal"
+      ],
+      "id": "braille",
+      "origin": "literal-style",
+      "order": 15,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "3d",
+      "label": "Voxel",
+      "category": "pixel",
+      "tags": [
+        "geometric",
+        "dense",
+        "color"
+      ],
+      "isNew": true,
+      "id": "3d",
+      "origin": "literal-style",
+      "order": 16,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "disco",
+      "label": "Disco",
+      "glyph": "◈◉◇",
+      "category": "light",
+      "tags": [
+        "glitch",
+        "color",
+        "dense"
+      ],
+      "isNew": true,
+      "id": "disco",
+      "origin": "literal-style",
+      "order": 17,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "stippling",
+      "label": "Stippling",
+      "glyph": "⣠⠟",
+      "category": "print",
+      "tags": [
+        "organic",
+        "mono",
+        "minimal"
+      ],
+      "isNew": true,
+      "id": "stippling",
+      "origin": "literal-style",
+      "order": 18,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "waves",
+      "label": "Waves",
+      "glyph": "≈",
+      "category": "material",
+      "tags": [
+        "organic",
+        "color",
+        "minimal"
+      ],
+      "isNew": true,
+      "id": "waves",
+      "origin": "literal-style",
+      "order": 19,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "risograph",
+      "label": "Risograph",
+      "glyph": "▚",
+      "category": "print",
+      "tags": [
+        "retro",
+        "color",
+        "dense"
+      ],
+      "isNew": true,
+      "id": "risograph",
+      "origin": "literal-style",
+      "order": 20,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "crt",
+      "label": "CRT Screen",
+      "glyph": "▓",
+      "category": "glitch",
+      "tags": [
+        "retro",
+        "color",
+        "mono"
+      ],
+      "isNew": true,
+      "id": "crt",
+      "origin": "literal-style",
+      "order": 21,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "specimen",
+      "label": "Specimen",
+      "glyph": "⊞",
+      "category": "geometric",
+      "tags": [
+        "geometric",
+        "color",
+        "minimal"
+      ],
+      "isNew": true,
+      "id": "specimen",
+      "origin": "literal-style",
+      "order": 22,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "smudge",
+      "label": "Smudge",
+      "glyph": "〰",
+      "category": "distort",
+      "tags": [
+        "organic",
+        "color"
+      ],
+      "isNew": true,
+      "id": "smudge",
+      "origin": "literal-style",
+      "order": 23,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "pinch",
+      "label": "Pinch",
+      "glyph": "⊙",
+      "category": "distort",
+      "tags": [
+        "geometric",
+        "minimal"
+      ],
+      "isNew": true,
+      "id": "pinch",
+      "origin": "literal-style",
+      "order": 24,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "spherize",
+      "label": "Spherize",
+      "glyph": "◍",
+      "category": "distort",
+      "tags": [
+        "geometric",
+        "minimal"
+      ],
+      "isNew": true,
+      "id": "spherize",
+      "origin": "literal-style",
+      "order": 25,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "twirl",
+      "label": "Twirl",
+      "glyph": "◉",
+      "category": "distort",
+      "tags": [
+        "geometric",
+        "organic"
+      ],
+      "isNew": true,
+      "id": "twirl",
+      "origin": "literal-style",
+      "order": 26,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "ripple",
+      "label": "ZigZag",
+      "glyph": "⌇",
+      "category": "distort",
+      "tags": [
+        "geometric",
+        "organic"
+      ],
+      "isNew": true,
+      "id": "ripple",
+      "origin": "literal-style",
+      "order": 27,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "zigzag",
+      "label": "Ripple",
+      "glyph": "≈",
+      "category": "distort",
+      "tags": [
+        "geometric",
+        "organic"
+      ],
+      "isNew": true,
+      "id": "zigzag",
+      "origin": "literal-style",
+      "order": 28,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "polar",
+      "label": "Polar",
+      "glyph": "◎",
+      "category": "distort",
+      "tags": [
+        "geometric",
+        "minimal"
+      ],
+      "isNew": true,
+      "id": "polar",
+      "origin": "literal-style",
+      "order": 29,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "shear",
+      "label": "Shear",
+      "glyph": "⇔",
+      "category": "distort",
+      "tags": [
+        "geometric",
+        "minimal"
+      ],
+      "isNew": true,
+      "id": "shear",
+      "origin": "literal-style",
+      "order": 30,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "pixelsort",
+      "label": "Pixel Sort",
+      "glyph": "▧",
+      "category": "glitch",
+      "tags": [
+        "glitch",
+        "color"
+      ],
+      "isNew": true,
+      "id": "pixelsort",
+      "origin": "literal-style",
+      "order": 31,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "oilpaint",
+      "label": "Oil Paint",
+      "glyph": "❋",
+      "category": "material",
+      "tags": [
+        "organic",
+        "color"
+      ],
+      "isNew": true,
+      "id": "oilpaint",
+      "origin": "literal-style",
+      "order": 32,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "lowpoly",
+      "label": "Low Poly",
+      "glyph": "◺",
+      "category": "geometric",
+      "tags": [
+        "geometric",
+        "minimal"
+      ],
+      "isNew": true,
+      "id": "lowpoly",
+      "origin": "literal-style",
+      "order": 33,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "comic",
+      "label": "Comic",
+      "glyph": "◗",
+      "category": "print",
+      "tags": [
+        "retro",
+        "color"
+      ],
+      "isNew": true,
+      "id": "comic",
+      "origin": "literal-style",
+      "order": 34,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "sketch",
+      "label": "Sketch",
+      "glyph": "✎",
+      "category": "print",
+      "tags": [
+        "mono",
+        "minimal"
+      ],
+      "isNew": true,
+      "id": "sketch",
+      "origin": "literal-style",
+      "order": 35,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "watercolor",
+      "label": "Watercolor",
+      "glyph": "❍",
+      "category": "material",
+      "tags": [
+        "organic",
+        "color"
+      ],
+      "isNew": true,
+      "id": "watercolor",
+      "origin": "literal-style",
+      "order": 36,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "chrome",
+      "label": "Chrome",
+      "glyph": "◐",
+      "category": "material",
+      "tags": [
+        "color",
+        "geometric"
+      ],
+      "isNew": true,
+      "id": "chrome",
+      "origin": "literal-style",
+      "order": 37,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "hexmosaic",
+      "label": "Hex Mosaic",
+      "glyph": "⬡",
+      "category": "pixel",
+      "tags": [
+        "geometric",
+        "color"
+      ],
+      "isNew": true,
+      "id": "hexmosaic",
+      "origin": "literal-style",
+      "order": 38,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "stainedglass",
+      "label": "Tinted Glass",
+      "glyph": "◈",
+      "category": "glass",
+      "tags": [
+        "color",
+        "geometric"
+      ],
+      "isNew": true,
+      "id": "stainedglass",
+      "origin": "literal-style",
+      "order": 39,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "anaglyph",
+      "label": "Anaglyph 3D",
+      "glyph": "◑",
+      "category": "light",
+      "tags": [
+        "retro",
+        "color"
+      ],
+      "isNew": true,
+      "id": "anaglyph",
+      "origin": "literal-style",
+      "order": 40,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "droste",
+      "label": "Droste",
+      "glyph": "⟳",
+      "category": "geometric",
+      "tags": [
+        "geometric",
+        "glitch"
+      ],
+      "isNew": true,
+      "id": "droste",
+      "origin": "literal-style",
+      "order": 41,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "tiltshift",
+      "label": "Tilt-Shift",
+      "glyph": "⊙",
+      "category": "blur",
+      "tags": [
+        "minimal",
+        "color"
+      ],
+      "isNew": true,
+      "id": "tiltshift",
+      "origin": "literal-style",
+      "order": 42,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "gaussianblur",
+      "label": "Gaussian Blur",
+      "glyph": "◍",
+      "category": "blur",
+      "tags": [
+        "minimal",
+        "organic"
+      ],
+      "isNew": true,
+      "id": "gaussianblur",
+      "origin": "literal-style",
+      "order": 43,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "radialblur",
+      "label": "Radial Blur",
+      "glyph": "◎",
+      "category": "blur",
+      "tags": [
+        "minimal",
+        "organic"
+      ],
+      "isNew": true,
+      "id": "radialblur",
+      "origin": "literal-style",
+      "order": 44,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "thinfilm",
+      "label": "Thin-Film",
+      "glyph": "◍",
+      "category": "material",
+      "tags": [
+        "color",
+        "organic"
+      ],
+      "isNew": true,
+      "id": "thinfilm",
+      "origin": "literal-style",
+      "order": 45,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "truchet",
+      "label": "Truchet",
+      "glyph": "▚",
+      "category": "geometric",
+      "tags": [
+        "geometric",
+        "mono"
+      ],
+      "isNew": true,
+      "id": "truchet",
+      "origin": "literal-style",
+      "order": 46,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "isoextrude",
+      "label": "Iso Extrude",
+      "glyph": "⬢",
+      "category": "geometric",
+      "tags": [
+        "geometric",
+        "retro"
+      ],
+      "isNew": true,
+      "id": "isoextrude",
+      "origin": "literal-style",
+      "order": 47,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "flowfield",
+      "label": "Flow Field",
+      "glyph": "≋",
+      "category": "geometric",
+      "tags": [
+        "organic",
+        "mono"
+      ],
+      "isNew": true,
+      "id": "flowfield",
+      "origin": "literal-style",
+      "order": 48,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "engraving",
+      "label": "Engraving",
+      "glyph": "≣",
+      "category": "print",
+      "tags": [
+        "mono",
+        "retro"
+      ],
+      "isNew": true,
+      "id": "engraving",
+      "origin": "literal-style",
+      "order": 49,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "gradientmap",
+      "label": "Gradient Map",
+      "glyph": "⬒",
+      "category": "light",
+      "tags": [
+        "color",
+        "retro"
+      ],
+      "isNew": true,
+      "id": "gradientmap",
+      "origin": "literal-style",
+      "order": 50,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "warhol",
+      "label": "Warhol",
+      "glyph": "⊞",
+      "category": "print",
+      "tags": [
+        "color",
+        "retro"
+      ],
+      "isNew": true,
+      "id": "warhol",
+      "origin": "literal-style",
+      "order": 51,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "shatter",
+      "label": "Shatter",
+      "glyph": "❖",
+      "category": "glass",
+      "tags": [
+        "geometric",
+        "glitch"
+      ],
+      "isNew": true,
+      "id": "shatter",
+      "origin": "literal-style",
+      "order": 52,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "lattice",
+      "label": "Lattice",
+      "glyph": "▦",
+      "category": "geometric",
+      "tags": [
+        "organic",
+        "color",
+        "geometric"
+      ],
+      "isNew": true,
+      "id": "lattice",
+      "origin": "literal-style",
+      "order": 53,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "blueprint",
+      "label": "Blueprint",
+      "glyph": "◫",
+      "category": "print",
+      "tags": [
+        "retro",
+        "color",
+        "geometric"
+      ],
+      "isNew": true,
+      "id": "blueprint",
+      "origin": "literal-style",
+      "order": 54,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "topography",
+      "label": "Topography",
+      "glyph": "∿",
+      "category": "geometric",
+      "tags": [
+        "organic",
+        "geometric",
+        "color"
+      ],
+      "isNew": true,
+      "id": "topography",
+      "origin": "literal-style",
+      "order": 55,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "prism",
+      "label": "Prism",
+      "glyph": "✧",
+      "category": "light",
+      "tags": [
+        "geometric",
+        "color",
+        "organic"
+      ],
+      "isNew": true,
+      "id": "prism",
+      "origin": "literal-style",
+      "order": 56,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "marble",
+      "label": "Marble",
+      "glyph": "❖",
+      "category": "material",
+      "tags": [
+        "organic",
+        "color",
+        "dense"
+      ],
+      "isNew": true,
+      "id": "marble",
+      "origin": "literal-style",
+      "order": 57,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "dreamdust",
+      "label": "Dreamdust",
+      "glyph": "✵",
+      "category": "light",
+      "tags": [
+        "organic",
+        "color",
+        "minimal"
+      ],
+      "isNew": true,
+      "id": "dreamdust",
+      "origin": "literal-style",
+      "order": 58,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "forms",
+      "label": "Forms",
+      "glyph": "✽",
+      "category": "geometric",
+      "tags": [
+        "color",
+        "organic",
+        "geometric"
+      ],
+      "isNew": true,
+      "id": "forms",
+      "origin": "literal-style",
+      "order": 59,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "halftone",
+      "label": "Halftone",
+      "glyph": "◉",
+      "category": "print",
+      "tags": [
+        "retro",
+        "mono",
+        "geometric"
+      ],
+      "isNew": true,
+      "id": "halftone",
+      "origin": "literal-style",
+      "order": 60,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "schematic",
+      "label": "Schematic",
+      "glyph": "✛",
+      "category": "geometric",
+      "tags": [
+        "geometric",
+        "minimal",
+        "color"
+      ],
+      "isNew": true,
+      "id": "schematic",
+      "origin": "literal-style",
+      "order": 61,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "forensics",
+      "label": "Forensics",
+      "glyph": "⊚",
+      "category": "glitch",
+      "tags": [
+        "mono",
+        "color",
+        "minimal"
+      ],
+      "isNew": true,
+      "id": "forensics",
+      "origin": "literal-style",
+      "order": 62,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "glitch",
+      "label": "Digital Distortion",
+      "glyph": "▒",
+      "category": "glitch",
+      "tags": [
+        "glitch",
+        "color",
+        "dense"
+      ],
+      "isNew": true,
+      "id": "glitch",
+      "origin": "literal-style",
+      "order": 63,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "datamosh",
+      "label": "Datamosh",
+      "glyph": "▞",
+      "category": "glitch",
+      "tags": [
+        "glitch",
+        "color",
+        "dense"
+      ],
+      "isNew": true,
+      "id": "datamosh",
+      "origin": "literal-style",
+      "order": 64,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "ukiyoe",
+      "label": "Woodblock",
+      "glyph": "❀",
+      "category": "print",
+      "tags": [
+        "retro",
+        "color",
+        "organic"
+      ],
+      "isNew": true,
+      "id": "ukiyoe",
+      "origin": "literal-style",
+      "order": 65,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "molten",
+      "label": "Molten Metal",
+      "glyph": "◈",
+      "category": "material",
+      "tags": [
+        "organic",
+        "color",
+        "dense"
+      ],
+      "isNew": true,
+      "id": "molten",
+      "origin": "literal-style",
+      "order": 66,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "vitrine",
+      "label": "Vitrine",
+      "glyph": "▦",
+      "category": "glass",
+      "tags": [
+        "organic",
+        "color",
+        "geometric"
+      ],
+      "isNew": true,
+      "id": "vitrine",
+      "origin": "literal-style",
+      "order": 67,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "lightwind",
+      "label": "Light Wind",
+      "glyph": "༄",
+      "category": "light",
+      "tags": [
+        "color",
+        "organic",
+        "minimal"
+      ],
+      "isNew": true,
+      "id": "lightwind",
+      "origin": "literal-style",
+      "order": 68,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "starburst",
+      "label": "Kaleidoscope",
+      "glyph": "✺",
+      "category": "light",
+      "tags": [
+        "color",
+        "organic",
+        "dense"
+      ],
+      "isNew": true,
+      "id": "starburst",
+      "origin": "literal-style",
+      "order": 69,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "warpbloom",
+      "label": "Warpbloom",
+      "glyph": "❃",
+      "category": "light",
+      "tags": [
+        "organic",
+        "color",
+        "minimal"
+      ],
+      "isNew": true,
+      "id": "warpbloom",
+      "origin": "literal-style",
+      "order": 70,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "lofi",
+      "label": "Lofi",
+      "glyph": "▒",
+      "category": "glitch",
+      "tags": [
+        "retro",
+        "color",
+        "organic"
+      ],
+      "isNew": true,
+      "id": "lofi",
+      "origin": "literal-style",
+      "order": 71,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "rgbsplit",
+      "label": "RGB Split",
+      "glyph": "◐",
+      "category": "glitch",
+      "tags": [
+        "glitch",
+        "color",
+        "retro"
+      ],
+      "isNew": true,
+      "id": "rgbsplit",
+      "origin": "literal-style",
+      "order": 72,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "duotone",
+      "label": "Duotone",
+      "glyph": "◑",
+      "category": "light",
+      "tags": [
+        "color",
+        "minimal",
+        "retro"
+      ],
+      "isNew": true,
+      "id": "duotone",
+      "origin": "literal-style",
+      "order": 73,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "edgeglow",
+      "label": "Edge Glow",
+      "glyph": "◇",
+      "category": "light",
+      "tags": [
+        "glitch",
+        "color",
+        "minimal"
+      ],
+      "isNew": true,
+      "id": "edgeglow",
+      "origin": "literal-style",
+      "order": 74,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "posterize",
+      "label": "Posterize",
+      "glyph": "◱",
+      "category": "print",
+      "tags": [
+        "color",
+        "retro",
+        "geometric"
+      ],
+      "isNew": true,
+      "id": "posterize",
+      "origin": "literal-style",
+      "order": 75,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "crystallize",
+      "label": "Crystallize",
+      "glyph": "◈",
+      "category": "material",
+      "tags": [
+        "geometric",
+        "color",
+        "organic"
+      ],
+      "isNew": true,
+      "id": "crystallize",
+      "origin": "literal-style",
+      "order": 76,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "mezzotint",
+      "label": "Mezzotint",
+      "glyph": "▚",
+      "category": "print",
+      "tags": [
+        "retro",
+        "mono",
+        "dense"
+      ],
+      "isNew": true,
+      "id": "mezzotint",
+      "origin": "literal-style",
+      "order": 77,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "pointillize",
+      "label": "Pointillize",
+      "glyph": "⣿",
+      "category": "print",
+      "tags": [
+        "color",
+        "retro",
+        "dense"
+      ],
+      "isNew": true,
+      "id": "pointillize",
+      "origin": "literal-style",
+      "order": 78,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "scanline",
+      "label": "Scanline",
+      "glyph": "☰",
+      "category": "glitch",
+      "tags": [
+        "retro",
+        "glitch",
+        "mono"
+      ],
+      "isNew": true,
+      "id": "scanline",
+      "origin": "literal-style",
+      "order": 79,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "crosshatch",
+      "label": "Crosshatch",
+      "glyph": "✕",
+      "category": "print",
+      "tags": [
+        "mono",
+        "geometric",
+        "minimal"
+      ],
+      "isNew": true,
+      "id": "crosshatch",
+      "origin": "literal-style",
+      "order": 80,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "neongrid",
+      "label": "Neon Grid",
+      "glyph": "▦",
+      "category": "geometric",
+      "tags": [
+        "color",
+        "geometric",
+        "dense"
+      ],
+      "isNew": true,
+      "id": "neongrid",
+      "origin": "literal-style",
+      "order": 81,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "ledmatrix",
+      "label": "LED Matrix",
+      "glyph": "⣿",
+      "category": "pixel",
+      "tags": [
+        "retro",
+        "geometric",
+        "dense"
+      ],
+      "isNew": true,
+      "id": "ledmatrix",
+      "origin": "literal-style",
+      "order": 82,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "thermal",
+      "label": "Thermal",
+      "glyph": "◉",
+      "category": "glitch",
+      "tags": [
+        "color",
+        "glitch",
+        "dense"
+      ],
+      "isNew": true,
+      "id": "thermal",
+      "origin": "literal-style",
+      "order": 83,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "beacon",
+      "label": "Beacon",
+      "glyph": "✦",
+      "category": "glitch",
+      "tags": [
+        "color",
+        "dense",
+        "geometric"
+      ],
+      "isNew": true,
+      "id": "beacon",
+      "origin": "literal-style",
+      "order": 84,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "emboss",
+      "label": "Emboss",
+      "glyph": "◪",
+      "category": "material",
+      "tags": [
+        "mono",
+        "geometric",
+        "minimal"
+      ],
+      "isNew": true,
+      "id": "emboss",
+      "origin": "literal-style",
+      "order": 85,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "halftonecmyk",
+      "label": "CMYK Drops",
+      "glyph": "⣿",
+      "category": "print",
+      "tags": [
+        "color",
+        "retro",
+        "dense"
+      ],
+      "isNew": true,
+      "id": "halftonecmyk",
+      "origin": "literal-style",
+      "order": 86,
+      "pinnedState": {
+        "hcType": "ink",
+        "hcSize": 0.88,
+        "hcGridNoise": 0.5,
+        "hcSoftness": 0,
+        "hcContrast": 1.15,
+        "hcGainC": 1,
+        "hcGainM": 0.44,
+        "hcGainY": -1,
+        "hcGainK": 0,
+        "hcFloodC": 0.15,
+        "hcGrainMixer": 0.05,
+        "hcGrainSize": 0.01,
+        "hcGrainOverlay": 0.25,
+        "hcColorBack": "#eeefd7",
+        "hcC": "#00b2ff",
+        "hcM": "#fc4f4f",
+        "hcY": "#ffd900",
+        "hcK": "#231f20"
+      },
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "lens",
+      "label": "Aberration",
+      "glyph": "◉",
+      "category": "light",
+      "tags": [
+        "color",
+        "organic",
+        "glitch"
+      ],
+      "isNew": true,
+      "id": "lens",
+      "origin": "literal-style",
+      "order": 87,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "glassorb",
+      "label": "Glass Orb",
+      "glyph": "⬤",
+      "category": "glass",
+      "tags": [
+        "color",
+        "organic",
+        "minimal"
+      ],
+      "isNew": true,
+      "id": "glassorb",
+      "origin": "literal-style",
+      "order": 88,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "mode": "flutedglass",
+      "label": "Fluted Glass",
+      "glyph": "⦀",
+      "category": "glass",
+      "tags": [
+        "color",
+        "organic",
+        "minimal"
+      ],
+      "isNew": true,
+      "id": "flutedglass",
+      "origin": "literal-style",
+      "order": 89,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          7325,
+          16753
+        ]
+      }
+    },
+    {
+      "id": "glass-cross",
+      "mode": "liquidglass",
+      "label": "Cross Reeded",
+      "glyph": "▦",
+      "category": "glass",
+      "tags": [
+        "geometric",
+        "dense"
+      ],
+      "isNew": true,
+      "origin": "glass-helper-expansion",
+      "order": 90,
+      "pinnedState": {
+        "glassStyle": "cross",
+        "glassFrost": 20,
+        "fontSize": 45
+      },
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          16917,
+          17547
+        ]
+      }
+    },
+    {
+      "id": "glass-hammered",
+      "mode": "liquidglass",
+      "label": "Hammered",
+      "glyph": "▨",
+      "category": "glass",
+      "tags": [
+        "organic",
+        "dense"
+      ],
+      "isNew": true,
+      "origin": "glass-helper-expansion",
+      "order": 91,
+      "pinnedState": {
+        "glassStyle": "hammered",
+        "glassFrost": 20,
+        "fontSize": 45
+      },
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          16917,
+          17547
+        ]
+      }
+    },
+    {
+      "id": "glass-diamond",
+      "mode": "liquidglass",
+      "label": "Diamond Glass",
+      "glyph": "◆",
+      "category": "glass",
+      "tags": [
+        "geometric",
+        "color"
+      ],
+      "isNew": true,
+      "origin": "glass-helper-expansion",
+      "order": 92,
+      "pinnedState": {
+        "glassStyle": "diamond",
+        "glassFrost": 20,
+        "fontSize": 45
+      },
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          16917,
+          17547
+        ]
+      }
+    },
+    {
+      "id": "glass-hexagon",
+      "mode": "liquidglass",
+      "label": "Hexagon",
+      "glyph": "⬡",
+      "category": "glass",
+      "tags": [
+        "geometric",
+        "minimal"
+      ],
+      "isNew": true,
+      "origin": "glass-helper-expansion",
+      "order": 93,
+      "pinnedState": {
+        "glassStyle": "hexagon",
+        "glassFrost": 20,
+        "fontSize": 45
+      },
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          16917,
+          17547
+        ]
+      }
+    },
+    {
+      "id": "glass-ripple",
+      "mode": "liquidglass",
+      "label": "Ripple",
+      "glyph": "◎",
+      "category": "glass",
+      "tags": [
+        "organic",
+        "minimal"
+      ],
+      "isNew": true,
+      "origin": "glass-helper-expansion",
+      "order": 94,
+      "pinnedState": {
+        "glassStyle": "ripple",
+        "glassFrost": 20,
+        "fontSize": 45
+      },
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          16917,
+          17547
+        ]
+      }
+    },
+    {
+      "id": "glass-crackle",
+      "mode": "liquidglass",
+      "label": "Ice Crackle",
+      "glyph": "❄",
+      "category": "glass",
+      "tags": [
+        "organic",
+        "dense"
+      ],
+      "isNew": true,
+      "origin": "glass-helper-expansion",
+      "order": 95,
+      "pinnedState": {
+        "glassStyle": "crackle",
+        "glassFrost": 20,
+        "fontSize": 45
+      },
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          16917,
+          17547
+        ]
+      }
+    },
+    {
+      "id": "glass-chevron",
+      "mode": "liquidglass",
+      "label": "Chevron Prism",
+      "glyph": "∧",
+      "category": "glass",
+      "tags": [
+        "geometric",
+        "color"
+      ],
+      "isNew": true,
+      "origin": "glass-helper-expansion",
+      "order": 96,
+      "pinnedState": {
+        "glassStyle": "chevron",
+        "glassFrost": 0,
+        "fontSize": 75,
+        "glassRefraction": 55,
+        "glassDispersion": 10
+      },
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          16917,
+          17547
+        ]
+      }
+    },
+    {
+      "id": "glass-seedy",
+      "mode": "liquidglass",
+      "label": "Seedy Bubbles",
+      "glyph": "⁙",
+      "category": "glass",
+      "tags": [
+        "organic",
+        "minimal"
+      ],
+      "isNew": true,
+      "origin": "glass-helper-expansion",
+      "order": 97,
+      "pinnedState": {
+        "glassStyle": "seedy",
+        "glassFrost": 20,
+        "fontSize": 45
+      },
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          16917,
+          17547
+        ]
+      }
+    },
+    {
+      "id": "glass-pixel",
+      "mode": "liquidglass",
+      "label": "Glass Pixel",
+      "glyph": "▩",
+      "category": "glass",
+      "tags": [
+        "geometric",
+        "retro"
+      ],
+      "isNew": true,
+      "origin": "glass-helper-expansion",
+      "order": 98,
+      "pinnedState": {
+        "glassStyle": "pixel",
+        "glassFrost": 20,
+        "fontSize": 45
+      },
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          16917,
+          17547
+        ]
+      }
+    },
+    {
+      "id": "glass-jello",
+      "mode": "liquidglass",
+      "label": "Jello",
+      "glyph": "◍",
+      "category": "glass",
+      "tags": [
+        "organic",
+        "color"
+      ],
+      "isNew": true,
+      "origin": "glass-helper-expansion",
+      "order": 99,
+      "pinnedState": {
+        "glassStyle": "jello",
+        "glassFrost": 18,
+        "fontSize": 58,
+        "glassRefraction": 130,
+        "glassDispersion": 50,
+        "glassDepth": 100,
+        "glassSplay": 100
+      },
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          16917,
+          17547
+        ]
+      }
+    },
+    {
+      "id": "cyanotype",
+      "mode": "cyanotype",
+      "label": "Cyanotype",
+      "glyph": "◩",
+      "category": "print",
+      "tags": [
+        "retro",
+        "mono"
+      ],
+      "isNew": true,
+      "origin": "shader-registry-expansion",
+      "order": 100,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          973,
+          2918
+        ]
+      }
+    },
+    {
+      "id": "hexhalftone",
+      "mode": "hexhalftone",
+      "label": "Honeycomb Screen",
+      "glyph": "⬢",
+      "category": "print",
+      "tags": [
+        "retro",
+        "geometric"
+      ],
+      "isNew": true,
+      "origin": "shader-registry-expansion",
+      "order": 101,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          973,
+          2918
+        ]
+      }
+    },
+    {
+      "id": "paperstock",
+      "mode": "paperstock",
+      "label": "Crumpled Print",
+      "glyph": "▢",
+      "category": "print",
+      "tags": [
+        "minimal",
+        "organic"
+      ],
+      "isNew": true,
+      "origin": "shader-registry-expansion",
+      "order": 102,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          973,
+          2918
+        ]
+      }
+    },
+    {
+      "id": "oilpool",
+      "mode": "oilpool",
+      "label": "Petrol Sheen",
+      "glyph": "◉",
+      "category": "material",
+      "tags": [
+        "color",
+        "organic"
+      ],
+      "isNew": true,
+      "origin": "shader-registry-expansion",
+      "order": 103,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          973,
+          2918
+        ]
+      }
+    },
+    {
+      "id": "anodized",
+      "mode": "anodized",
+      "label": "Heat Tint",
+      "glyph": "◆",
+      "category": "material",
+      "tags": [
+        "color"
+      ],
+      "isNew": true,
+      "origin": "shader-registry-expansion",
+      "order": 104,
+      "pinnedState": null,
+      "evidence": {
+        "source": "catalog-bundle",
+        "range": [
+          973,
+          2918
+        ]
+      }
+    }
+  ],
+  "modes": [
+    {
+      "id": "characters",
+      "label": "Characters",
+      "tileIds": [
+        "characters"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "asciiStudio",
+      "label": "ASCII Studio",
+      "tileIds": [
+        "asciiStudio"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "dither",
+      "label": "Dither",
+      "tileIds": [
+        "dither"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "block-chars",
+      "label": "Block",
+      "tileIds": [
+        "block-chars"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "dots",
+      "label": "Dots",
+      "tileIds": [
+        "dots"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "frostedglass",
+      "label": "Frosted Glass",
+      "tileIds": [
+        "frostedglass"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "motionblur",
+      "label": "Motion Blur",
+      "tileIds": [
+        "motionblur"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "mixed",
+      "label": "Mixed",
+      "tileIds": [
+        "mixed"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "pixel",
+      "label": "Pixel Art",
+      "tileIds": [
+        "pixel"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "mosaic",
+      "label": "Mosaic",
+      "tileIds": [
+        "mosaic"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "lego",
+      "label": "LEGO",
+      "tileIds": [
+        "lego"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "cross",
+      "label": "Cross",
+      "tileIds": [
+        "cross"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "diamond",
+      "label": "Diamond",
+      "tileIds": [
+        "diamond"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "lines",
+      "label": "Lines",
+      "tileIds": [
+        "lines"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "diagonal",
+      "label": "Diagonal",
+      "tileIds": [
+        "diagonal"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "braille",
+      "label": "Braille",
+      "tileIds": [
+        "braille"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "3d",
+      "label": "Voxel",
+      "tileIds": [
+        "3d"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "disco",
+      "label": "Disco",
+      "tileIds": [
+        "disco"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "stippling",
+      "label": "Stippling",
+      "tileIds": [
+        "stippling"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "waves",
+      "label": "Waves",
+      "tileIds": [
+        "waves"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "risograph",
+      "label": "Risograph",
+      "tileIds": [
+        "risograph"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "crt",
+      "label": "CRT Screen",
+      "tileIds": [
+        "crt"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "specimen",
+      "label": "Specimen",
+      "tileIds": [
+        "specimen"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "smudge",
+      "label": "Smudge",
+      "tileIds": [
+        "smudge"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "pinch",
+      "label": "Pinch",
+      "tileIds": [
+        "pinch"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "spherize",
+      "label": "Spherize",
+      "tileIds": [
+        "spherize"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "twirl",
+      "label": "Twirl",
+      "tileIds": [
+        "twirl"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "ripple",
+      "label": "ZigZag",
+      "tileIds": [
+        "ripple"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "zigzag",
+      "label": "Ripple",
+      "tileIds": [
+        "zigzag"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "polar",
+      "label": "Polar",
+      "tileIds": [
+        "polar"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "shear",
+      "label": "Shear",
+      "tileIds": [
+        "shear"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "pixelsort",
+      "label": "Pixel Sort",
+      "tileIds": [
+        "pixelsort"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "oilpaint",
+      "label": "Oil Paint",
+      "tileIds": [
+        "oilpaint"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "lowpoly",
+      "label": "Low Poly",
+      "tileIds": [
+        "lowpoly"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "comic",
+      "label": "Comic",
+      "tileIds": [
+        "comic"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "sketch",
+      "label": "Sketch",
+      "tileIds": [
+        "sketch"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "watercolor",
+      "label": "Watercolor",
+      "tileIds": [
+        "watercolor"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "chrome",
+      "label": "Chrome",
+      "tileIds": [
+        "chrome"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "hexmosaic",
+      "label": "Hex Mosaic",
+      "tileIds": [
+        "hexmosaic"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "stainedglass",
+      "label": "Tinted Glass",
+      "tileIds": [
+        "stainedglass"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "anaglyph",
+      "label": "Anaglyph 3D",
+      "tileIds": [
+        "anaglyph"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "droste",
+      "label": "Droste",
+      "tileIds": [
+        "droste"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "tiltshift",
+      "label": "Tilt-Shift",
+      "tileIds": [
+        "tiltshift"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "gaussianblur",
+      "label": "Gaussian Blur",
+      "tileIds": [
+        "gaussianblur"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "radialblur",
+      "label": "Radial Blur",
+      "tileIds": [
+        "radialblur"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "thinfilm",
+      "label": "Thin-Film",
+      "tileIds": [
+        "thinfilm"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "truchet",
+      "label": "Truchet",
+      "tileIds": [
+        "truchet"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "isoextrude",
+      "label": "Iso Extrude",
+      "tileIds": [
+        "isoextrude"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "flowfield",
+      "label": "Flow Field",
+      "tileIds": [
+        "flowfield"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "engraving",
+      "label": "Engraving",
+      "tileIds": [
+        "engraving"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "gradientmap",
+      "label": "Gradient Map",
+      "tileIds": [
+        "gradientmap"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "warhol",
+      "label": "Warhol",
+      "tileIds": [
+        "warhol"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "shatter",
+      "label": "Shatter",
+      "tileIds": [
+        "shatter"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "lattice",
+      "label": "Lattice",
+      "tileIds": [
+        "lattice"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "blueprint",
+      "label": "Blueprint",
+      "tileIds": [
+        "blueprint"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "topography",
+      "label": "Topography",
+      "tileIds": [
+        "topography"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "prism",
+      "label": "Prism",
+      "tileIds": [
+        "prism"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "marble",
+      "label": "Marble",
+      "tileIds": [
+        "marble"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "dreamdust",
+      "label": "Dreamdust",
+      "tileIds": [
+        "dreamdust"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "forms",
+      "label": "Forms",
+      "tileIds": [
+        "forms"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "halftone",
+      "label": "Halftone",
+      "tileIds": [
+        "halftone"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "schematic",
+      "label": "Schematic",
+      "tileIds": [
+        "schematic"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "forensics",
+      "label": "Forensics",
+      "tileIds": [
+        "forensics"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "glitch",
+      "label": "Digital Distortion",
+      "tileIds": [
+        "glitch"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "datamosh",
+      "label": "Datamosh",
+      "tileIds": [
+        "datamosh"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "ukiyoe",
+      "label": "Woodblock",
+      "tileIds": [
+        "ukiyoe"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "molten",
+      "label": "Molten Metal",
+      "tileIds": [
+        "molten"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "vitrine",
+      "label": "Vitrine",
+      "tileIds": [
+        "vitrine"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "lightwind",
+      "label": "Light Wind",
+      "tileIds": [
+        "lightwind"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "starburst",
+      "label": "Kaleidoscope",
+      "tileIds": [
+        "starburst"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "warpbloom",
+      "label": "Warpbloom",
+      "tileIds": [
+        "warpbloom"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "lofi",
+      "label": "Lofi",
+      "tileIds": [
+        "lofi"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "rgbsplit",
+      "label": "RGB Split",
+      "tileIds": [
+        "rgbsplit"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "duotone",
+      "label": "Duotone",
+      "tileIds": [
+        "duotone"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "edgeglow",
+      "label": "Edge Glow",
+      "tileIds": [
+        "edgeglow"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "posterize",
+      "label": "Posterize",
+      "tileIds": [
+        "posterize"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "crystallize",
+      "label": "Crystallize",
+      "tileIds": [
+        "crystallize"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "mezzotint",
+      "label": "Mezzotint",
+      "tileIds": [
+        "mezzotint"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "pointillize",
+      "label": "Pointillize",
+      "tileIds": [
+        "pointillize"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "scanline",
+      "label": "Scanline",
+      "tileIds": [
+        "scanline"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "crosshatch",
+      "label": "Crosshatch",
+      "tileIds": [
+        "crosshatch"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "neongrid",
+      "label": "Neon Grid",
+      "tileIds": [
+        "neongrid"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "ledmatrix",
+      "label": "LED Matrix",
+      "tileIds": [
+        "ledmatrix"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "thermal",
+      "label": "Thermal",
+      "tileIds": [
+        "thermal"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "beacon",
+      "label": "Beacon",
+      "tileIds": [
+        "beacon"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "emboss",
+      "label": "Emboss",
+      "tileIds": [
+        "emboss"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "halftonecmyk",
+      "label": "CMYK Drops",
+      "tileIds": [
+        "halftonecmyk"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "lens",
+      "label": "Aberration",
+      "tileIds": [
+        "lens"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "glassorb",
+      "label": "Glass Orb",
+      "tileIds": [
+        "glassorb"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "flutedglass",
+      "label": "Fluted Glass",
+      "tileIds": [
+        "flutedglass"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "liquidglass",
+      "label": "Glass",
+      "tileIds": [
+        "glass-cross",
+        "glass-hammered",
+        "glass-diamond",
+        "glass-hexagon",
+        "glass-ripple",
+        "glass-crackle",
+        "glass-chevron",
+        "glass-seedy",
+        "glass-pixel",
+        "glass-jello"
+      ],
+      "defaultState": null,
+      "parameters": null,
+      "description": null,
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "cyanotype",
+      "label": "Cyanotype",
+      "tileIds": [
+        "cyanotype"
+      ],
+      "defaultState": {
+        "sfx_cyanotype_exposure": 1,
+        "sfx_cyanotype_blue": 0.65,
+        "sfx_cyanotype_age": 0.5,
+        "sfx_cyanotype_paper": 0.3,
+        "sfx_cyanotype_bleed": 0.25,
+        "sfx_cyanotype_brush": 0,
+        "sfx_cyanotype_rinse": 0,
+        "sfx_cyanotype_blendmode": 0,
+        "sfx_cyanotype_seed": 0
+      },
+      "parameters": [
+        {
+          "key": "exposure",
+          "label": "Sun Time",
+          "default": 1,
+          "min": 0.2,
+          "max": 2,
+          "step": 0.01
+        },
+        {
+          "key": "blue",
+          "label": "Prussian Depth",
+          "default": 0.65,
+          "min": 0,
+          "max": 1,
+          "step": 0.01
+        },
+        {
+          "key": "age",
+          "label": "Yellowing",
+          "default": 0.5,
+          "min": 0,
+          "max": 1,
+          "step": 0.01
+        },
+        {
+          "key": "paper",
+          "label": "Paper Tooth",
+          "default": 0.3,
+          "min": 0,
+          "max": 1,
+          "step": 0.01
+        },
+        {
+          "key": "bleed",
+          "label": "Wick",
+          "default": 0.25,
+          "min": 0,
+          "max": 1,
+          "step": 0.01
+        },
+        {
+          "key": "brush",
+          "label": "Ragged Coat",
+          "default": 0,
+          "min": 0,
+          "max": 1,
+          "step": 0.01
+        },
+        {
+          "key": "rinse",
+          "label": "Rinse Streaks",
+          "default": 0,
+          "min": 0,
+          "max": 1,
+          "step": 0.01
+        },
+        {
+          "key": "blendmode",
+          "label": "Blend Mode",
+          "default": 0,
+          "min": 0,
+          "max": 13,
+          "step": 1,
+          "options": [
+            "Normal",
+            "Multiply",
+            "Screen",
+            "Overlay",
+            "Soft Light",
+            "Hard Light",
+            "Color Dodge",
+            "Color Burn",
+            "Darken",
+            "Lighten",
+            "Difference",
+            "Exclusion",
+            "Luminosity",
+            "Color"
+          ],
+          "blend": true
+        },
+        {
+          "key": "seed",
+          "label": "Seed",
+          "default": 0,
+          "min": 0,
+          "max": 999,
+          "step": 1,
+          "seed": true
+        }
+      ],
+      "description": "A sun print: Prussian blue shadows on cream paper, with the brushed edge and soft bleed of the real process.",
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "hexhalftone",
+      "label": "Honeycomb Screen",
+      "tileIds": [
+        "hexhalftone"
+      ],
+      "defaultState": {
+        "sfx_hexhalftone_size": 13,
+        "sfx_hexhalftone_angle": 0,
+        "sfx_hexhalftone_color": 0,
+        "sfx_hexhalftone_paper": 0.45,
+        "sfx_hexhalftone_shape": 0,
+        "sfx_hexhalftone_blendmode": 0
+      },
+      "parameters": [
+        {
+          "key": "size",
+          "label": "Dot Size",
+          "default": 13,
+          "min": 3,
+          "max": 40,
+          "step": 0.5
+        },
+        {
+          "key": "angle",
+          "label": "Screen Angle",
+          "default": 0,
+          "min": 0,
+          "max": 60,
+          "step": 1
+        },
+        {
+          "key": "color",
+          "label": "Photo Colour Ink",
+          "default": 0,
+          "min": 0,
+          "max": 1,
+          "step": 0.01
+        },
+        {
+          "key": "paper",
+          "label": "Paper Tone",
+          "default": 0.45,
+          "min": 0,
+          "max": 1,
+          "step": 0.01
+        },
+        {
+          "key": "shape",
+          "label": "Dot Shape",
+          "default": 0,
+          "min": 0,
+          "max": 1,
+          "step": 0.01
+        },
+        {
+          "key": "blendmode",
+          "label": "Blend Mode",
+          "default": 0,
+          "min": 0,
+          "max": 13,
+          "step": 1,
+          "options": [
+            "Normal",
+            "Multiply",
+            "Screen",
+            "Overlay",
+            "Soft Light",
+            "Hard Light",
+            "Color Dodge",
+            "Color Burn",
+            "Darken",
+            "Lighten",
+            "Difference",
+            "Exclusion",
+            "Luminosity",
+            "Color"
+          ],
+          "blend": true
+        }
+      ],
+      "description": "Halftone dots packed on a honeycomb, so the screen reads as hexes instead of rows.",
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "paperstock",
+      "label": "Crumpled Print",
+      "tileIds": [
+        "paperstock"
+      ],
+      "defaultState": {
+        "sfx_paperstock_intensity": 0.8,
+        "sfx_paperstock_crumple": 0.95,
+        "sfx_paperstock_crumple_scale": 5,
+        "sfx_paperstock_flatness": 7,
+        "sfx_paperstock_displace": 0.0016,
+        "sfx_paperstock_fiber": 0.44,
+        "sfx_paperstock_fiber_scale": 1.7,
+        "sfx_paperstock_light_angle": 0.18,
+        "sfx_paperstock_light_elev": 0.52,
+        "sfx_paperstock_tear": 0,
+        "sfx_paperstock_blendmode": 0,
+        "sfx_paperstock_seed": 0
+      },
+      "parameters": [
+        {
+          "key": "intensity",
+          "label": "Paper Strength",
+          "default": 0.8,
+          "min": 0,
+          "max": 1,
+          "step": 0.01
+        },
+        {
+          "key": "crumple",
+          "label": "Crush",
+          "default": 0.95,
+          "min": 0,
+          "max": 2,
+          "step": 0.01
+        },
+        {
+          "key": "crumple_scale",
+          "label": "Crease Size",
+          "default": 5,
+          "min": 1,
+          "max": 10,
+          "step": 0.1
+        },
+        {
+          "key": "flatness",
+          "label": "Smoothing",
+          "default": 7,
+          "min": 1,
+          "max": 60,
+          "step": 0.1
+        },
+        {
+          "key": "displace",
+          "label": "Warp",
+          "default": 0.0016,
+          "min": 0,
+          "max": 0.08,
+          "step": 0.0001
+        },
+        {
+          "key": "fiber",
+          "label": "Pulp Fibres",
+          "default": 0.44,
+          "min": 0,
+          "max": 1,
+          "step": 0.01
+        },
+        {
+          "key": "fiber_scale",
+          "label": "Fibre Length",
+          "default": 1.7,
+          "min": 0.5,
+          "max": 4,
+          "step": 0.01
+        },
+        {
+          "key": "light_angle",
+          "label": "Lamp Angle",
+          "default": 0.18,
+          "min": 0,
+          "max": 1,
+          "step": 0.01
+        },
+        {
+          "key": "light_elev",
+          "label": "Lamp Height",
+          "default": 0.52,
+          "min": 0,
+          "max": 1,
+          "step": 0.01
+        },
+        {
+          "key": "tear",
+          "label": "Torn Edge",
+          "default": 0,
+          "min": 0,
+          "max": 1,
+          "step": 0.01
+        },
+        {
+          "key": "blendmode",
+          "label": "Blend Mode",
+          "default": 0,
+          "min": 0,
+          "max": 13,
+          "step": 1,
+          "options": [
+            "Normal",
+            "Multiply",
+            "Screen",
+            "Overlay",
+            "Soft Light",
+            "Hard Light",
+            "Color Dodge",
+            "Color Burn",
+            "Darken",
+            "Lighten",
+            "Difference",
+            "Exclusion",
+            "Luminosity",
+            "Color"
+          ],
+          "blend": true
+        },
+        {
+          "key": "seed",
+          "label": "Seed",
+          "default": 0,
+          "min": 0,
+          "max": 999,
+          "step": 1,
+          "seed": true
+        }
+      ],
+      "description": "The photo printed on crumpled, grainy stock, the creases lit from one side and the ink sunk a shade.",
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "oilpool",
+      "label": "Petrol Sheen",
+      "tileIds": [
+        "oilpool"
+      ],
+      "defaultState": {
+        "sfx_oilpool_scale": 1,
+        "sfx_oilpool_bands": 0.6,
+        "sfx_oilpool_strength": 0.6,
+        "sfx_oilpool_islands": 0,
+        "sfx_oilpool_blendmode": 0,
+        "sfx_oilpool_seed": 0
+      },
+      "parameters": [
+        {
+          "key": "scale",
+          "label": "Scale",
+          "default": 1,
+          "min": 0.3,
+          "max": 3,
+          "step": 0.01
+        },
+        {
+          "key": "bands",
+          "label": "Bands",
+          "default": 0.6,
+          "min": 0,
+          "max": 1,
+          "step": 0.01
+        },
+        {
+          "key": "strength",
+          "label": "Strength",
+          "default": 0.6,
+          "min": 0,
+          "max": 1,
+          "step": 0.01
+        },
+        {
+          "key": "islands",
+          "label": "Puddle Islands",
+          "default": 0,
+          "min": 0,
+          "max": 1,
+          "step": 0.01
+        },
+        {
+          "key": "blendmode",
+          "label": "Blend Mode",
+          "default": 0,
+          "min": 0,
+          "max": 13,
+          "step": 1,
+          "options": [
+            "Normal",
+            "Multiply",
+            "Screen",
+            "Overlay",
+            "Soft Light",
+            "Hard Light",
+            "Color Dodge",
+            "Color Burn",
+            "Darken",
+            "Lighten",
+            "Difference",
+            "Exclusion",
+            "Luminosity",
+            "Color"
+          ],
+          "blend": true
+        },
+        {
+          "key": "seed",
+          "label": "Seed",
+          "default": 0,
+          "min": 0,
+          "max": 999,
+          "step": 1,
+          "seed": true
+        }
+      ],
+      "description": "A petrol film over the picture, rainbow bands strongest where it lies flat and bright.",
+      "behavior": null,
+      "runtimeVerified": false
+    },
+    {
+      "id": "anodized",
+      "label": "Heat Tint",
+      "tileIds": [
+        "anodized"
+      ],
+      "defaultState": {
+        "sfx_anodized_shift": 0.18,
+        "sfx_anodized_brush": 0.5,
+        "sfx_anodized_metal": 0.6,
+        "sfx_anodized_torch": 0,
+        "sfx_anodized_blendmode": 0
+      },
+      "parameters": [
+        {
+          "key": "shift",
+          "label": "Oxide Shift",
+          "default": 0.18,
+          "min": 0,
+          "max": 1,
+          "step": 0.01
+        },
+        {
+          "key": "brush",
+          "label": "Brushing",
+          "default": 0.5,
+          "min": 0,
+          "max": 1,
+          "step": 0.01
+        },
+        {
+          "key": "metal",
+          "label": "Metal",
+          "default": 0.6,
+          "min": 0,
+          "max": 1,
+          "step": 0.01
+        },
+        {
+          "key": "torch",
+          "label": "Torch Rings",
+          "default": 0,
+          "min": 0,
+          "max": 1,
+          "step": 0.01
+        },
+        {
+          "key": "blendmode",
+          "label": "Blend Mode",
+          "default": 0,
+          "min": 0,
+          "max": 13,
+          "step": 1,
+          "options": [
+            "Normal",
+            "Multiply",
+            "Screen",
+            "Overlay",
+            "Soft Light",
+            "Hard Light",
+            "Color Dodge",
+            "Color Burn",
+            "Darken",
+            "Lighten",
+            "Difference",
+            "Exclusion",
+            "Luminosity",
+            "Color"
+          ],
+          "blend": true
+        }
+      ],
+      "description": "Anodized titanium: the tones become bronze, violet, blue and gold over brushed metal.",
+      "behavior": null,
+      "runtimeVerified": false
+    }
+  ],
+  "limitations": [
+    "Registry presence does not establish implemented runtime behavior or visual parity.",
+    "This captured bundle has no shader variant arrays; future or unloaded bundles may differ.",
+    "Null defaults, parameters and behavior mean not established by this bounded pass, not absent.",
+    "Pinned tile state is a partial state patch, not a complete mode default.",
+    "No license, account entitlement, renderer implementation, export compatibility or performance conclusion is established by this inventory.",
+    "Initial captured module set is bounded; additional lazy-loaded behavior and dynamic tiles remain unknown."
+  ]
+}

@@ -3,26 +3,77 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
   parseFiglet,
+  placeTypography,
   typographyDocument,
   type FigletFont,
   type TypographyOptions,
 } from "@/typography/figlet";
+import { workspace } from "@/editor/store";
+import { listProjects, readProject, saveProject } from "@/editor/persistence";
+import type { AsciiDocument } from "@/core/document";
+import { usePersistentState } from "@/workspace/preferences";
 import { documentText } from "@/core/render";
 import { GalleryArtwork, ArtworkActions } from "./artwork";
 import "./typography.css";
 export default function Typography() {
   const [font, setFont] = useState<FigletFont | null>(null);
   const [loadError, setLoadError] = useState("");
-  const [text, setText] = useState("MORPH");
-  const [alignment, setAlignment] =
-    useState<TypographyOptions["alignment"]>("left");
-  const [spacing, setSpacing] = useState(1);
-  const [foreground, setForeground] = useState("#e9b86e");
-  const [background, setBackground] = useState("#0c0d10");
-  const [transparent, setTransparent] = useState(true);
+  const [text, setText] = usePersistentState("typography.text", "MORPH");
+  const [alignment, setAlignment] = usePersistentState<
+    TypographyOptions["alignment"]
+  >("typography.alignment", "left");
+  const [spacing, setSpacing] = usePersistentState("typography.spacing", 1);
+  const [foreground, setForeground] = usePersistentState(
+    "typography.foreground",
+    "#e9b86e",
+  );
+  const [background, setBackground] = usePersistentState(
+    "typography.background",
+    "#0c0d10",
+  );
+  const [transparent, setTransparent] = usePersistentState(
+    "typography.transparent",
+    true,
+  );
+  const [fontId, setFontId] = usePersistentState(
+      "typography.font",
+      "morph-grid",
+    ),
+    [kerning, setKerning] = usePersistentState("typography.kerning", false),
+    [outline, setOutline] = usePersistentState("typography.outline", false),
+    [lineSpacing, setLineSpacing] = usePersistentState(
+      "typography.lineSpacing",
+      1,
+    ),
+    [gradient, setGradient] = usePersistentState("typography.gradient", false),
+    [gradientColor, setGradientColor] = usePersistentState(
+      "typography.gradientColor",
+      "#8bb9de",
+    ),
+    [projects, setProjects] = useState<AsciiDocument[]>([]),
+    [target, setTarget] = useState(""),
+    [x, setX] = useState(0),
+    [y, setY] = useState(0),
+    [placementStatus, setPlacementStatus] = useState("");
+  useEffect(() => {
+    let live = true;
+    void listProjects()
+      .then((docs) => {
+        if (live) setProjects(docs);
+      })
+      .catch((error) => {
+        if (live) setPlacementStatus(String(error));
+      });
+    return () => {
+      live = false;
+    };
+  }, []);
   useEffect(() => {
     const abort = new AbortController();
-    void fetch("/fonts/figlet/morph-grid.flf", { signal: abort.signal })
+    void fetch(
+      `/fonts/figlet/${["morph-grid", "morph-wide", "morph-slim"].includes(fontId) ? fontId : "morph-grid"}.flf`,
+      { signal: abort.signal },
+    )
       .then(async (response) => {
         if (!response.ok)
           throw new Error("Could not load the bundled FIGlet font.");
@@ -33,7 +84,7 @@ export default function Typography() {
         if (!abort.signal.aborted) setLoadError(String(error));
       });
     return () => abort.abort();
-  }, []);
+  }, [fontId]);
   const result = useMemo(() => {
     if (!font) return { doc: null, error: "" };
     try {
@@ -41,6 +92,10 @@ export default function Typography() {
         doc: typographyDocument(font, text, {
           alignment,
           spacing,
+          kerning,
+          outline,
+          lineSpacing,
+          gradient: gradient ? gradientColor : undefined,
           foreground,
           background: transparent ? null : background,
         }),
@@ -52,17 +107,30 @@ export default function Typography() {
         error: error instanceof Error ? error.message : String(error),
       };
     }
-  }, [font, text, alignment, spacing, foreground, background, transparent]);
+  }, [
+    font,
+    text,
+    alignment,
+    spacing,
+    foreground,
+    background,
+    transparent,
+    kerning,
+    outline,
+    lineSpacing,
+    gradient,
+    gradientColor,
+  ]);
   return (
     <main className="type-page">
       <header className="type-header">
-        <Link href="/" className="mono">
+        <Link prefetch={false} href="/" className="mono">
           {"{ }"} AsciiMorph
         </Link>
         <nav aria-label="Creative tools">
-          <Link href="/create">All tools</Link>
-          <Link href="/gallery">Gallery</Link>
-          <Link href="/studio">Studio</Link>
+          <Link prefetch={false} href="/create">All tools</Link>
+          <Link prefetch={false} href="/gallery">Gallery</Link>
+          <Link prefetch={false} href="/studio">Studio</Link>
         </nav>
       </header>
       <div className="type-title">
@@ -92,11 +160,15 @@ export default function Typography() {
           </p>
           <label>
             FIGlet font
-            <input
+            <select
               aria-label="FIGlet font"
-              value="Morph Grid · 5 rows"
-              readOnly
-            />
+              value={fontId}
+              onChange={(e) => setFontId(e.target.value)}
+            >
+              <option value="morph-grid">Morph Grid · block alphabet</option>
+              <option value="morph-wide">Morph Wide · expanded strokes</option>
+              <option value="morph-slim">Morph Slim · terminal strokes</option>
+            </select>
           </label>
           <p className="type-help">
             An original block alphabet. Lowercase is rendered as capitals.{" "}
@@ -108,6 +180,54 @@ export default function Typography() {
               CC0 font license ↗
             </a>
           </p>
+          <p className="type-help">
+            Three original CC0 alphabets. Select a font to preview it
+            immediately.
+          </p>
+          <label className="type-check">
+            <input
+              type="checkbox"
+              checked={kerning}
+              onChange={(e) => setKerning(e.target.checked)}
+            />
+            Optical kerning (trim glyph side bearings)
+          </label>
+          <label className="type-check">
+            <input
+              type="checkbox"
+              checked={outline}
+              onChange={(e) => setOutline(e.target.checked)}
+            />
+            Character outline
+          </label>
+          <label>
+            Line spacing
+            <input
+              type="range"
+              min={0}
+              max={8}
+              value={lineSpacing}
+              onChange={(e) => setLineSpacing(+e.target.value)}
+            />
+          </label>
+          <label className="type-check">
+            <input
+              type="checkbox"
+              checked={gradient}
+              onChange={(e) => setGradient(e.target.checked)}
+            />
+            Vertical color gradient
+          </label>
+          {gradient && (
+            <label>
+              Gradient end
+              <input
+                type="color"
+                value={gradientColor}
+                onChange={(e) => setGradientColor(e.target.value)}
+              />
+            </label>
+          )}
           <label>
             Alignment
             <select
@@ -189,6 +309,89 @@ export default function Typography() {
           {result.doc && (
             <>
               <ArtworkActions doc={result.doc} />
+              <section
+                className="type-controls"
+                aria-label="Place typography into existing project"
+              >
+                <h2>Add to a saved project</h2>
+                <label>
+                  Target project
+                  <select
+                    value={target}
+                    onChange={(e) => setTarget(e.target.value)}
+                  >
+                    <option value="">Choose saved artwork</option>
+                    {projects.map((project) => (
+                      <option key={project.id} value={project.id}>
+                        {project.name} · {project.width} × {project.height}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Column
+                  <input
+                    type="number"
+                    value={x}
+                    onChange={(e) => setX(Math.trunc(+e.target.value))}
+                  />
+                </label>
+                <label>
+                  Row
+                  <input
+                    type="number"
+                    value={y}
+                    onChange={(e) => setY(Math.trunc(+e.target.value))}
+                  />
+                </label>
+                <button
+                  disabled={!target}
+                  onClick={() =>
+                    void (async () => {
+                      try {
+                        const saved =
+                          workspace.getState().documents[target] ??
+                          (await readProject(target));
+                        if (!saved)
+                          throw new Error("Project is no longer available");
+                        const placed = placeTypography(
+                          saved,
+                          result.doc!,
+                          x,
+                          y,
+                        );
+                        await saveProject(placed);
+                        workspace.setState((state) => ({
+                          documents: {
+                            ...state.documents,
+                            [placed.id]: placed,
+                          },
+                          revision: state.revision + 1,
+                          ...(state.activeId === placed.id
+                            ? {
+                                past: [...state.past, saved].slice(-80),
+                                future: [],
+                              }
+                            : {}),
+                        }));
+                        setPlacementStatus(
+                          "Typography added as a new layer. Original layers are preserved.",
+                        );
+                      } catch (error) {
+                        setPlacementStatus(String(error));
+                      }
+                    })()
+                  }
+                >
+                  Add lettering layer
+                </button>
+                <p role="status">{placementStatus}</p>
+                <p className="type-help">
+                  Coordinates use cells. Lettering outside the destination
+                  canvas is clipped. Saved recovery snapshots remain available
+                  in Projects.
+                </p>
+              </section>
               <details className="type-text">
                 <summary>ASCII text view</summary>
                 <pre>{documentText(result.doc)}</pre>

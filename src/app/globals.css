@@ -587,6 +587,9 @@ code,
   top: 50%;
   transform: translate(-50%, -50%);
   width: min(440px, calc(100vw - 32px));
+  max-height: min(85dvh, calc(100dvh - 24px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 10px;

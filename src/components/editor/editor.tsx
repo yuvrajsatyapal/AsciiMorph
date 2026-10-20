@@ -96,7 +96,7 @@ export default function Editor() {
   if (e.resume)
     return (
       <main className="editor-loading">
-        <Link href="/" className="wordmark">
+        <Link prefetch={false} href="/" className="wordmark">
           <Braces />
           AsciiMorph
         </Link>
@@ -125,7 +125,7 @@ export default function Editor() {
         Skip to canvas
       </a>
       <header className="editor-header">
-        <Link href="/" className="wordmark" aria-label="AsciiMorph home">
+        <Link prefetch={false} href="/" className="wordmark" aria-label="AsciiMorph home">
           <Braces size={23} />
           <span>AsciiMorph</span>
         </Link>
@@ -346,6 +346,7 @@ export default function Editor() {
             caret={e.caret}
             selection={e.selection}
             zoom={e.zoom}
+            onZoom={e.zoomTo}
             grid={e.grid}
             monochrome={e.monochrome}
             viewportRef={e.viewport}
@@ -458,6 +459,7 @@ export default function Editor() {
           }[e.panel] || "Studio"
         }
       >
+        {e.message && <p role="alert" className="workspace-error">{e.message}</p>}
         {e.panel === "symbols" && <SymbolPanel e={e} />}{" "}
         {e.panel === "colors" && <ColorPanel e={e} />}{" "}
         {e.panel === "canvas" && <CanvasPanel e={e} />}

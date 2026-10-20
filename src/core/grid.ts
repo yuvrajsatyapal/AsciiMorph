@@ -217,6 +217,17 @@ export function resizeDocument(
     height,
     layers: doc.layers.map((l) => ({
       ...l,
+      ...(l.mask
+        ? {
+            mask: fresh.layers[0].cells.map((_, i) => {
+              const x = i % width,
+                y = Math.floor(i / width);
+              return preserve && x < doc.width && y < doc.height
+                ? l.mask![y * doc.width + x]
+                : 1;
+            }),
+          }
+        : {}),
       cells: fresh.layers[0].cells.map((c, i) => {
         const x = i % width,
           y = Math.floor(i / width);

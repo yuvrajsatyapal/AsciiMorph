@@ -1,5 +1,5 @@
 "use client";
-import type { ConversionSettings } from "@/converter/settings";
+import { VISUAL_PRESETS, type ConversionSettings } from "@/converter/settings";
 import { PRESETS } from "@/converter/presets";
 export function Settings({
   s,
@@ -48,6 +48,88 @@ export function Settings({
   return (
     <fieldset className="conversion-settings" disabled={busy}>
       <legend className="sr-only">Conversion settings</legend>
+      <section>
+        <h2>Source & style</h2>
+        <label>
+          Visual preset
+          <select
+            aria-label="Visual preset"
+            defaultValue=""
+            onChange={(e) => {
+              if (e.target.value) update(VISUAL_PRESETS[e.target.value]);
+            }}
+          >
+            <option value="">Choose a starting point</option>
+            {Object.keys(VISUAL_PRESETS).map((name) => (
+              <option key={name}>{name}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Rotate source
+          <select
+            aria-label="Rotate source"
+            value={s.rotation ?? 0}
+            onChange={(e) =>
+              update({ rotation: Number(e.target.value) as 0 | 90 | 180 | 270 })
+            }
+          >
+            {[0, 90, 180, 270].map((v) => (
+              <option key={v} value={v}>
+                {v}° clockwise
+              </option>
+            ))}
+          </select>
+        </label>
+        <details>
+          <summary>Crop source (percent)</summary>
+          {(["x", "y", "width", "height"] as const).map((key) => (
+            <label key={key}>
+              Crop {key}
+              <input
+                aria-label={`Crop ${key}`}
+                type="number"
+                min={key === "width" || key === "height" ? 1 : 0}
+                max={100}
+                value={Math.round(
+                  (s.crop?.[key] ??
+                    (key === "width" || key === "height" ? 1 : 0)) * 100,
+                )}
+                onChange={(e) => {
+                  const crop = { x: 0, y: 0, width: 1, height: 1, ...s.crop };
+                  crop[key] = Math.max(
+                    key === "width" || key === "height" ? 0.01 : 0,
+                    Math.min(1, Number(e.target.value) / 100),
+                  );
+                  if (key === "x")
+                    crop.width = Math.min(crop.width, 1 - crop.x);
+                  if (key === "y")
+                    crop.height = Math.min(crop.height, 1 - crop.y);
+                  if (key === "width")
+                    crop.width = Math.min(crop.width, 1 - crop.x);
+                  if (key === "height")
+                    crop.height = Math.min(crop.height, 1 - crop.y);
+                  crop.x = Math.min(crop.x, 0.99);
+                  crop.y = Math.min(crop.y, 0.99);
+                  crop.width = Math.max(0.01, crop.width);
+                  crop.height = Math.max(0.01, crop.height);
+                  update({ crop });
+                }}
+              />
+            </label>
+          ))}
+          <button
+            type="button"
+            onClick={() => update({ crop: undefined, rotation: 0 })}
+          >
+            Reset crop and rotation
+          </button>
+        </details>
+        <p>
+          The original decoded image and settings stay attached to exported JSON
+          and Studio projects. Revisions create a separate artwork.
+        </p>
+      </section>
       <section>
         <h2>Grid & proportion</h2>
         <div className="conversion-pair">
@@ -159,6 +241,15 @@ export function Settings({
             ? "Eight image samples form each 2 × 4 dot cell. Unicode appearance depends on your system font."
             : "Presets measure glyph coverage in your browser. Custom ramps run from sparse to dense."}
         </p>
+        <label className="conversion-check">
+          <input
+            type="checkbox"
+            checked={s.shapeAware ?? false}
+            disabled={s.charset === "custom" || s.charset === "braille"}
+            onChange={(e) => update({ shapeAware: e.target.checked })}
+          />
+          Match glyph shape
+        </label>
         {range("density", "Character density", 0.25, 3, 0.05)}
       </section>
       <section>
@@ -170,10 +261,18 @@ export function Settings({
         {range("sharpness", "Sharpness", 0, 100)}
         {range("edge", "Edge detection", 0, 100)}
         <label className="conversion-check">
-          <input type="checkbox" checked={s.smartEdges ?? false} disabled={s.charset === "braille"} onChange={(e) => update({ smartEdges: e.target.checked })} />
+          <input
+            type="checkbox"
+            checked={s.smartEdges ?? false}
+            disabled={s.charset === "braille"}
+            onChange={(e) => update({ smartEdges: e.target.checked })}
+          />
           Smart directional edges
         </label>
-        <p>Uses line characters along strong contours. Sharpness and contrast enhance local detail.</p>
+        <p>
+          Uses line characters along strong contours. Sharpness and contrast
+          enhance local detail.
+        </p>
         <label className="conversion-check">
           <input
             type="checkbox"

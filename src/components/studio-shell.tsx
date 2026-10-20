@@ -71,14 +71,14 @@ export default function StudioShell() {
         Skip to canvas
       </a>
       <header className="studio-header">
-        <Link href="/" className="wordmark">
+        <Link prefetch={false} href="/" className="wordmark">
           <Braces size={23} />
           AsciiMorph
         </Link>
         <span className="header-divider" />
         <span data-testid="document-name">{doc.name}</span>
         <div className="studio-header-actions">
-          <Link href="/" className="button quiet">
+          <Link prefetch={false} href="/" className="button quiet">
             <ArrowLeft size={15} /> Home
           </Link>
           <button

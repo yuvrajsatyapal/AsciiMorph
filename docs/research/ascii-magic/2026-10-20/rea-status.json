@@ -1,0 +1,20 @@
+{
+  "status": "partial-inventory-only",
+  "evidence_id": "ev_d1e5b27336cd391e07e296e86637bdf7c9e54c591f4639b18b3ea1715996365b",
+  "artifact_sha256": "0dee614851056c84d92383598da8fb1828934cb37140ca9a5f5685f7a276f258",
+  "error_code": "execution_failure",
+  "analysis_phase": "startup",
+  "reason": "macOS Swift ownership helper compilation fails, including escalated execution; no source semantic analysis completed",
+  "coverage": null,
+  "limitations": [
+    "0121drxvog2yz.js: Provider javascript-static-analysis adapter failed during analyze_javascript_application",
+    "CommonJS and ESM binding relationships were recovered from inert syntax and resolved only within the inventoried artifact container.",
+    "Graph coverage is incomplete; unavailable facts remain explicit and must not be read as absence.",
+    "JavaScript and HTML were parsed as inert text; bundle bootstrap code was never executed.",
+    "Source analysis was interrupted: Provider javascript-static-analysis adapter failed during analyze_javascript_application",
+    "Static imports, entrypoints, workers, endpoints, and storage relationships do not prove runtime execution.",
+    "Static paths and relationships may remain unresolved when expressions are dynamic or obfuscated.",
+    "Webpack/Rspack factories were recovered from AST literals; REA did not invoke push handlers or bundle bootstrap code."
+  ],
+  "unknowns": null
+}

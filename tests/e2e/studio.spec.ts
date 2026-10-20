@@ -1,3 +1,4 @@
+import { canvasMatchesPng, canEncodeWebp } from "./canvas-parity";
 import { expect, test } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 async function blank(page: import("@playwright/test").Page) {
@@ -56,8 +57,8 @@ test("PNG export matches preview pixels without editing overlays", async ({
   page,
 }, info) => {
   test.skip(
-    info.project.name === "mobile",
-    "Exact backing pixels use the desktop 1x pixel ratio.",
+    info.project.name === "mobile" || Number(info.project.use.deviceScaleFactor ?? 1) !== 1,
+    "Exact backing pixel comparison requires a 1x preview; HiDPI rendering is covered separately.",
   );
   await page.goto("/studio?demo=orbit&char=%40&color=91D3BD");
   await expect(page.getByTestId("ascii-canvas")).toBeVisible();
@@ -66,24 +67,7 @@ test("PNG export matches preview pixels without editing overlays", async ({
   await page.getByRole("button", { name: "Download PNG", exact: true }).click();
   const path = await (await pending).path();
   const base64 = (await readFile(path!)).toString("base64");
-  const equal = await page.evaluate(async (b64) => {
-    const preview = document.querySelector(
-      '[data-testid="ascii-canvas"]',
-    ) as HTMLCanvasElement;
-    const im = new Image();
-    im.src = "data:image/png;base64," + b64;
-    await im.decode();
-    const c = document.createElement("canvas");
-    c.width = im.width;
-    c.height = im.height;
-    const ctx = c.getContext("2d")!;
-    ctx.drawImage(im, 0, 0);
-    const a = ctx.getImageData(0, 0, c.width, c.height).data,
-      b = preview
-        .getContext("2d")!
-        .getImageData(0, 0, preview.width, preview.height).data;
-    return a.length === b.length && a.every((n, i) => n === b[i]);
-  }, base64);
+  const equal = await canvasMatchesPng(page, "ascii-canvas", base64);
   expect(equal).toBe(true);
 });
 test("tools, zoom alignment, focus exit, and responsive panel access", async ({
@@ -169,6 +153,11 @@ test("imports text, performs shape gestures, and exports all supported formats",
     ["WebP", "webp"],
     ["HTML", "html"],
   ]) {
+    if (ext === "webp" && !(await canEncodeWebp(page))) {
+      await page.getByRole("button", {name:"Download WEBP", exact:true}).click();
+      await expect(page.getByRole("alert").filter({hasText:"WEBP export is unsupported"})).toBeVisible();
+      continue;
+    }
     const pending = page.waitForEvent("download");
     await page
       .getByRole("button", {

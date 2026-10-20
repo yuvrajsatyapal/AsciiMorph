@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   parseObj,
   parseGlb,
@@ -7,37 +7,72 @@ import {
   CUBE,
   type Mesh,
 } from "@/creative/mesh";
+import { renderMeshAsync } from "@/creative/mesh-runner";
+import type { AsciiDocument } from "@/core/document";
+import { usePersistentState } from "@/workspace/preferences";
 import { CreativeShell } from "./shell";
 import { Artwork, ArtworkActions } from "./artwork";
 import { MotionActions } from "./motion-actions";
 export function ThreeTool() {
   const [mesh, setMesh] = useState<Mesh>(CUBE),
     [name, setName] = useState("Original cube"),
-    [yaw, setYaw] = useState(0.6),
-    [pitch, setPitch] = useState(0.4),
-    [zoom, setZoom] = useState(1),
-    [light, setLight] = useState(1),
-    [color, setColor] = useState("#e9b86e"),
+    [yaw, setYaw] = usePersistentState("mesh.yaw", 0.6),
+    [pitch, setPitch] = usePersistentState("mesh.pitch", 0.4),
+    [zoom, setZoom] = usePersistentState("mesh.zoom", 1),
+    [light, setLight] = usePersistentState("mesh.light", 1),
+    [color, setColor] = usePersistentState("mesh.color", "#e9b86e"),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     drag = useRef<{ x: number; y: number; yaw: number; pitch: number } | null>(
       null,
     ),
     generation = useRef(0);
-  const result = useMemo(() => {
-    try {
-      return {
-        doc: renderMesh(mesh, yaw, pitch, zoom, light, color),
-        error: "",
-      };
-    } catch (error) {
-      return {
-        doc: null,
-        error: error instanceof Error ? error.message : String(error),
-      };
-    }
-  }, [mesh, yaw, pitch, zoom, light, color]);
-  const doc = result.doc;
+  const [perspective, setPerspective] = usePersistentState(
+    "mesh.perspective",
+    0,
+  );
+  const [wireframe, setWireframe] = usePersistentState("mesh.wireframe", false);
+  const [lightAngle, setLightAngle] = usePersistentState(
+    "mesh.lightAngle",
+    -0.35,
+  );
+  const [doc, setDoc] = useState<AsciiDocument>(() =>
+    renderMesh(CUBE, 0.6, 0.4, 1, 1),
+  );
+  const [renderError, setRenderError] = useState("");
+  useEffect(() => {
+    const ac = new AbortController();
+    setRenderError("");
+    void renderMeshAsync(
+      mesh,
+      yaw,
+      pitch,
+      zoom,
+      light,
+      color,
+      {
+        perspective,
+        wireframe,
+        lightDirection: [Math.sin(lightAngle), 0.5, Math.cos(lightAngle)],
+      },
+      ac.signal,
+    )
+      .then(setDoc)
+      .catch((e) => {
+        if (!ac.signal.aborted) setRenderError(String(e));
+      });
+    return () => ac.abort();
+  }, [
+    mesh,
+    yaw,
+    pitch,
+    zoom,
+    light,
+    color,
+    perspective,
+    wireframe,
+    lightAngle,
+  ]);
   async function load(file: File) {
     const token = ++generation.current;
     setBusy(true);
@@ -87,6 +122,58 @@ export function ThreeTool() {
             {name} · {mesh.vertices.length.toLocaleString()} vertices ·{" "}
             {mesh.faces.length.toLocaleString()} triangles
           </p>
+          <label>
+            Camera preset
+            <select
+              defaultValue="orbit"
+              onChange={(e) => {
+                const views: Record<string, [number, number]> = {
+                  orbit: [0.6, 0.4],
+                  front: [0, 0],
+                  side: [Math.PI / 2, 0],
+                  top: [0, 1.5],
+                };
+                const v = views[e.target.value];
+                setYaw(v[0]);
+                setPitch(v[1]);
+              }}
+            >
+              <option value="orbit">Isometric</option>
+              <option value="front">Front</option>
+              <option value="side">Side</option>
+              <option value="top">Top</option>
+            </select>
+          </label>
+          <label>
+            Perspective
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
+              value={perspective}
+              onChange={(e) => setPerspective(+e.target.value)}
+            />
+          </label>
+          <label>
+            Light direction
+            <input
+              type="range"
+              min={-3.14}
+              max={3.14}
+              step={0.05}
+              value={lightAngle}
+              onChange={(e) => setLightAngle(+e.target.value)}
+            />
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={wireframe}
+              onChange={(e) => setWireframe(e.target.checked)}
+            />
+            Wireframe
+          </label>
           <label>
             Orbit · {Math.round((yaw * 180) / Math.PI)}°
             <input
@@ -159,7 +246,7 @@ export function ThreeTool() {
           {error && <p role="alert">{error}</p>}
         </aside>
         <section>
-          {result.error && <p role="alert">{result.error}</p>}
+          {renderError && <p role="alert">{renderError}</p>}
           {doc && (
             <>
               <div
@@ -209,13 +296,23 @@ export function ThreeTool() {
                         "AbortError",
                       );
                     frames.push({
-                      doc: renderMesh(
+                      doc: await renderMeshAsync(
                         mesh,
                         yaw + (i * Math.PI * 2) / 36,
                         pitch,
                         zoom,
                         light,
                         color,
+                        {
+                          perspective,
+                          wireframe,
+                          lightDirection: [
+                            Math.sin(lightAngle),
+                            0.5,
+                            Math.cos(lightAngle),
+                          ],
+                        },
+                        signal,
                       ),
                       duration: 100,
                     });

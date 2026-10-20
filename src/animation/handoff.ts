@@ -102,3 +102,10 @@ export async function updateAnimationFrame(doc: AsciiDocument) {
   );
   return updated;
 }
+
+/** Open an existing library animation without creating a duplicate project. */
+export async function openSavedAnimation(project: AnimationProject) {
+  const validated = validateAnimation(project);
+  await saveAnimation(validated);
+  pending = validated;
+}

@@ -1,9 +1,10 @@
-Morph Grid FIGlet font
+Morph Grid, Morph Wide, and Morph Slim FIGlet fonts
 Copyright 2026 AsciiMorph contributors
 SPDX-License-Identifier: CC0-1.0
 
 The Morph Grid glyph designs and the morph-grid.flf font file were authored
-specifically for AsciiMorph. No third-party FIGlet glyph artwork was copied.
+specifically for AsciiMorph. Morph Wide doubles the Grid strokes and Morph Slim
+uses terminal-style vertical strokes; these original derivatives share this license. No third-party FIGlet glyph artwork was copied.
 The lowercase alphabet intentionally shares the uppercase glyph designs.
 
 To the extent possible under law, the authors have waived all copyright and

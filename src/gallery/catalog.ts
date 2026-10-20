@@ -245,7 +245,7 @@ export function searchGallery(
 const FAVORITES_KEY = "asciimorph.gallery.favorites.v1";
 const validFavorite = (value: unknown): value is string =>
   typeof value === "string" &&
-  /^(template|project):[a-zA-Z0-9_-]{1,128}$/.test(value);
+  /^(template|project|custom):[a-zA-Z0-9_-]{1,128}$/.test(value);
 export function readFavorites(storage: Pick<Storage, "getItem">): string[] {
   try {
     const raw = storage.getItem(FAVORITES_KEY);
@@ -265,4 +265,85 @@ export function writeFavorites(
   if (values.length > 500 || !values.every(validFavorite))
     throw new Error("Invalid favorite list.");
   storage.setItem(FAVORITES_KEY, JSON.stringify([...new Set(values)]));
+}
+
+export interface CustomTemplate {
+  id: string;
+  name: string;
+  tags: string[];
+  collection: string;
+  document: AsciiDocument;
+}
+const CUSTOM_KEY = "asciimorph.gallery.templates.v1";
+export function readCustomTemplates(
+  storage: Pick<Storage, "getItem">,
+): CustomTemplate[] {
+  const raw = storage.getItem(CUSTOM_KEY);
+  if (!raw) return [];
+  if (raw.length > 12_000_000)
+    throw new Error(
+      "Template library exceeds 12 MB; export a backup before adding more.",
+    );
+  const value: unknown = JSON.parse(raw);
+  if (!Array.isArray(value) || value.length > 100)
+    throw new Error("Invalid template library");
+  return value.map((item: CustomTemplate) => {
+    if (
+      !item ||
+      typeof item.id !== "string" ||
+      !/^[a-zA-Z0-9_-]{1,128}$/.test(item.id) ||
+      typeof item.name !== "string" ||
+      item.name.length > 120 ||
+      !Array.isArray(item.tags) ||
+      item.tags.length > 20 ||
+      item.tags.some((tag) => typeof tag !== "string" || tag.length > 40) ||
+      typeof item.collection !== "string" ||
+      item.collection.length > 80
+    )
+      throw new Error("Invalid custom template");
+    return { ...item, document: validateDocument(item.document) };
+  });
+}
+export function saveCustomTemplate(
+  doc: AsciiDocument,
+  tags: string[],
+  collection: string,
+  storage: Pick<Storage, "getItem" | "setItem">,
+) {
+  const templates = readCustomTemplates(storage);
+  if (templates.length >= 100)
+    throw new Error(
+      "Template limit reached. Remove an unneeded template first.",
+    );
+  const entry: CustomTemplate = {
+    id: crypto.randomUUID(),
+    name: doc.name,
+    tags: [...new Set(tags.map((tag) => tag.trim()).filter(Boolean))],
+    collection: collection.trim(),
+    document: validateDocument(doc),
+  };
+  if (
+    entry.tags.length > 20 ||
+    entry.tags.some((tag) => tag.length > 40) ||
+    entry.collection.length > 80
+  )
+    throw new Error(
+      "Use up to 20 tags of 40 characters, and an 80-character collection name.",
+    );
+  const raw = JSON.stringify([...templates, entry]);
+  if (raw.length > 12_000_000)
+    throw new Error("Template library exceeds 12 MB; export a backup first.");
+  storage.setItem(CUSTOM_KEY, raw);
+  return entry;
+}
+export function deleteCustomTemplate(
+  id: string,
+  storage: Pick<Storage, "getItem" | "setItem">,
+) {
+  storage.setItem(
+    CUSTOM_KEY,
+    JSON.stringify(
+      readCustomTemplates(storage).filter((item) => item.id !== id),
+    ),
+  );
 }

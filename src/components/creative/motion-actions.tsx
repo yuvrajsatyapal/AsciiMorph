@@ -6,7 +6,10 @@ import {
   exportAnimation,
   type MotionFrame,
   type MotionFormat,
+  type MotionExportOptions,
 } from "@/creative/recording";
+import { ExportSettings } from "@/components/animation/export-settings";
+import { usePersistentState } from "@/workspace/preferences";
 import { downloadBlob } from "@/core/exports";
 export function MotionActions({
   build,
@@ -16,7 +19,14 @@ export function MotionActions({
   const router = useRouter(),
     [busy, setBusy] = useState(""),
     [error, setError] = useState(""),
-    [format, setFormat] = useState<MotionFormat>("gif"),
+    [format, setFormat] = usePersistentState<MotionFormat>(
+      "motion-format",
+      "gif",
+    ),
+    [options, setOptions] = usePersistentState<MotionExportOptions>(
+      "motion-export",
+      {},
+    ),
     abort = useRef<AbortController | null>(null);
   useEffect(() => () => abort.current?.abort(), []);
   async function run(edit: boolean) {
@@ -32,7 +42,13 @@ export function MotionActions({
         router.push("/animate");
       } else
         downloadBlob(
-          await exportAnimation(frames, format, controller.signal),
+          await exportAnimation(
+            frames,
+            format,
+            controller.signal,
+            undefined,
+            options,
+          ),
           `animation.${format}`,
         );
     } catch (e) {
@@ -58,6 +74,7 @@ export function MotionActions({
           ))}
         </select>
       </label>
+      <ExportSettings value={options} onChange={setOptions} disabled={!!busy} />
       <button disabled={!!busy} onClick={() => void run(false)}>
         Export animation
       </button>

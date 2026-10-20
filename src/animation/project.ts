@@ -18,6 +18,22 @@ export const MAX_FRAMES = 120,
   MAX_FRAME_CELLS = 1_000_000,
   MAX_ANIMATION_BYTES = 80_000_000;
 export function validateAnimation(value: unknown): AnimationProject {
+  return validateAnimationData(value);
+}
+/** Internal immutable edits may reuse documents from the already validated project. */
+export function validateAnimationChange(
+  previous: AnimationProject,
+  next: AnimationProject,
+): AnimationProject {
+  return validateAnimationData(
+    next,
+    new Set(previous.frames.map((frame) => frame.doc)),
+  );
+}
+function validateAnimationData(
+  value: unknown,
+  trustedDocuments?: ReadonlySet<AsciiDocument>,
+): AnimationProject {
   if (!value || typeof value !== "object")
     throw new Error("Invalid animation project.");
   const p = value as Record<string, unknown>;
@@ -79,7 +95,10 @@ export function validateAnimation(value: unknown): AnimationProject {
     name: p.name,
     frames: p.frames.map((item) => {
       const f = item as AnimationFrame;
-      return { doc: validateDocument(f.doc), duration: f.duration };
+      return {
+        doc: trustedDocuments?.has(f.doc) ? f.doc : validateDocument(f.doc),
+        duration: f.duration,
+      };
     }),
   };
 }

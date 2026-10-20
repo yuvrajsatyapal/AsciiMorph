@@ -1,3 +1,4 @@
+import { resolvedLayers } from "./layers";
 import { type AsciiDocument, type Cell } from "./document";
 export const MAX_BACKING_PIXELS = 32_000_000;
 export const MAX_BACKING_SIDE = 16_384;
@@ -16,7 +17,7 @@ export function displayList(
   doc: AsciiDocument,
   monochrome = false,
 ): CellDisplay[] {
-  return doc.layers
+  return resolvedLayers(doc)
     .filter((l) => l.visible && l.opacity > 0)
     .flatMap((l) =>
       l.cells.map((c, i) => ({
@@ -36,7 +37,7 @@ export function displayList(
 }
 export function documentText(doc: AsciiDocument) {
   const chars = Array<string>(doc.width * doc.height).fill(" ");
-  for (const l of doc.layers)
+  for (const l of resolvedLayers(doc))
     if (l.visible && l.opacity > 0)
       l.cells.forEach((c, i) => {
         if (c.alpha > 0) {
@@ -123,10 +124,26 @@ export function paint(
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Canvas rendering is unavailable.");
   const prev = options.previous;
+  const advanced =
+    doc.layers.some(
+      (l) =>
+        l.mask ||
+        l.adjustments?.length ||
+        (l.blendMode && l.blendMode !== "normal") ||
+        l.groupId,
+    ) ||
+    prev?.layers.some(
+      (l) =>
+        l.mask ||
+        l.adjustments?.length ||
+        (l.blendMode && l.blendMode !== "normal") ||
+        l.groupId,
+    );
   const mode = `${ratio}:${!!options.monochrome}`;
   const sameSize = canvas.width === pw && canvas.height === ph;
   let region = { x: 0, y: 0, width: w, height: h };
   if (
+    !advanced &&
     sameSize &&
     paintedMode.get(canvas) === mode &&
     prev &&
@@ -196,7 +213,7 @@ export function paint(
   const layerSurface = surface(layerSize.width, layerSize.height);
   const cc = cellSurface.ctx,
     lc = layerSurface.ctx;
-  for (const layer of doc.layers) {
+  for (const layer of resolvedLayers(doc)) {
     if (!layer.visible || layer.opacity === 0) continue;
     lc.setTransform(1, 0, 0, 1, 0, 0);
     lc.clearRect(0, 0, layerSize.width, layerSize.height);
@@ -243,6 +260,10 @@ export function paint(
           doc.cellHeight,
         );
       }
+    ctx.globalCompositeOperation =
+      layer.blendMode === "normal" || !layer.blendMode
+        ? "source-over"
+        : layer.blendMode;
     ctx.globalAlpha = layer.opacity;
     ctx.drawImage(
       layerSurface.canvas,

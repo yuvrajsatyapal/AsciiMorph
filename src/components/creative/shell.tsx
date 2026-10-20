@@ -21,15 +21,15 @@ export function CreativeShell({
   return (
     <main className="creative-page">
       <header className="creative-header">
-        <Link className="wordmark" href="/">
+        <Link prefetch={false} className="wordmark" href="/">
           {"{ }"} AsciiMorph
         </Link>
         <nav aria-label="Creative tools">
-          <Link href="/create">All tools</Link>
-          <Link href="/studio">Studio</Link>
-          <Link href="/convert">Image</Link>
+          <Link prefetch={false} href="/create">All tools</Link>
+          <Link prefetch={false} href="/studio">Studio</Link>
+          <Link prefetch={false} href="/convert">Image</Link>
           {CREATIVE_LINKS.map(([url, label]) => (
-            <Link key={url} href={url}>
+            <Link prefetch={false} key={url} href={url}>
               {label}
             </Link>
           ))}

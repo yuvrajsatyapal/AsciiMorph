@@ -20,6 +20,7 @@ interface Props {
   selection: Rect | null;
   caret: Point;
   zoom: number;
+  onZoom?: (zoom: number) => void;
   grid: boolean;
   monochrome: boolean;
   viewportRef: RefObject<HTMLDivElement | null>;
@@ -35,6 +36,7 @@ export function EditorCanvas({
   selection,
   caret,
   zoom,
+  onZoom,
   grid,
   monochrome,
   viewportRef,
@@ -48,6 +50,72 @@ export function EditorCanvas({
   const canvas = useRef<HTMLCanvasElement>(null),
     overlay = useRef<HTMLCanvasElement>(null),
     previous = useRef<AsciiDocument | null>(null);
+  const touches = useRef(new Map<number, { x: number; y: number }>());
+  const pinch = useRef<{
+    distance: number;
+    zoom: number;
+    x: number;
+    y: number;
+    left: number;
+    top: number;
+  } | null>(null);
+  const multiTouch = useRef(false);
+  const gestureDown = (ev: ReactPointerEvent<HTMLDivElement>) => {
+    if (ev.pointerType !== "touch") {
+      onDown(ev);
+      return;
+    }
+    touches.current.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+    ev.currentTarget.setPointerCapture(ev.pointerId);
+    if (touches.current.size === 2) {
+      onCancel();
+      multiTouch.current = true;
+      const [a, b] = [...touches.current.values()],
+        v = viewportRef.current;
+      pinch.current = {
+        distance: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)),
+        zoom,
+        x: (a.x + b.x) / 2,
+        y: (a.y + b.y) / 2,
+        left: v?.scrollLeft ?? 0,
+        top: v?.scrollTop ?? 0,
+      };
+    } else if (!multiTouch.current) onDown(ev);
+  };
+  const gestureMove = (ev: ReactPointerEvent<HTMLDivElement>) => {
+    if (touches.current.has(ev.pointerId))
+      touches.current.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+    if (pinch.current && touches.current.size >= 2) {
+      ev.preventDefault();
+      const [a, b] = [...touches.current.values()],
+        p = pinch.current,
+        v = viewportRef.current;
+      onZoom?.((p.zoom * Math.hypot(a.x - b.x, a.y - b.y)) / p.distance);
+      if (v) {
+        v.scrollLeft = p.left + p.x - (a.x + b.x) / 2;
+        v.scrollTop = p.top + p.y - (a.y + b.y) / 2;
+      }
+      return;
+    }
+    if (!multiTouch.current) onMove(ev);
+  };
+  const gestureUp = (ev: ReactPointerEvent<HTMLDivElement>) => {
+    touches.current.delete(ev.pointerId);
+    if (multiTouch.current) {
+      if (!touches.current.size) {
+        multiTouch.current = false;
+        pinch.current = null;
+      }
+      return;
+    }
+    onUp(ev);
+  };
+  const gestureCancel = () => {
+    touches.current.clear();
+    pinch.current = null;
+    multiTouch.current = false;
+    onCancel();
+  };
   useEffect(() => {
     let active = true;
     async function render() {
@@ -162,17 +230,22 @@ export function EditorCanvas({
             width: doc.width * doc.cellWidth * zoom,
             height: doc.height * doc.cellHeight * zoom,
           }}
-          onPointerDown={onDown}
-          onPointerMove={onMove}
-          onPointerUp={onUp}
-          onPointerCancel={onCancel}
-          onLostPointerCapture={onCancel}
+          onPointerDown={gestureDown}
+          onPointerMove={gestureMove}
+          onPointerUp={gestureUp}
+          onPointerCancel={gestureCancel}
+          onLostPointerCapture={(ev) => {
+            if (ev.pointerType !== "touch") onCancel();
+            else if (touches.current.has(ev.pointerId)) gestureCancel();
+          }}
           onKeyDown={onKey}
         >
           <canvas data-testid="ascii-canvas" ref={canvas} aria-hidden="true" />
           <canvas ref={overlay} className="canvas-overlay" aria-hidden="true" />
         </div>
-        <p className="canvas-hint">Made of characters. Made by you.</p>
+        <p className="canvas-hint">
+          Two fingers to zoom and pan. One finger uses the selected tool.
+        </p>
       </div>
       <pre
         className="sr-only"

@@ -8,11 +8,42 @@ import {
   deleteLayer,
   moveLayer,
   layerEffect,
+  mergeLayerDown,
 } from "./layers";
 import { draw } from "./grid";
 import { capture } from "./selection";
 import { createWorkspace } from "@/editor/store";
 describe("layer editing", () => {
+  it.each(["multiply", "screen", "overlay"] as const)(
+    "rejects merging either %s input before changing the artwork",
+    (blendMode) => {
+      let doc = addLayer(addLayer(createDocument(1, 1)));
+      doc.layers[0].cells[0] = {
+        char: "X",
+        fg: "#203040",
+        bg: "#203040",
+        alpha: 1,
+      };
+      doc.layers[2].cells[0] = {
+        char: "X",
+        fg: "#ffffff",
+        bg: "#ffffff",
+        alpha: 1,
+      };
+      for (const index of [1, 2]) {
+        doc = updateLayer(doc, doc.layers[index].id, { blendMode });
+        const before = structuredClone(doc);
+        expect(() => mergeLayerDown(doc, doc.layers[2].id)).toThrow(
+          /normal.*blend/i,
+        );
+        expect(doc).toEqual(before);
+        doc = updateLayer(doc, doc.layers[index].id, { blendMode: "normal" });
+      }
+      expect(mergeLayerDown(doc, doc.layers[2].id).layers[1].cells[0].bg).toBe(
+        "#ffffff",
+      );
+    },
+  );
   it("draws and copies the active layer without changing the base", () => {
     const base = createDocument(2, 1);
     const next = addLayer(base);

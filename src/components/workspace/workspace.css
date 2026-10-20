@@ -1,0 +1,309 @@
+.workspace-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+  min-height: 48px;
+  position: relative;
+  z-index: 20;
+}
+.workspace-brand {
+  font-family: "IBM Plex Mono", monospace;
+  font-weight: 600;
+  color: var(--accent);
+  padding: 4px;
+}
+.workspace-bar nav {
+  display: flex;
+  gap: 3px;
+  overflow: auto;
+  flex: 1;
+  scrollbar-width: thin;
+  min-width: 0;
+}
+.workspace-bar a {
+  white-space: nowrap;
+  padding: 6px 10px;
+  border-radius: 4px;
+}
+.workspace-bar a[aria-current="page"] {
+  background: var(--raised);
+  color: var(--accent);
+}
+.workspace-bar button {
+  white-space: nowrap;
+  padding: 5px 9px;
+  flex-shrink: 0;
+}
+.workspace-intro {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  background: #e9b86e12;
+  font-size: 12px;
+}
+.workspace-intro button {
+  padding: 2px 8px;
+}
+.workspace-error {
+  border: 1px solid #ef8f81;
+  background: #352020;
+  color: #ffd8d1;
+  padding: 12px 16px;
+  overflow-wrap: anywhere;
+}
+.workspace-error button {
+  margin-left: 16px;
+}
+.workspace-search {
+  width: 100%;
+  background: var(--background);
+  border: 1px solid var(--border);
+  padding: 12px;
+  color: var(--text);
+  border-radius: 6px;
+}
+.workspace-command-results {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 50dvh;
+  overflow: auto;
+  padding: 12px 0;
+}
+.workspace-command-results button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  padding: 10px;
+}
+.workspace-command-results small {
+  color: var(--muted);
+}
+.workspace-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 20px;
+}
+.project-library {
+  max-width: 1440px;
+  margin: auto;
+  padding: 32px clamp(16px, 4vw, 56px) 80px;
+}
+.library-heading {
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+.library-heading h1 {
+  font-size: clamp(26px, 4vw, 38px);
+  margin: 8px 0;
+}
+.library-heading p,
+.library-card small,
+.library-card p {
+  color: var(--muted);
+}
+.storage-dashboard {
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  margin: 20px 0;
+}
+.storage-dashboard summary {
+  font-weight: 500;
+  cursor: pointer;
+}
+.storage-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+  padding: 20px 0;
+}
+.storage-grid h2 {
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+.storage-grid p {
+  margin-bottom: 10px;
+}
+.storage-grid button {
+  padding: 8px 12px;
+}
+.storage-grid label {
+  display: flex;
+  gap: 8px;
+  flex-direction: column;
+}
+.library-filters {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 24px 0;
+}
+.library-filters > input {
+  flex: 1;
+  min-width: 180px;
+}
+.library-filters input:not([type="checkbox"]),
+.library-filters select,
+.library-edit input {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 9px;
+}
+.library-filters label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.library-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(290px, 100%), 1fr));
+  gap: 18px;
+}
+.library-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--panel);
+  min-width: 0;
+}
+.library-preview {
+  width: 100%;
+  height: 180px;
+  background: var(--background);
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.library-preview pre {
+  font:
+    7px/9px "IBM Plex Mono",
+    monospace;
+  color: var(--accent);
+  white-space: pre;
+  pointer-events: none;
+}
+.library-card-content {
+  padding: 16px;
+}
+.library-card h2 {
+  font-size: 17px;
+  overflow-wrap: anywhere;
+}
+.library-card p {
+  margin: 8px 0;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+.library-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.library-card-actions button {
+  padding: 5px 9px;
+  font-size: 12px;
+}
+.library-card-actions [aria-pressed="true"] {
+  color: var(--accent);
+}
+.library-notice {
+  padding: 12px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+}
+.library-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.library-edit label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.library-empty {
+  padding: 40px 0;
+  color: var(--muted);
+}
+body:has(.workspace-bar) .editor {
+  height: calc(100dvh - 48px);
+}
+body:has(.workspace-intro) .editor {
+  height: calc(100dvh - 87px);
+}
+@media (max-width: 680px) {
+  .workspace-bar {
+    padding: 6px;
+    gap: 4px;
+  }
+  .workspace-bar a {
+    padding: 6px 8px;
+  }
+  .workspace-brand {
+    display: none;
+  }
+  .workspace-bar button {
+    font-size: 12px;
+  }
+  .workspace-intro {
+    justify-content: space-between;
+    gap: 6px;
+  }
+  .library-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .storage-grid {
+    grid-template-columns: 1fr;
+  }
+  .project-library {
+    padding-top: 24px;
+  }
+  .library-preview {
+    height: 200px;
+  }
+}
+@media (max-width: 680px), (pointer: coarse) {
+  .workspace-bar a,
+  .workspace-bar button,
+  .workspace-intro button,
+  .library-card-actions button,
+  .project-library button,
+  .dialog-content button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .workspace-bar a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  body:has(.workspace-bar) .editor {
+    height: calc(100dvh - 57px);
+  }
+  body:has(.workspace-intro) .editor {
+    height: calc(100dvh - 113px);
+  }
+}
+.workspace-bar nav a { flex: 0 0 auto; }
+@media (max-width: 680px) { .workspace-bar .workspace-brand { display:none; } }
