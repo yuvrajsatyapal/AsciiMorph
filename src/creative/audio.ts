@@ -8,6 +8,7 @@ export interface AudioFeatures {
 export function audioFeatures(
   time: Uint8Array,
   frequency: Uint8Array,
+  range?: { sampleRate: number; minHz: number; maxHz: number },
 ): AudioFeatures {
   if (
     !time.length ||
@@ -16,21 +17,50 @@ export function audioFeatures(
     frequency.length > 32768
   )
     throw new Error("Invalid audio sample");
+  let first = 0,
+    last = frequency.length;
+  if (range) {
+    if (
+      ![range.sampleRate, range.minHz, range.maxHz].every(Number.isFinite) ||
+      range.sampleRate <= 0 ||
+      range.minHz < 0 ||
+      range.maxHz <= range.minHz ||
+      range.maxHz > range.sampleRate / 2
+    )
+      throw new Error("Invalid frequency range");
+    first = Math.min(
+      frequency.length - 1,
+      Math.floor((range.minHz / (range.sampleRate / 2)) * frequency.length),
+    );
+    last = Math.max(
+      first + 1,
+      Math.ceil((range.maxHz / (range.sampleRate / 2)) * frequency.length),
+    );
+  }
   let sum = 0;
   const wave = Array.from(time, (v) => (v - 128) / 128);
   for (const v of wave) sum += v * v;
   const bands = Array.from({ length: 32 }, (_, band) => {
-    const start = Math.floor((band * frequency.length) / 32),
+    const start = first + Math.floor((band * (last - first)) / 32),
       end = Math.max(
         start + 1,
-        Math.floor(((band + 1) * frequency.length) / 32),
+        first + Math.floor(((band + 1) * (last - first)) / 32),
       );
     let sum = 0;
     for (let i = start; i < end; i++)
       sum += (frequency[Math.min(i, frequency.length - 1)] ?? 0) / 255;
     return sum / (end - start);
   });
-  return { volume: Math.min(1, Math.sqrt(sum / time.length)), bands, wave };
+  return {
+    volume: range
+      ? Math.min(
+          1,
+          Math.sqrt(bands.reduce((sum, v) => sum + v * v, 0) / bands.length),
+        )
+      : Math.min(1, Math.sqrt(sum / time.length)),
+    bands,
+    wave,
+  };
 }
 export function audioArtwork(
   features: AudioFeatures,
@@ -96,8 +126,61 @@ export function audioArtwork(
     }
   return doc;
 }
+/** Decoded PCM avoids silent MediaElementAudioSource output in WebKit. */
+export class AudioFilePlayback {
+  private source: AudioBufferSourceNode | null = null;
+  private offset = 0;
+  private startedAt = 0;
+  constructor(
+    private context: AudioContext,
+    readonly buffer: AudioBuffer,
+    private output: AudioNode,
+    private onEnded: () => void,
+  ) {}
+  get position() {
+    return Math.min(
+      this.buffer.duration,
+      this.offset +
+        (this.source ? this.context.currentTime - this.startedAt : 0),
+    );
+  }
+  play() {
+    if (this.source) return;
+    if (this.offset >= this.buffer.duration) this.offset = 0;
+    const source = this.context.createBufferSource();
+    source.buffer = this.buffer;
+    source.connect(this.output);
+    source.onended = () => {
+      if (this.source !== source) return;
+      source.disconnect();
+      this.source = null;
+      this.offset = this.buffer.duration;
+      this.onEnded();
+    };
+    this.startedAt = this.context.currentTime;
+    this.source = source;
+    source.start(0, this.offset);
+  }
+  pause() {
+    const source = this.source;
+    if (!source) return;
+    this.offset = this.position;
+    this.source = null;
+    source.onended = null;
+    source.stop();
+    source.disconnect();
+  }
+  seek(position: number) {
+    if (!Number.isFinite(position)) return;
+    const playing = !!this.source;
+    this.pause();
+    this.offset = Math.max(0, Math.min(position, this.buffer.duration));
+    if (playing) this.play();
+  }
+}
 export interface AudioResources {
   context: AudioContext;
+  playback?: AudioFilePlayback;
   element?: HTMLAudioElement;
   stream?: MediaStream;
   url?: string;
@@ -107,6 +190,7 @@ export function releaseAudio(
   resources: AudioResources,
   revoke: (url: string) => void = URL.revokeObjectURL,
 ) {
+  resources.playback?.pause();
   resources.element?.pause();
   if (resources.element) {
     resources.element.removeAttribute("src");
@@ -120,4 +204,13 @@ export function releaseAudio(
   }
   void resources.context.close().catch(() => {});
   if (resources.url) revoke(resources.url);
+}
+
+/** Normalized positive energy rise, used to accent beats without inventing tempo. */
+export function beatResponse(
+  energy: number,
+  baseline: number,
+  sensitivity: number,
+) {
+  return Math.max(0, Math.min(1, (energy - baseline * 1.15) * sensitivity * 3));
 }

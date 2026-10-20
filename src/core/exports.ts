@@ -1,3 +1,4 @@
+import { resolvedLayers } from "./layers";
 import { serializeDocument, type AsciiDocument } from "./document";
 import { ART_FONT, documentText, ensureArtworkFont, paint } from "./render";
 export type ExportFormat = "txt" | "png" | "svg" | "webp" | "html" | "json";
@@ -42,9 +43,11 @@ async function svgDocument(doc: AsciiDocument, mono: boolean) {
     parts.push(
       `<rect width="${w}" height="${h}" fill="${mono ? "#000000" : escape(doc.background)}"/>`,
     );
-  for (const l of doc.layers) {
+  for (const l of resolvedLayers(doc)) {
     if (!l.visible || l.opacity === 0) continue;
-    parts.push(`<g opacity="${l.opacity}">`);
+    parts.push(
+      `<g opacity="${l.opacity}" style="mix-blend-mode:${l.blendMode ?? "normal"}">`,
+    );
     l.cells.forEach((c, i) => {
       if (c.alpha === 0 || (c.char === " " && c.bg === null)) return;
       const x = (i % doc.width) * doc.cellWidth,

@@ -1,8 +1,13 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { DEFAULT_SETTINGS, type ConversionSettings } from "./settings";
+import { takeConversionRevision } from "./revision";
+import {
+  DEFAULT_SETTINGS,
+  validateSettings,
+  type ConversionSettings,
+} from "./settings";
 import { decodeImage, DEFAULT_LIMITS, type ImageLimits } from "./image";
-import type { Pixels } from "./engine";
+import { decodePixels, type Pixels } from "./engine";
 import { calibrate } from "./presets";
 import { runConversion } from "./runner";
 import type { AsciiDocument } from "@/core/document";
@@ -39,6 +44,43 @@ export function useConverter() {
       : null;
   useEffect(() => {
     mounted.current = true;
+    const revision = takeConversionRevision();
+    if (revision?.conversion) {
+      const { source: retained, settings: prior } = revision.conversion;
+      const pixels = {
+        width: retained.width,
+        height: retained.height,
+        data: decodePixels(retained.data),
+      };
+      const canvas = document.createElement("canvas");
+      canvas.width = pixels.width;
+      canvas.height = pixels.height;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        const image = ctx.createImageData(pixels.width, pixels.height);
+        image.data.set(pixels.data);
+        ctx.putImageData(image, 0, 0);
+        setSource({
+          pixels,
+          url: canvas.toDataURL("image/png"),
+          name: revision.name.slice(0, 112) + " revised",
+        });
+        setSettings(prior);
+      }
+    } else {
+      try {
+        const saved = localStorage.getItem(
+          "asciimorph-workspace:converter.settings",
+        );
+        if (saved) {
+          const settings = JSON.parse(saved);
+          validateSettings(settings);
+          setSettings(settings);
+        }
+      } catch {
+        /* Invalid saved preferences use defaults. */
+      }
+    }
     return () => {
       mounted.current = false;
       controller.current?.abort();
@@ -107,7 +149,9 @@ export function useConverter() {
             settings,
             ac.signal,
             coverage,
-            (value) => { if (!ac.signal.aborted) setEngine(value); },
+            (value) => {
+              if (!ac.signal.aborted) setEngine(value);
+            },
           );
           if (!ac.signal.aborted) {
             doc.name = source.name;
@@ -129,7 +173,20 @@ export function useConverter() {
   }, [source, settings, retry, cancelled]);
   const update = (patch: Partial<ConversionSettings>) => {
     setCancelled(false);
-    setSettings((s) => ({ ...s, ...patch }));
+    setSettings((s) => {
+      const next = { ...s, ...patch };
+      try {
+        localStorage.setItem(
+          "asciimorph-workspace:converter.settings",
+          JSON.stringify(next),
+        );
+      } catch {
+        setError(
+          "Settings could not be remembered. Your image can still be exported.",
+        );
+      }
+      return next;
+    });
   };
   const cancel = () => {
     uploadId.current++;
@@ -159,7 +216,12 @@ export function useConverter() {
     cancelled,
     reset: () => {
       setCancelled(false);
-      setSettings({ ...DEFAULT_SETTINGS });
+      update({
+        ...DEFAULT_SETTINGS,
+        crop: undefined,
+        rotation: 0,
+        shapeAware: false,
+      });
     },
   };
 }

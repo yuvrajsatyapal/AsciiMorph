@@ -3,7 +3,9 @@ import { useEffect, useRef, useState } from "react";
 import { Artwork, ArtworkActions } from "./artwork";
 import {
   audioArtwork,
+  AudioFilePlayback,
   audioFeatures,
+  beatResponse,
   releaseAudio,
   type AudioMode,
   type AudioResources,
@@ -11,6 +13,7 @@ import {
 import { recordStream, recordingMime } from "@/creative/recording";
 import { downloadBlob } from "@/core/exports";
 import { paint } from "@/core/render";
+import { usePersistentState } from "@/workspace/preferences";
 import type { AsciiDocument } from "@/core/document";
 interface Session extends AudioResources {
   analyser: AnalyserNode;
@@ -27,11 +30,11 @@ export function AudioTool() {
       audioArtwork(silence, "bars", "#e9b86e", 1),
     ),
     [snapshot, setSnapshot] = useState<AsciiDocument | null>(null),
-    [mode, setMode] = useState<AudioMode>("bars"),
-    [color, setColor] = useState("#e9b86e"),
-    [gain, setGain] = useState(1),
-    [smoothing, setSmoothing] = useState(0.8),
-    [sensitivity, setSensitivity] = useState(1),
+    [mode, setMode] = usePersistentState<AudioMode>("audio.mode", "bars"),
+    [color, setColor] = usePersistentState("audio.color", "#e9b86e"),
+    [gain, setGain] = usePersistentState("audio.gain", 1),
+    [smoothing, setSmoothing] = usePersistentState("audio.smoothing", 0.8),
+    [sensitivity, setSensitivity] = usePersistentState("audio.sensitivity", 1),
     [running, setRunning] = useState(false),
     [source, setSource] = useState("No audio source"),
     [ready, setReady] = useState(false),
@@ -43,6 +46,16 @@ export function AudioTool() {
     [duration, setDuration] = useState(5),
     [reduce, setReduce] = useState(false),
     [motion, setMotion] = useState(false);
+  const [minHz, setMinHz] = usePersistentState("audio.minHz", 20),
+    [maxHz, setMaxHz] = usePersistentState("audio.maxHz", 8000),
+    [beat, setBeat] = usePersistentState("audio.beat", false),
+    [playbackTime, setPlaybackTime] = useState(0),
+    [audioDuration, setAudioDuration] = useState(0),
+    [cues, setCues] = usePersistentState<{ time: number; mode: AudioMode }[]>(
+      "audio.cues",
+      [],
+    );
+  const energy = useRef(0);
   const session = useRef<Session | null>(null),
     pending = useRef<Session | null>(null),
     generation = useRef(0),
@@ -62,6 +75,8 @@ export function AudioTool() {
     setReady(false);
     setBusy(false);
     setSource("No audio source");
+    setAudioDuration(0);
+    setPlaybackTime(0);
   }
   useEffect(() => {
     mounted.current = true;
@@ -93,7 +108,7 @@ export function AudioTool() {
     if (reduce && !motion) {
       capture.current?.abort();
       setRunning(false);
-      session.current?.element?.pause();
+      session.current?.playback?.pause();
       void session.current?.context.suspend();
     }
   }, [reduce, motion]);
@@ -110,11 +125,26 @@ export function AudioTool() {
           frequency = new Uint8Array(s.analyser.frequencyBinCount);
         s.analyser.getByteTimeDomainData(time);
         s.analyser.getByteFrequencyData(frequency);
+        const position = s.playback?.position ?? s.context.currentTime;
+        setPlaybackTime(position);
+        const features = audioFeatures(time, frequency, {
+          sampleRate: s.context.sampleRate,
+          minHz: Math.min(minHz, s.context.sampleRate / 2 - 1),
+          maxHz: Math.min(Math.max(minHz + 1, maxHz), s.context.sampleRate / 2),
+        });
+        const level =
+          features.bands.reduce((sum, v) => sum + v, 0) / features.bands.length;
+        const pulse = beatResponse(level, energy.current, 1);
+        energy.current = energy.current * 0.85 + level * 0.15;
+        const cue = [...cues]
+          .sort((a, b) => a.time - b.time)
+          .filter((c) => c.time <= position)
+          .at(-1);
         const next = audioArtwork(
-          audioFeatures(time, frequency),
-          mode,
+          features,
+          cue?.mode ?? mode,
           color,
-          sensitivity,
+          Math.min(4, sensitivity * (beat ? 1 + pulse : 1)),
         );
         setDoc(next);
         current.current = next;
@@ -125,7 +155,7 @@ export function AudioTool() {
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [running, mode, color, sensitivity]);
+  }, [running, mode, color, sensitivity, minHz, maxHz, beat, cues]);
   async function connect(file?: File) {
     reset();
     const id = generation.current;
@@ -160,51 +190,30 @@ export function AudioTool() {
       };
       pending.current = resource;
       if (file) {
-        const element = new Audio(),
-          url = URL.createObjectURL(file);
-        resource.element = element;
-        resource.url = url;
-        element.preload = "metadata";
-        element.src = url;
-        await new Promise<void>((resolve, reject) => {
-          const timer = setTimeout(() => {
-            element.onloadedmetadata = null;
-            element.onerror = null;
-            reject(new Error("Audio metadata timed out."));
-          }, 10000);
-          element.onloadedmetadata = () => {
-            clearTimeout(timer);
-            element.onloadedmetadata = null;
-            element.onerror = null;
-            if (
-              !Number.isFinite(element.duration) ||
-              element.duration > 600 ||
-              element.duration <= 0
-            )
-              reject(new Error("Choose audio up to 10 minutes long."));
-            else resolve();
-          };
-          element.onerror = () => {
-            clearTimeout(timer);
-            element.onloadedmetadata = null;
-            element.onerror = null;
-            reject(new Error("This audio file could not be decoded."));
-          };
-        });
+        const buffer = await context.decodeAudioData(await file.arrayBuffer());
+        if (
+          !Number.isFinite(buffer.duration) ||
+          buffer.duration > 600 ||
+          buffer.duration <= 0
+        )
+          throw new Error("Choose audio up to 10 minutes long.");
         if (id !== generation.current || !mounted.current) {
           releaseAudio(resource);
           return;
         }
-        const node = context.createMediaElementSource(element);
-        node.connect(gainNode);
         analyser.connect(context.destination);
-        resource.nodes.push(node);
-        element.onended = () => {
-          if (id === generation.current) {
-            setRunning(false);
-            void context.suspend();
-          }
-        };
+        resource.playback = new AudioFilePlayback(
+          context,
+          buffer,
+          gainNode,
+          () => {
+            if (id === generation.current) {
+              setPlaybackTime(buffer.duration);
+              setRunning(false);
+              void context.suspend();
+            }
+          },
+        );
       } else {
         const stream = await navigator.mediaDevices.getUserMedia({
           audio: true,
@@ -227,6 +236,9 @@ export function AudioTool() {
       if (pending.current === resource) pending.current = null;
       setReady(true);
       setSource(file ? file.name : "Microphone enabled");
+      setAudioDuration(resource.playback?.buffer.duration ?? 0);
+      setPlaybackTime(0);
+      energy.current = 0;
     } catch (e) {
       if (resource) releaseAudio(resource);
       if (pending.current === resource) pending.current = null;
@@ -242,12 +254,12 @@ export function AudioTool() {
     setError("");
     try {
       if (running) {
-        s.element?.pause();
+        s.playback?.pause();
         await s.context.suspend();
         setRunning(false);
       } else {
         await s.context.resume();
-        await s.element?.play();
+        s.playback?.play();
         setRunning(true);
       }
     } catch (e) {
@@ -336,6 +348,121 @@ export function AudioTool() {
           {busy ? "Cancel loading" : "Stop and release source"}
         </button>
         <h2>Response</h2>
+        <label>
+          Visual preset
+          <select
+            defaultValue=""
+            onChange={(e) => {
+              const p = e.target.value;
+              if (p === "bass") {
+                setMode("rings");
+                setMinHz(20);
+                setMaxHz(250);
+                setBeat(true);
+                setColor("#e9b86e");
+              } else if (p === "vocal") {
+                setMode("wave");
+                setMinHz(250);
+                setMaxHz(4000);
+                setBeat(false);
+                setColor("#9fcba7");
+              } else if (p === "spectrum") {
+                setMode("bars");
+                setMinHz(20);
+                setMaxHz(16000);
+                setBeat(false);
+                setColor("#8bb9de");
+              }
+            }}
+          >
+            <option value="">Choose preset</option>
+            <option value="bass">Bass pulse</option>
+            <option value="vocal">Vocal ribbon</option>
+            <option value="spectrum">Full spectrum</option>
+          </select>
+        </label>
+        <label>
+          Minimum frequency (Hz)
+          <input
+            type="number"
+            min={0}
+            max={19000}
+            value={minHz}
+            onChange={(e) => {
+              const v = Math.max(0, Math.min(19000, +e.target.value));
+              setMinHz(v);
+              setMaxHz(Math.max(v + 1, maxHz));
+            }}
+          />
+        </label>
+        <label>
+          Maximum frequency (Hz)
+          <input
+            type="number"
+            min={minHz + 1}
+            max={20000}
+            value={maxHz}
+            onChange={(e) =>
+              setMaxHz(Math.max(minHz + 1, Math.min(20000, +e.target.value)))
+            }
+          />
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={beat}
+            onChange={(e) => setBeat(e.target.checked)}
+          />
+          Accent energy transients (beat response)
+        </label>
+        <label>
+          Audio timeline · {playbackTime.toFixed(1)}s
+          <input
+            aria-label="Audio timeline"
+            type="range"
+            min={0}
+            max={audioDuration || 1}
+            step={0.1}
+            value={Math.min(playbackTime, audioDuration || 1)}
+            disabled={!audioDuration || recording}
+            onChange={(e) => {
+              const value = +e.target.value;
+              if (session.current?.playback) {
+                session.current.playback.seek(value);
+                setPlaybackTime(value);
+              }
+            }}
+          />
+        </label>
+        <button
+          disabled={!ready || cues.length >= 100}
+          onClick={() =>
+            setCues((previous) => [...previous, { time: playbackTime, mode }])
+          }
+        >
+          Add current visualization cue
+        </button>
+        <ol aria-label="Effect timeline">
+          {cues.map((cue, i) => (
+            <li key={i}>
+              {cue.time.toFixed(1)}s · {cue.mode}{" "}
+              <button
+                aria-label={`Remove cue ${i + 1}`}
+                onClick={() =>
+                  setCues((previous) =>
+                    previous.filter((_, index) => index !== i),
+                  )
+                }
+              >
+                Remove
+              </button>
+            </li>
+          ))}
+        </ol>
+        <p>
+          Timeline cues switch visualization at the source timestamp. Frequency
+          controls select FFT bins; beat response accents rising energy.
+        </p>
         <label>
           Visualization
           <select

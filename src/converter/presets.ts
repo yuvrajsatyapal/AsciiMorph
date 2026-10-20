@@ -41,6 +41,7 @@ export function characterSet(id: string, custom: string) {
 export interface Calibration {
   chars: string[];
   coverage: number[];
+  shapes?: number[][];
 }
 // Measure the actual browser font (including Unicode fallback) once per preset.
 const cache = new Map<string, Calibration>();
@@ -69,13 +70,19 @@ export async function calibrate(
       const pixels = ctx.getImageData(0, 0, 18, 36).data;
       let area = 0;
       for (let i = 3; i < pixels.length; i += 4) area += pixels[i] / 255;
-      return { char, area };
+      const shape = Array(9).fill(0) as number[];
+      for (let y = 0; y < 36; y++)
+        for (let x = 0; x < 18; x++)
+          shape[Math.floor(y / 12) * 3 + Math.floor(x / 6)] +=
+            pixels[(y * 18 + x) * 4 + 3] / 255 / 72;
+      return { char, area, shape };
     })
     .sort((a, b) => a.area - b.area);
   const max = measured.at(-1)!.area || 1;
   const result = {
     chars: measured.map((v) => v.char),
     coverage: measured.map((v) => v.area / max),
+    shapes: measured.map((v) => v.shape),
   };
   cache.set(key, result);
   return result;

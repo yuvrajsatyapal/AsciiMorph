@@ -1,0 +1,162 @@
+[
+  {
+    "url": "https://www.ascii-magic.com/app/_next/static/chunks/1an2_4t60qzr1.js",
+    "path": "/tmp/asciimorph-reference-2026-10-20/1an2_4t60qzr1.js",
+    "requestedAt": "2026-10-20",
+    "maxBytes": 4000000,
+    "timeoutSeconds": 20,
+    "downloaded": false,
+    "error": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
+    "elapsedSeconds": 0.031
+  },
+  {
+    "url": "https://www.ascii-magic.com/app/_next/static/chunks/1citd-91emiv-.js",
+    "path": "/tmp/asciimorph-reference-2026-10-20/1citd-91emiv-.js",
+    "requestedAt": "2026-10-20",
+    "maxBytes": 4000000,
+    "timeoutSeconds": 20,
+    "downloaded": false,
+    "error": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
+    "elapsedSeconds": 0.031
+  },
+  {
+    "url": "https://www.ascii-magic.com/app/_next/static/chunks/1e9ankkwjbloq.js",
+    "path": "/tmp/asciimorph-reference-2026-10-20/1e9ankkwjbloq.js",
+    "requestedAt": "2026-10-20",
+    "maxBytes": 4000000,
+    "timeoutSeconds": 20,
+    "downloaded": false,
+    "error": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
+    "elapsedSeconds": 0.031
+  },
+  {
+    "url": "https://www.ascii-magic.com/app/_next/static/chunks/1l91ih9mmvrji.js",
+    "path": "/tmp/asciimorph-reference-2026-10-20/1l91ih9mmvrji.js",
+    "requestedAt": "2026-10-20",
+    "maxBytes": 4000000,
+    "timeoutSeconds": 20,
+    "downloaded": false,
+    "error": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
+    "elapsedSeconds": 0.031
+  },
+  {
+    "url": "https://www.ascii-magic.com/app/_next/static/chunks/1w_w6bk2u9ijc.js",
+    "path": "/tmp/asciimorph-reference-2026-10-20/1w_w6bk2u9ijc.js",
+    "requestedAt": "2026-10-20",
+    "maxBytes": 4000000,
+    "timeoutSeconds": 20,
+    "downloaded": false,
+    "error": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
+    "elapsedSeconds": 0.0
+  },
+  {
+    "url": "https://www.ascii-magic.com/app/_next/static/chunks/25m7tjigtxes6.js",
+    "path": "/tmp/asciimorph-reference-2026-10-20/25m7tjigtxes6.js",
+    "requestedAt": "2026-10-20",
+    "maxBytes": 4000000,
+    "timeoutSeconds": 20,
+    "downloaded": false,
+    "error": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
+    "elapsedSeconds": 0.0
+  },
+  {
+    "url": "https://www.ascii-magic.com/app/_next/static/chunks/2bpjqlb3d7pan.js",
+    "path": "/tmp/asciimorph-reference-2026-10-20/2bpjqlb3d7pan.js",
+    "requestedAt": "2026-10-20",
+    "maxBytes": 4000000,
+    "timeoutSeconds": 20,
+    "downloaded": false,
+    "error": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
+    "elapsedSeconds": 0.0
+  },
+  {
+    "url": "https://www.ascii-magic.com/app/_next/static/chunks/2d-1l54v26p8c.js",
+    "path": "/tmp/asciimorph-reference-2026-10-20/2d-1l54v26p8c.js",
+    "requestedAt": "2026-10-20",
+    "maxBytes": 4000000,
+    "timeoutSeconds": 20,
+    "downloaded": false,
+    "error": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
+    "elapsedSeconds": 0.0
+  },
+  {
+    "url": "https://www.ascii-magic.com/app/_next/static/chunks/2lr2okzrhyxxk.js",
+    "path": "/tmp/asciimorph-reference-2026-10-20/2lr2okzrhyxxk.js",
+    "requestedAt": "2026-10-20",
+    "maxBytes": 4000000,
+    "timeoutSeconds": 20,
+    "downloaded": false,
+    "error": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
+    "elapsedSeconds": 0.0
+  },
+  {
+    "url": "https://www.ascii-magic.com/app/_next/static/chunks/2p8lqnc5r1wt7.js",
+    "path": "/tmp/asciimorph-reference-2026-10-20/2p8lqnc5r1wt7.js",
+    "requestedAt": "2026-10-20",
+    "maxBytes": 4000000,
+    "timeoutSeconds": 20,
+    "downloaded": false,
+    "error": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
+    "elapsedSeconds": 0.0
+  },
+  {
+    "url": "https://www.ascii-magic.com/app/_next/static/chunks/35duo3c5unmuj.js",
+    "path": "/tmp/asciimorph-reference-2026-10-20/35duo3c5unmuj.js",
+    "requestedAt": "2026-10-20",
+    "maxBytes": 4000000,
+    "timeoutSeconds": 20,
+    "downloaded": false,
+    "error": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
+    "elapsedSeconds": 0.0
+  },
+  {
+    "url": "https://www.ascii-magic.com/app/_next/static/chunks/3cr1q6k-0qp_q.js",
+    "path": "/tmp/asciimorph-reference-2026-10-20/3cr1q6k-0qp_q.js",
+    "requestedAt": "2026-10-20",
+    "maxBytes": 4000000,
+    "timeoutSeconds": 20,
+    "downloaded": false,
+    "error": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
+    "elapsedSeconds": 0.0
+  },
+  {
+    "url": "https://www.ascii-magic.com/app/_next/static/chunks/3kyu52o0ubrsv.js",
+    "path": "/tmp/asciimorph-reference-2026-10-20/3kyu52o0ubrsv.js",
+    "requestedAt": "2026-10-20",
+    "maxBytes": 4000000,
+    "timeoutSeconds": 20,
+    "downloaded": false,
+    "error": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
+    "elapsedSeconds": 0.0
+  },
+  {
+    "url": "https://www.ascii-magic.com/app/_next/static/chunks/3nkw2beysazoh.js",
+    "path": "/tmp/asciimorph-reference-2026-10-20/3nkw2beysazoh.js",
+    "requestedAt": "2026-10-20",
+    "maxBytes": 4000000,
+    "timeoutSeconds": 20,
+    "downloaded": false,
+    "error": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
+    "elapsedSeconds": 0.0
+  },
+  {
+    "url": "https://www.ascii-magic.com/app/_next/static/chunks/3r_arwvnmlqld.js",
+    "path": "/tmp/asciimorph-reference-2026-10-20/3r_arwvnmlqld.js",
+    "requestedAt": "2026-10-20",
+    "maxBytes": 4000000,
+    "timeoutSeconds": 20,
+    "downloaded": false,
+    "error": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
+    "elapsedSeconds": 0.0
+  },
+  {
+    "url": "https://www.ascii-magic.com/app/_next/static/chunks/3xbkq75mfrlgb.js",
+    "path": "/tmp/asciimorph-reference-2026-10-20/3xbkq75mfrlgb.js",
+    "requestedAt": "2026-10-20",
+    "maxBytes": 4000000,
+    "timeoutSeconds": 20,
+    "downloaded": false,
+    "error": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
+    "elapsedSeconds": 0.0
+  }
+]

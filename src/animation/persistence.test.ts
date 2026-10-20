@@ -31,14 +31,15 @@ it("archives animations by ID and lists lightweight metadata", async () => {
   expect(rows[0]).not.toHaveProperty("frames.doc");
   expect(rows[0]).not.toHaveProperty("document");
 });
-it("bounds archived project count while retaining the most recent project", async () => {
+it("retains all saved animations until explicit deletion", async () => {
   const { listAnimations } = await import("./persistence");
+  const before = (await listAnimations()).length;
   let last = createAnimation();
   for (let i = 0; i < 10; i++) {
     last = createAnimation();
     await saveAnimation(last);
   }
-  expect((await listAnimations()).length).toBeLessThanOrEqual(8);
+  expect((await listAnimations()).length).toBe(before + 10);
   expect((await loadAnimation())?.id).toBe(last.id);
 });
 it("migrates a version 1 latest animation into the project archive", async () => {

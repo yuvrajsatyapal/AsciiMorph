@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useRef, useState } from "react";
 import { Braces, ArrowRight, Upload } from "lucide-react";
 import { useConverter } from "@/converter/use-converter";
-import { gridDimensions } from "@/converter/engine";
+import { gridDimensions, transformedSize } from "@/converter/engine";
 import { openInStudio } from "@/converter/handoff";
 import { workspace } from "@/editor/store";
 import {
@@ -80,13 +80,15 @@ export default function Converter() {
         Skip to conversion
       </a>
       <header className="conversion-header">
-        <Link href="/" className="wordmark">
+        <Link prefetch={false} href="/" className="wordmark">
           <Braces size={23} />
           <span>AsciiMorph</span>
         </Link>
         <span className="conversion-breadcrumb">IMAGE → CHARACTERS</span>
-        <Link href="/create" className="button quiet">Creative tools</Link>
-        <Link href="/studio" className="button quiet">
+        <Link prefetch={false} href="/create" className="button quiet">
+          Creative tools
+        </Link>
+        <Link prefetch={false} href="/studio" className="button quiet">
           Open Studio <ArrowRight size={15} />
         </Link>
       </header>
@@ -267,8 +269,8 @@ export default function Converter() {
             dimensions={
               c.source
                 ? gridDimensions(
-                    c.source.pixels.width,
-                    c.source.pixels.height,
+                    transformedSize(c.source.pixels, c.settings).width,
+                    transformedSize(c.source.pixels, c.settings).height,
                     c.settings,
                   )
                 : undefined

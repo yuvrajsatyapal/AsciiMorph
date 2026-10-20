@@ -55,16 +55,16 @@ export default function Home() {
         Skip to content
       </a>
       <header className="site-header">
-        <Link href="/" className="wordmark" aria-label="AsciiMorph home">
+        <Link prefetch={false} href="/" className="wordmark" aria-label="AsciiMorph home">
           <Braces size={25} />
           AsciiMorph<span className="wordmark-dot">.</span>
         </Link>
         <nav aria-label="Main navigation">
           <a href="#playground">Playground</a>
           <a href="#possibilities">The possibilities</a>
-          <Link href="/create">Creative tools</Link>
+          <Link prefetch={false} href="/create">Creative tools</Link>
         </nav>
-        <Link href="/studio" className="header-studio">
+        <Link prefetch={false} href="/studio" className="header-studio">
           Open Studio <ArrowUpRight size={15} />
         </Link>
       </header>
@@ -83,7 +83,7 @@ export default function Home() {
             art.
           </p>
           <div className="hero-actions">
-            <Link href="/studio" className="button primary">
+            <Link prefetch={false} href="/studio" className="button primary">
               Launch Studio <ArrowUpRight size={18} />
             </Link>
             <a href="#playground" className="text-link">
@@ -153,7 +153,7 @@ export default function Home() {
                 ))}
               </div>
             </div>
-            <Link
+            <Link prefetch={false}
               href={`/studio?demo=orbit&char=${encodeURIComponent(symbol)}&color=${color}`}
               className="demo-edit"
             >
@@ -184,7 +184,7 @@ export default function Home() {
                 Draw, compose, and find your own visual language on a precise
                 character grid.
               </p>
-              <Link href="/studio">
+              <Link prefetch={false} href="/studio">
                 Make something <ArrowRight size={14} />
               </Link>
             </div>
@@ -197,7 +197,7 @@ export default function Home() {
                 Letters, symbols, blocks, and everything in between. Your
                 palette is hiding on your keyboard.
               </p>
-              <Link href="/create">Explore creative tools <ArrowRight size={14} /></Link>
+              <Link prefetch={false} href="/create">Explore creative tools <ArrowRight size={14} /></Link>
             </div>
           </article>
           <article>
@@ -208,7 +208,7 @@ export default function Home() {
                 Turn a photograph into editable characters, with local image
                 conversion and color controls.
               </p>
-              <Link href="/convert">
+              <Link prefetch={false} href="/convert">
                 Convert an image <ArrowRight size={14} />
               </Link>
             </div>
@@ -216,12 +216,12 @@ export default function Home() {
         </div>
       </section>
       <footer className="site-footer">
-        <Link href="/" className="wordmark">
+        <Link prefetch={false} href="/" className="wordmark">
           <Braces size={19} />
           AsciiMorph.
         </Link>
         <span>Made for the joy of making.</span>
-        <Link href="/create">Explore all creative tools →</Link>
+        <Link prefetch={false} href="/create">Explore all creative tools →</Link>
         <span className="footer-ascii">[ a little less ordinary ]</span>
       </footer>
     </main>

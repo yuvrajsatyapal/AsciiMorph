@@ -76,3 +76,85 @@ describe("bounded local media import", () => {
     ).rejects.toThrow(/40 MiB/);
   });
 });
+
+it("clips GIF trim start within a frame and rejects an empty selection", async () => {
+  const frames = await importMedia(
+    gifFile([100, 250, 400]),
+    8,
+    0.4,
+    new AbortController().signal,
+    () => {},
+    { start: 0.2 },
+  );
+  expect(frames.map((f) => f.duration)).toEqual([150, 250]);
+  await expect(
+    importMedia(
+      gifFile([100, 250]),
+      8,
+      1,
+      new AbortController().signal,
+      () => {},
+      { start: 1 },
+    ),
+  ).rejects.toThrow(/trim/i);
+});
+it("applies chosen output dimensions, character and color presets to conversion", async () => {
+  const { runConversion } = await import("@/converter/runner");
+  await importMedia(
+    gifFile([100]),
+    8,
+    1,
+    new AbortController().signal,
+    () => {},
+    { width: 100, height: 30, mode: "grayscale", charset: "detailed" },
+  );
+  expect(runConversion).toHaveBeenLastCalledWith(
+    expect.anything(),
+    expect.objectContaining({
+      width: 100,
+      height: 30,
+      mode: "grayscale",
+      charset: "detailed",
+    }),
+    expect.anything(),
+  );
+});
+
+it("coalesces a leading sub-20ms GIF trim remainder while preserving total time", async () => {
+  const frames = await importMedia(
+    gifFile([100, 250, 400]),
+    8,
+    0.4,
+    new AbortController().signal,
+    () => {},
+    { start: 0.09 },
+  );
+  expect(frames.every((frame) => frame.duration >= 20)).toBe(true);
+  expect(frames.reduce((sum, frame) => sum + frame.duration, 0)).toBe(400);
+  expect(frames.map((frame) => frame.duration)).toEqual([260, 140]);
+});
+
+it.each([
+  { delays: [100, 250], seconds: 0.11, durations: [110] },
+  { delays: [10000, 100], seconds: 10.01, durations: [9990, 20] },
+  { delays: [100, 10000], seconds: 10.01, start: 0.09, durations: [9980, 30] },
+])(
+  "keeps short final GIF remainders within project delay limits: $delays",
+  async ({ delays, seconds, start, durations }) => {
+    const frames = await importMedia(
+      gifFile(delays),
+      1,
+      seconds,
+      new AbortController().signal,
+      () => {},
+      { start },
+    );
+    expect(frames.map((frame) => frame.duration)).toEqual(durations);
+    expect(
+      frames.every((frame) => frame.duration >= 20 && frame.duration <= 10000),
+    ).toBe(true);
+    expect(frames.reduce((sum, frame) => sum + frame.duration, 0)).toBe(
+      Math.round(seconds * 1000),
+    );
+  },
+);

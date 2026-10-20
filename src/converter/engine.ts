@@ -114,6 +114,8 @@ export async function convert(
     im.data.length !== im.width * im.height * 4
   )
     throw new Error("Invalid or oversized pixel buffer");
+  const source = im;
+  im = transformPixels(im, s);
   const chars = characterSet(s.charset, s.custom),
     { width, height } = gridDimensions(im.width, im.height, s);
   const braille = s.charset === "braille",
@@ -129,7 +131,9 @@ export async function convert(
     abort(signal);
     for (let x = 0; x < sw; x++) {
       const i = y * sw + x,
-        [r, g, b, a] = samples ? samples.subarray(i * 4, i * 4 + 4) : sample(im, x, y, sw, sh),
+        [r, g, b, a] = samples
+          ? samples.subarray(i * 4, i * 4 + 4)
+          : sample(im, x, y, sw, sh),
         gray = luminance(r, g, b);
       const rr = tone(gray + ((r - gray) * s.saturation) / 100, s),
         gg = tone(gray + ((g - gray) * s.saturation) / 100, s),
@@ -143,7 +147,8 @@ export async function convert(
   }
   const filtered = values.slice();
   const gradients = numeric?.gradients(values, sw, sh);
-  const directions = s.smartEdges && !braille ? new Array<string | undefined>(n) : undefined;
+  const directions =
+    s.smartEdges && !braille ? new Array<string | undefined>(n) : undefined;
   abort(signal);
   const at = (x: number, y: number) =>
     values[
@@ -155,25 +160,35 @@ export async function convert(
       const i = y * sw + x,
         v = values[i];
       let blur = gradients?.[i * 3] ?? 0;
-      if (!gradients) for (let dy = -1; dy <= 1; dy++)
-        for (let dx = -1; dx <= 1; dx++) blur += at(x + dx, y + dy) / 9;
-      const gx = gradients?.[i * 3 + 1] ?? (
+      if (!gradients)
+        for (let dy = -1; dy <= 1; dy++)
+          for (let dx = -1; dx <= 1; dx++) blur += at(x + dx, y + dy) / 9;
+      const gx =
+        gradients?.[i * 3 + 1] ??
         -at(x - 1, y - 1) +
-        at(x + 1, y - 1) -
-        2 * at(x - 1, y) +
-        2 * at(x + 1, y) -
-        at(x - 1, y + 1) +
-        at(x + 1, y + 1));
-      const gy = gradients?.[i * 3 + 2] ?? (
+          at(x + 1, y - 1) -
+          2 * at(x - 1, y) +
+          2 * at(x + 1, y) -
+          at(x - 1, y + 1) +
+          at(x + 1, y + 1);
+      const gy =
+        gradients?.[i * 3 + 2] ??
         -at(x - 1, y - 1) -
-        2 * at(x, y - 1) -
-        at(x + 1, y - 1) +
-        at(x - 1, y + 1) +
-        2 * at(x, y + 1) +
-        at(x + 1, y + 1));
+          2 * at(x, y - 1) -
+          at(x + 1, y - 1) +
+          at(x - 1, y + 1) +
+          2 * at(x, y + 1) +
+          at(x + 1, y + 1);
       if (directions && Math.hypot(gx, gy) >= 100) {
-        const angle = ((Math.atan2(gy, gx) * 180 / Math.PI) + 180) % 180;
-        directions[i] = angle < 22.5 || angle >= 157.5 ? "|" : angle < 67.5 ? "/" : angle < 112.5 ? "-" : "\\";
+        const angle = ((Math.atan2(gy, gx) * 180) / Math.PI + 180) % 180;
+        directions[i] =
+          angle < 22.5 || angle >= 157.5
+            ? "|"
+            : angle < 67.5
+              ? "/"
+              : angle < 112.5
+                ? "-"
+                : "\\";
       }
       const sharp = clamp(v + ((v - blur) * s.sharpness) / 25);
       filtered[i] =
@@ -205,7 +220,33 @@ export async function convert(
           ? "1"
           : "0"
         : densityCharacter(value, ramp, 1, cov);
-      mapped[i] = directions?.[i] ?? char;
+      let shaped = char;
+      if (s.shapeAware && calibration?.shapes && !braille) {
+        const target: number[] = [];
+        for (let dy = 0; dy < 3; dy++)
+          for (let dx = 0; dx < 3; dx++) {
+            const [r, g, b, a] = sample(
+              im,
+              x * 3 + dx,
+              y * 3 + dy,
+              sw * 3,
+              sh * 3,
+            );
+            const v = tone(luminance(r, g, b), s);
+            target.push(((s.invert ? 255 - v : v) / 255) * a);
+          }
+        let best = Infinity;
+        calibration.shapes.forEach((shape, j) => {
+          const score =
+            shape.reduce((sum, v, k) => sum + (v - target[k]) ** 2, 0) / 9 +
+            Math.abs((cov?.[j] ?? 0) - value / 255) * 0.3;
+          if (score < best) {
+            best = score;
+            shaped = ramp[j];
+          }
+        });
+      }
+      mapped[i] = directions?.[i] ?? shaped;
       if (s.dithering) {
         const index = ramp.indexOf(char);
         const quant = braille
@@ -283,5 +324,70 @@ export async function convert(
   }
   abort(signal);
   doc.layers[0].cells = cells;
+  doc.conversion = {
+    source: {
+      width: source.width,
+      height: source.height,
+      data: encodePixels(source.data),
+    },
+    settings: structuredClone(s),
+  };
   return doc;
+}
+
+// Crop coordinates are normalized to the original source. Rotation follows cropping.
+export function transformPixels(im: Pixels, s: ConversionSettings): Pixels {
+  const c = s.crop ?? { x: 0, y: 0, width: 1, height: 1 };
+  const x0 = Math.min(im.width - 1, Math.floor(c.x * im.width)),
+    y0 = Math.min(im.height - 1, Math.floor(c.y * im.height));
+  const w = Math.max(
+      1,
+      Math.min(im.width - x0, Math.round(c.width * im.width)),
+    ),
+    h = Math.max(1, Math.min(im.height - y0, Math.round(c.height * im.height)));
+  const r = s.rotation ?? 0,
+    width = r === 90 || r === 270 ? h : w,
+    height = r === 90 || r === 270 ? w : h;
+  if (x0 === 0 && y0 === 0 && w === im.width && h === im.height && r === 0)
+    return im;
+  const data = new Uint8ClampedArray(width * height * 4);
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      const xx =
+        r === 90 ? h - 1 - y : r === 180 ? w - 1 - x : r === 270 ? y : x;
+      const yy =
+        r === 90 ? x : r === 180 ? h - 1 - y : r === 270 ? w - 1 - x : y;
+      data.set(
+        im.data.subarray(
+          ((y + y0) * im.width + x + x0) * 4,
+          ((y + y0) * im.width + x + x0) * 4 + 4,
+        ),
+        (yy * width + xx) * 4,
+      );
+    }
+  return { width, height, data };
+}
+
+export function encodePixels(data: Uint8ClampedArray): string {
+  const chunks: string[] = [];
+  for (let i = 0; i < data.length; i += 8192)
+    chunks.push(String.fromCharCode(...data.subarray(i, i + 8192)));
+  return btoa(chunks.join(""));
+}
+export function decodePixels(data: string): Uint8ClampedArray {
+  return Uint8ClampedArray.from(atob(data), (char) => char.charCodeAt(0));
+}
+
+export function transformedSize(
+  im: Pick<Pixels, "width" | "height">,
+  s: ConversionSettings,
+) {
+  const c = s.crop ?? { x: 0, y: 0, width: 1, height: 1 };
+  const x = Math.min(im.width - 1, Math.floor(c.x * im.width)),
+    y = Math.min(im.height - 1, Math.floor(c.y * im.height));
+  const w = Math.max(1, Math.min(im.width - x, Math.round(c.width * im.width))),
+    h = Math.max(1, Math.min(im.height - y, Math.round(c.height * im.height)));
+  return s.rotation === 90 || s.rotation === 270
+    ? { width: h, height: w }
+    : { width: w, height: h };
 }

@@ -8,6 +8,13 @@ export interface GeneratorSettings {
   scale: number;
   speed: number;
   color: string;
+  frequency?: number;
+  density?: number;
+  iterations?: number;
+  loopSeconds?: number;
+  animateScale?: number;
+  combine?: GeneratorMode | "none";
+  mix?: number;
 }
 export const DEFAULT_GENERATOR: GeneratorSettings = {
   mode: "waves",
@@ -42,12 +49,35 @@ export function generate(s: GeneratorSettings, time = 0) {
     !/^#[a-f0-9]{6}$/i.test(s.color)
   )
     throw new Error("Invalid generator settings");
+  for (const [value, min, max] of [
+    [s.frequency ?? 9, 1, 30],
+    [s.density ?? 32, 1, 128],
+    [s.iterations ?? 40, 5, 100],
+    [s.loopSeconds ?? 0, 0, 30],
+    [s.animateScale ?? 0, 0, 1],
+    [s.mix ?? 0.5, 0, 1],
+  ])
+    if (!Number.isFinite(value) || value < min || value > max)
+      throw new Error("Invalid generator parameter");
+  const cycle = s.loopSeconds
+    ? (Math.PI *
+        2 *
+        (((time % s.loopSeconds) + s.loopSeconds) % s.loopSeconds)) /
+      s.loopSeconds
+    : 0;
+  // A circular time coordinate gives every mode a continuous, exact-period loop.
+  const engineTime = s.loopSeconds ? Math.sin(cycle) * 2 : time;
+  const animatedScale =
+    s.scale *
+    (1 + (s.animateScale ?? 0) * Math.sin(s.loopSeconds ? cycle : time));
+  const frequency = s.frequency ?? 9,
+    iterations = Math.round(s.iterations ?? 40);
   const doc = createDocument(s.width, s.height, `${s.mode} · seed ${s.seed}`),
     rand = random(s.seed),
     ramp = " .:-=+*#%@",
-    t = time * s.speed,
+    t = engineTime * s.speed,
     phase = (s.seed % 10007) * 0.61803398875;
-  const particles = Array.from({ length: 32 }, () => [
+  const particles = Array.from({ length: Math.round(s.density ?? 32) }, () => [
     rand() * 2 - 1,
     rand() * 2 - 1,
     rand() * 6.28,
@@ -55,8 +85,8 @@ export function generate(s: GeneratorSettings, time = 0) {
   ]);
   doc.background = "#0c0d10";
   doc.layers[0].cells = doc.layers[0].cells.map((c, i) => {
-    const x = (((i % s.width) / s.width) * 2 - 1) * s.scale,
-      y = ((Math.floor(i / s.width) / s.height) * 2 - 1) * s.scale;
+    const x = (((i % s.width) / s.width) * 2 - 1) * animatedScale,
+      y = ((Math.floor(i / s.width) / s.height) * 2 - 1) * animatedScale;
     let v = 0;
     if (s.mode === "noise") {
       v =
@@ -67,7 +97,7 @@ export function generate(s: GeneratorSettings, time = 0) {
     }
     if (s.mode === "waves")
       v =
-        (Math.sin(x * 9 + Math.sin(y * 5 + t + phase) + t + phase) +
+        (Math.sin(x * frequency + Math.sin(y * 5 + t + phase) + t + phase) +
           Math.cos(y * 8 - t + phase) +
           2) /
         4;
@@ -86,13 +116,13 @@ export function generate(s: GeneratorSettings, time = 0) {
         n = 0;
       const cr = -0.7 + Math.sin(t * 0.2 + s.seed) * 0.12,
         ci = 0.27 + Math.cos(t * 0.2) * 0.06;
-      while (zx * zx + zy * zy < 4 && n < 40) {
+      while (zx * zx + zy * zy < 4 && n < iterations) {
         const nx = zx * zx - zy * zy + cr;
         zy = 2 * zx * zy + ci;
         zx = nx;
         n++;
       }
-      v = n / 40;
+      v = n / iterations;
     }
     return {
       ...c,
@@ -100,5 +130,18 @@ export function generate(s: GeneratorSettings, time = 0) {
       fg: s.color,
     };
   });
+  if (s.combine && s.combine !== "none") {
+    const overlay = generate({ ...s, mode: s.combine, combine: "none" }, time);
+    const mix = s.mix ?? 0.5;
+    doc.layers[0].cells = doc.layers[0].cells.map((cell, i) => ({
+      ...cell,
+      char: ramp[
+        Math.round(
+          ramp.indexOf(cell.char) * (1 - mix) +
+            ramp.indexOf(overlay.layers[0].cells[i].char) * mix,
+        )
+      ],
+    }));
+  }
   return doc;
 }

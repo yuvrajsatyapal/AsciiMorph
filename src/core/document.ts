@@ -1,10 +1,30 @@
+import {
+  validateSettings,
+  type ConversionSettings,
+} from "@/converter/settings";
 export interface Cell {
   char: string;
   fg: string;
   bg: string | null;
   alpha: number;
 }
+export type BlendMode = "normal" | "multiply" | "screen" | "overlay";
+export type Adjustment = "invert" | "grayscale" | "fade";
+export interface LayerGroup {
+  id: string;
+  name: string;
+  visible: boolean;
+  opacity: number;
+}
+export interface ConversionSource {
+  source: { width: number; height: number; data: string };
+  settings: ConversionSettings;
+}
 export interface Layer {
+  groupId?: string;
+  blendMode?: BlendMode;
+  mask?: number[];
+  adjustments?: Adjustment[];
   id: string;
   name: string;
   visible: boolean;
@@ -13,6 +33,8 @@ export interface Layer {
   cells: Cell[];
 }
 export interface AsciiDocument {
+  conversion?: ConversionSource;
+  layerGroups?: LayerGroup[];
   version: 1;
   id: string;
   name: string;
@@ -148,6 +170,38 @@ export function validateDocument(value: unknown): AsciiDocument {
       visible: boolean(l.visible),
       locked: boolean(l.locked),
       opacity: number(l.opacity, "opacity", 0, 1),
+      ...(l.groupId !== undefined
+        ? { groupId: string(l.groupId, "group id", 128) }
+        : {}),
+      ...(l.blendMode !== undefined
+        ? {
+            blendMode: ["normal", "multiply", "screen", "overlay"].includes(
+              l.blendMode as string,
+            )
+              ? (l.blendMode as BlendMode)
+              : fail("invalid blend mode"),
+          }
+        : {}),
+      ...(l.mask !== undefined
+        ? {
+            mask:
+              Array.isArray(l.mask) && l.mask.length === width * height
+                ? l.mask.map((v) => number(v, "mask", 0, 1))
+                : fail("mask dimensions mismatch"),
+          }
+        : {}),
+      ...(l.adjustments !== undefined
+        ? {
+            adjustments:
+              Array.isArray(l.adjustments) && l.adjustments.length <= 16
+                ? l.adjustments.map((v) =>
+                    ["invert", "grayscale", "fade"].includes(v as string)
+                      ? (v as Adjustment)
+                      : fail("invalid adjustment"),
+                  )
+                : fail("invalid adjustments"),
+          }
+        : {}),
       cells: l.cells.map((item) => {
         const c = object(item);
         if (
@@ -168,7 +222,56 @@ export function validateDocument(value: unknown): AsciiDocument {
   });
   if (d.activeLayerId !== undefined && !layerIds.has(d.activeLayerId as string))
     fail("active layer does not exist");
+  let conversion: ConversionSource | undefined;
+  if (d.conversion !== undefined) {
+    const c = object(d.conversion),
+      source = object(c.source);
+    const w = number(source.width, "source width", 1, 2048, true),
+      h = number(source.height, "source height", 1, 2048, true);
+    if (
+      typeof source.data !== "string" ||
+      source.data.length !== 4 * Math.ceil((w * h * 4) / 3) ||
+      !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(
+        source.data,
+      ) ||
+      w * h > 4_194_304 ||
+      (source.data.length / 4) * 3 -
+        (source.data.endsWith("==") ? 2 : source.data.endsWith("=") ? 1 : 0) !==
+        w * h * 4
+    )
+      fail("invalid retained source");
+    const settings = object(c.settings) as unknown as ConversionSettings;
+    validateSettings(settings);
+    conversion = {
+      source: { width: w, height: h, data: source.data },
+      settings: structuredClone(settings),
+    };
+  }
+  let layerGroups: LayerGroup[] | undefined;
+  if (d.layerGroups !== undefined) {
+    if (!Array.isArray(d.layerGroups) || d.layerGroups.length > 32)
+      fail("invalid layer groups");
+    layerGroups = d.layerGroups.map((item) => {
+      const g = object(item);
+      return {
+        id: string(g.id, "group id", 128),
+        name: string(g.name, "group name"),
+        visible: boolean(g.visible),
+        opacity: number(g.opacity, "group opacity", 0, 1),
+      };
+    });
+    if (new Set(layerGroups.map((g) => g.id)).size !== layerGroups.length)
+      fail("duplicate group id");
+  }
+  if (
+    layers.some(
+      (l) => l.groupId && !layerGroups?.some((g) => g.id === l.groupId),
+    )
+  )
+    fail("missing layer group");
   return {
+    ...(conversion ? { conversion } : {}),
+    ...(layerGroups ? { layerGroups } : {}),
     version: 1,
     id: string(d.id, "id", 128),
     name: string(d.name, "name"),
@@ -190,6 +293,6 @@ export function serializeDocument(doc: AsciiDocument): string {
   return JSON.stringify(validateDocument(doc));
 }
 export function parseDocument(text: string): AsciiDocument {
-  if (text.length > 40_000_000) fail("project file is too large");
+  if (text.length > 100_000_000) fail("project file is too large");
   return validateDocument(JSON.parse(text));
 }

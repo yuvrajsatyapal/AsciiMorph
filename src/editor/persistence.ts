@@ -128,3 +128,30 @@ export async function recoveryDownload(): Promise<string> {
   );
   return JSON.stringify(rows, null, 2);
 }
+
+export async function deleteProject(id: string) {
+  const db = await database();
+  const tx = db.transaction(["documents", "snapshots"], "readwrite");
+  const completed = done(tx);
+  tx.objectStore("documents").delete(id);
+  const store = tx.objectStore("snapshots");
+  const rows = await request(store.index("documentId").getAllKeys(id));
+  rows.forEach((key) => store.delete(key));
+  await completed;
+}
+/** Restore recovery rows on a newly imported project without accumulating its temporary save snapshot. */
+export async function importSnapshots(documentId: string, source: Snapshot[]) {
+  if (!source.length) return;
+  const rows = source.map(row => ({
+    id: crypto.randomUUID(), documentId,
+    savedAt: row.savedAt,
+    data: serializeDocument({ ...parseDocument(row.data), id: documentId }),
+  }));
+  const db = await database();
+  const tx = db.transaction("snapshots", "readwrite"), completed = done(tx);
+  const store = tx.objectStore("snapshots");
+  const existing = await request(store.index("documentId").getAllKeys(documentId));
+  existing.forEach(key => store.delete(key));
+  rows.forEach(row => store.put(row));
+  await completed;
+}

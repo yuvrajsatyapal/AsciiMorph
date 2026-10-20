@@ -1,6 +1,7 @@
 import { decodeGif } from "./gif";
 import { runConversion } from "@/converter/runner";
-import { DEFAULT_SETTINGS } from "@/converter/settings";
+import { DEFAULT_SETTINGS, validateSettings } from "@/converter/settings";
+import type { ConversionSettings } from "@/converter/settings";
 import type { MotionFrame } from "./recording";
 
 function abort(signal: AbortSignal) {
@@ -54,6 +55,7 @@ export function videoSampleTimes(
   duration: number,
   fps: number,
   seconds: number,
+  start = 0,
 ) {
   if (
     !Number.isFinite(duration) ||
@@ -63,31 +65,42 @@ export function videoSampleTimes(
     fps > 20 ||
     !Number.isFinite(seconds) ||
     seconds < 0.1 ||
-    seconds > 12 ||
+    seconds > 60 ||
     fps * seconds > 120
   )
-    throw new Error("Choose 1–20 fps, up to 12 seconds and 120 frames.");
-  const total = Math.round(Math.min(duration, seconds) * 1000);
+    throw new Error("Choose 1–20 fps, up to 60 seconds and 120 frames.");
+  if (!Number.isFinite(start) || start < 0 || start >= duration)
+    throw new Error("Trim start must be inside the video.");
+  const total = Math.round(Math.min(duration - start, seconds) * 1000);
   if (total < 20)
     throw new Error("Video must contain at least 20 milliseconds.");
   const frames: { time: number; duration: number }[] = [];
   for (let i = 0; i < Math.ceil((total * fps) / 1000); i++) {
-    const start = Math.round((i * 1000) / fps),
+    const frameStart = Math.round((i * 1000) / fps),
       end = Math.min(total, Math.round(((i + 1) * 1000) / fps));
-    const milliseconds = end - start;
+    const milliseconds = end - frameStart;
     if (milliseconds < 20 && frames.length)
       frames[frames.length - 1].duration += milliseconds;
-    else frames.push({ time: start / 1000, duration: milliseconds });
+    else
+      frames.push({ time: start + frameStart / 1000, duration: milliseconds });
   }
   return frames;
 }
 
+export interface MediaImportOptions {
+  start?: number;
+  width?: number;
+  height?: number;
+  mode?: ConversionSettings["mode"];
+  charset?: ConversionSettings["charset"];
+}
 export async function importMedia(
   file: File,
   fps: number,
   seconds: number,
   signal: AbortSignal,
   progress: (fraction: number) => void,
+  options: MediaImportOptions = {},
 ): Promise<MotionFrame[]> {
   if (file.size > 40 * 1024 * 1024)
     throw new Error("Media file exceeds 40 MiB.");
@@ -97,10 +110,19 @@ export async function importMedia(
     fps > 20 ||
     !Number.isFinite(seconds) ||
     seconds < 0.1 ||
-    seconds > 12 ||
+    seconds > 60 ||
     fps * seconds > 120
   )
-    throw new Error("Choose 1–20 fps, up to 12 seconds and 120 frames.");
+    throw new Error("Choose 1–20 fps, up to 60 seconds and 120 frames.");
+  if (!Number.isFinite(options.start ?? 0) || (options.start ?? 0) < 0)
+    throw new Error("Invalid trim start.");
+  validateSettings({
+    ...DEFAULT_SETTINGS,
+    width: options.width ?? 80,
+    height: options.height ?? 40,
+    mode: options.mode ?? "color",
+    charset: options.charset ?? DEFAULT_SETTINGS.charset,
+  });
   abort(signal);
   const result: MotionFrame[] = [];
   const convert = async (
@@ -116,29 +138,60 @@ export async function importMedia(
       { data, width, height },
       {
         ...DEFAULT_SETTINGS,
-        width: 80,
-        height: 40,
+        width: options.width ?? 80,
+        height: options.height ?? 40,
         preserveAspect: false,
-        mode: "color",
+        mode: options.mode ?? "color",
+        charset: options.charset ?? DEFAULT_SETTINGS.charset,
       },
       signal,
     );
     abort(signal);
+    if ((result.length + 1) * doc.width * doc.height > 1_000_000)
+      throw new Error(
+        "Clip exceeds one million output cells. Reduce dimensions, duration or sample rate.",
+      );
+    delete doc.conversion;
     result.push({ doc, duration });
   };
   if (file.type === "image/gif" || /\.gif$/i.test(file.name)) {
     const buffer = await file.arrayBuffer();
     abort(signal);
     const gif = decodeGif(buffer);
+    const sourceDuration = gif.frames.reduce(
+      (sum, frame) => sum + frame.duration,
+      0,
+    );
+    const trimStart = Math.round((options.start ?? 0) * 1000);
     const total = Math.min(
       Math.round(seconds * 1000),
-      gif.frames.reduce((sum, frame) => sum + frame.duration, 0),
+      sourceDuration - trimStart,
     );
+    if (total < 20)
+      throw new Error(
+        "Trim selection must contain at least 20 milliseconds of GIF.",
+      );
     let elapsed = 0;
+    let leadingDuration = 0;
+    if (!Number.isFinite(trimStart) || trimStart < 0)
+      throw new Error("Invalid trim start.");
     for (const frame of gif.frames) {
       abort(signal);
-      if (elapsed >= total) break;
-      let duration = Math.min(frame.duration, total - elapsed);
+      if (elapsed >= trimStart + total) break;
+      const frameStart = elapsed;
+      elapsed += frame.duration;
+      if (elapsed <= trimStart) continue;
+      let duration =
+        Math.min(elapsed, trimStart + total) -
+        Math.max(frameStart, trimStart) +
+        leadingDuration;
+      // A short leading fragment cannot be a valid project frame on its own.
+      // Hold its time for the next source frame instead of dropping it.
+      if (duration < 20 && !result.length) {
+        leadingDuration = duration;
+        continue;
+      }
+      leadingDuration = 0;
       // A partial final delay below the project minimum extends the prior frame.
       if (duration < 20 && result.length) {
         const previous = result[result.length - 1];
@@ -150,7 +203,6 @@ export async function importMedia(
             throw new Error("Media import exceeds 120 frames.");
           result.push({ doc: previous.doc, duration: 20 });
         }
-        elapsed += duration;
         break;
       }
       while (duration > 0) {
@@ -160,8 +212,7 @@ export async function importMedia(
           duration > 10000 && duration - part < 20 ? part - 20 : part;
         await convert(frame.pixels, gif.width, gif.height, adjusted);
         duration -= adjusted;
-        elapsed += adjusted;
-        progress(Math.min(1, elapsed / total));
+        progress(Math.min(1, (elapsed - trimStart) / total));
       }
     }
     abort(signal);
@@ -205,7 +256,12 @@ export async function importMedia(
     canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
     if (!ctx) throw new Error("Canvas unavailable.");
-    const samples = videoSampleTimes(video.duration, fps, seconds);
+    const samples = videoSampleTimes(
+      video.duration,
+      fps,
+      seconds,
+      options.start ?? 0,
+    );
     for (const [index, sample] of samples.entries()) {
       abort(signal);
       if (Math.abs(video.currentTime - sample.time) > 0.00001)

@@ -257,3 +257,61 @@
   padding: 8px;
   max-width: 100%;
 }
+.motion-export-settings {
+  margin: 18px 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+}
+.motion-export-settings summary {
+  cursor: pointer;
+  min-height: 32px;
+}
+.motion-export-settings label {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 12px 0;
+}
+.motion-export-settings select {
+  background: var(--panel);
+  color: var(--text);
+  padding: 8px;
+  border: 1px solid var(--border);
+  max-width: 100%;
+}
+.animation-range {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.animation-range label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.animation-range input {
+  width: 100%;
+}
+.animation-timeline .animation-drop-end {
+  display: grid;
+  place-items: center;
+  border: 1px dashed var(--border);
+  font-size: 12px;
+  min-height: 140px;
+}
+.animation-timeline button[aria-current="step"] {
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.animation-controls > details > summary {
+  cursor: pointer;
+  padding: 8px 0 16px;
+  font-size: 15px;
+}
+.animation-controls > details > label {
+  display: grid;
+  gap: 8px;
+  font-size: 13px;
+  margin: 16px 0;
+}

@@ -1,3 +1,4 @@
+import { encodeWebM, videoTimeline } from "./recording-webm";
 import type { AsciiDocument } from "@/core/document";
 import { ensureArtworkFont, paint } from "@/core/render";
 export interface MotionFrame {
@@ -33,101 +34,121 @@ export function recordingMime(
 function aborted(signal?: AbortSignal) {
   if (signal?.aborted) throw new DOMException("Export cancelled", "AbortError");
 }
-export function gifBytes(
+export { encodeGif as gifBytes } from "./gif-encode";
+import { encodeGif as gifBytes } from "./gif-encode";
+export interface MotionExportOptions {
+  audioOffset?: number;
+  maxDimension?: number;
+  fps?: number;
+  quality?: number;
+  loop?: boolean;
+  maxBytes?: number;
+}
+export function resolveMotionOptions(options: MotionExportOptions = {}) {
+  const result = {
+    maxDimension: 640,
+    fps: 30,
+    quality: 100,
+    loop: true,
+    maxBytes: 80_000_000,
+    ...options,
+  };
+  if (
+    !Number.isInteger(result.maxDimension) ||
+    result.maxDimension < 64 ||
+    result.maxDimension > 2048
+  )
+    throw new Error("Export resolution must be 64–2048 pixels.");
+  if (!Number.isFinite(result.fps) || result.fps < 1 || result.fps > 60)
+    throw new Error("Export frame rate must be 1–60 fps.");
+  if (
+    !Number.isFinite(result.quality) ||
+    result.quality < 1 ||
+    result.quality > 100
+  )
+    throw new Error("Export quality must be 1–100.");
+  if (
+    !Number.isFinite(result.maxBytes) ||
+    result.maxBytes < 1 ||
+    result.maxBytes > 200_000_000
+  )
+    throw new Error("File-size budget must be 1–200,000,000 bytes.");
+  if (
+    result.audioOffset !== undefined &&
+    (!Number.isFinite(result.audioOffset) ||
+      result.audioOffset < 0 ||
+      result.audioOffset > 86400)
+  )
+    throw new Error("Invalid soundtrack start time.");
+  return result;
+}
+/** Sample at an upper frame rate while keeping total time and coalescing unchanged holds. */
+export function sampleMotionFrames(
+  frames: MotionFrame[],
+  fps: number,
+): MotionFrame[] {
+  const total = frames.reduce((sum, f) => sum + f.duration, 0);
+  const timeline = videoTimeline(
+    frames.map((f) => f.duration),
+    Math.min(fps, 50, 120_000 / total),
+  );
+  const result: MotionFrame[] = [];
+  let previous = -1;
+  for (const sample of timeline) {
+    const duration = sample.duration / 1000;
+    if (
+      previous === sample.frame &&
+      result.at(-1)!.duration + duration <= 10000
+    )
+      result.at(-1)!.duration += duration;
+    else result.push({ doc: frames[sample.frame].doc, duration });
+    previous = sample.frame;
+  }
+  // GIF's minimum 20ms means a final fractional sample joins the preceding hold.
+  if (result.length > 1 && result.at(-1)!.duration < 20) {
+    const last = result.pop()!;
+    result.at(-1)!.duration += last.duration;
+  }
+  return result;
+}
+async function encodeGifOffThread(
   frames: { rgba: Uint8ClampedArray; delay: number }[],
   width: number,
   height: number,
-): Uint8Array {
-  if (
-    !frames.length ||
-    frames.length > 120 ||
-    !Number.isInteger(width) ||
-    !Number.isInteger(height) ||
-    width < 1 ||
-    height < 1 ||
-    width > 2048 ||
-    height > 2048 ||
-    width * height * frames.length > 40_000_000
-  )
-    throw new Error("GIF exceeds resource limits");
-  // Literal LZW uses at most 1.15 bytes per pixel, including clear codes and blocks.
-  const out = new Uint8Array(
-    Math.ceil(width * height * frames.length * 1.15) +
-      frames.length * 1024 +
-      1024,
-  );
-  let offset = 0;
-  const byte = (...v: number[]) => {
-      for (const n of v) out[offset++] = n & 255;
-    },
-    word = (v: number) => byte(v, v >>> 8),
-    str = (s: string) => byte(...Array.from(s, (c) => c.charCodeAt(0)));
-  str("GIF89a");
-  word(width);
-  word(height);
-  byte(0xf7, 0, 0);
-  for (let i = 0; i < 256; i++)
-    byte(
-      Math.round((((i >> 5) & 7) * 255) / 7),
-      Math.round((((i >> 2) & 7) * 255) / 7),
-      Math.round(((i & 3) * 255) / 3),
-    );
-  byte(0x21, 0xff, 11);
-  str("NETSCAPE2.0");
-  byte(3, 1, 0, 0, 0);
-  for (const frame of frames) {
-    if (
-      frame.rgba.length !== width * height * 4 ||
-      !Number.isFinite(frame.delay) ||
-      frame.delay < 20 ||
-      frame.delay > 10000
-    )
-      throw new Error("Invalid GIF frame");
-    byte(0x21, 0xf9, 4, 4);
-    word(Math.round(frame.delay / 10));
-    byte(0, 0, 0x2c);
-    word(0);
-    word(0);
-    word(width);
-    word(height);
-    byte(0, 8);
-    const codes = new Uint8Array(Math.ceil(width * height * 1.14) + 32);
-    let codeOffset = 0;
-    let bits = 0,
-      count = 0;
-    const emit = (code: number) => {
-      bits |= code << count;
-      count += 9;
-      while (count >= 8) {
-        codes[codeOffset++] = bits & 255;
-        bits >>>= 8;
-        count -= 8;
-      }
+  settings: ReturnType<typeof resolveMotionOptions>,
+  signal?: AbortSignal,
+): Promise<Uint8Array> {
+  if (typeof Worker === "undefined")
+    return gifBytes(frames, width, height, settings);
+  aborted(signal);
+  const worker = new Worker(new URL("./gif-worker.ts", import.meta.url));
+  return new Promise((resolve, reject) => {
+    const cleanup = () => {
+      worker.terminate();
+      signal?.removeEventListener("abort", cancel);
     };
-    emit(256);
-    let n = 0;
-    for (let i = 0; i < frame.rgba.length; i += 4) {
-      if (n === 200) {
-        emit(256);
-        n = 0;
-      }
-      const a = frame.rgba[i + 3] / 255,
-        r = Math.round(((frame.rgba[i] * a) / 255) * 7),
-        g = Math.round(((frame.rgba[i + 1] * a) / 255) * 7),
-        b = Math.round(((frame.rgba[i + 2] * a) / 255) * 3);
-      emit((r << 5) | (g << 2) | b);
-      n++;
-    }
-    emit(257);
-    if (count) codes[codeOffset++] = bits & 255;
-    for (let p = 0; p < codeOffset; p += 255) {
-      const block = codes.subarray(p, Math.min(codeOffset, p + 255));
-      byte(block.length, ...block);
-    }
-    byte(0);
-  }
-  byte(0x3b);
-  return out.slice(0, offset);
+    const cancel = () => {
+      cleanup();
+      reject(new DOMException("Export cancelled", "AbortError"));
+    };
+    signal?.addEventListener("abort", cancel, { once: true });
+    worker.onmessage = (
+      event: MessageEvent<{ data?: Uint8Array; error?: string }>,
+    ) => {
+      cleanup();
+      if (event.data.error) reject(new Error(event.data.error));
+      else if (event.data.data) resolve(event.data.data);
+      else reject(new Error("GIF encoder returned no data."));
+    };
+    worker.onerror = () => {
+      cleanup();
+      reject(new Error("GIF worker failed. Try reloading before exporting."));
+    };
+    worker.postMessage(
+      { frames, width, height, options: settings },
+      frames.map((f) => f.rgba.buffer),
+    );
+  });
 }
 export function waitForMedia<T>(
   promise: Promise<T>,
@@ -166,6 +187,7 @@ export function recordStream(
   format: "webm" | "mp4",
   duration: number,
   signal?: AbortSignal,
+  bitsPerSecond?: number,
 ): Promise<Blob> {
   aborted(signal);
   const mime = recordingMime(
@@ -176,7 +198,10 @@ export function recordStream(
   if (!Number.isFinite(duration) || duration < 20 || duration > 120000)
     throw new Error("Recording duration must be 20 ms–120 seconds");
   return new Promise((resolve, reject) => {
-    const recorder = new MediaRecorder(stream, { mimeType: mime }),
+    const recorder = new MediaRecorder(stream, {
+        mimeType: mime,
+        ...(bitsPerSecond ? { videoBitsPerSecond: bitsPerSecond } : {}),
+      }),
       chunks: BlobPart[] = [];
     let failed = false;
     const timer = setTimeout(() => {
@@ -222,7 +247,9 @@ export async function exportAnimation(
   format: MotionFormat,
   signal?: AbortSignal,
   audioFile?: File,
+  options: MotionExportOptions = {},
 ): Promise<Blob> {
+  const settings = resolveMotionOptions(options);
   if (
     !frames.length ||
     frames.length > 120 ||
@@ -233,6 +260,8 @@ export async function exportAnimation(
     ) > 1_000_000
   )
     throw new Error("Animation exceeds resource limits");
+  const gifFrames =
+    format === "gif" ? sampleMotionFrames(frames, settings.fps) : frames;
   const first = frames[0].doc;
   if (
     frames.some(
@@ -258,12 +287,12 @@ export async function exportAnimation(
     canvas = document.createElement("canvas"),
     scale = Math.min(
       1,
-      640 / (first.width * first.cellWidth),
-      640 / (first.height * first.cellHeight),
+      settings.maxDimension / (first.width * first.cellWidth),
+      settings.maxDimension / (first.height * first.cellHeight),
       format === "gif"
         ? Math.sqrt(
             24_000_000 /
-              (frames.length *
+              (gifFrames.length *
                 first.width *
                 first.cellWidth *
                 first.height *
@@ -288,7 +317,7 @@ export async function exportAnimation(
     if (audioFile)
       throw new Error("GIF cannot contain audio. Choose WebM or MP4.");
     const decoded = [];
-    for (const f of frames) {
+    for (const f of gifFrames) {
       aborted(signal);
       draw(f.doc);
       decoded.push({
@@ -298,13 +327,29 @@ export async function exportAnimation(
       await new Promise((r) => setTimeout(r, 0));
     }
     aborted(signal);
-    const data = gifBytes(decoded, canvas.width, canvas.height);
+    const data = await encodeGifOffThread(
+      decoded,
+      canvas.width,
+      canvas.height,
+      settings,
+      signal,
+    );
     return new Blob([data as Uint8Array<ArrayBuffer>], { type: "image/gif" });
+  }
+  if (format === "webm" && !audioFile) {
+    const encoded = await encodeWebM(
+      canvas,
+      frames.map((f) => f.duration),
+      (index) => draw(frames[index].doc),
+      settings,
+      signal,
+    );
+    if (encoded) return encoded;
   }
   recordingMime(format);
   if (!canvas.captureStream) throw new Error("Canvas recording unavailable");
   draw(first);
-  const stream = canvas.captureStream(30);
+  const stream = canvas.captureStream(settings.fps);
   let audio: HTMLAudioElement | undefined,
     context: AudioContext | undefined,
     audioUrl: string | undefined;
@@ -321,6 +366,35 @@ export async function exportAnimation(
       for (const track of destination.stream.getAudioTracks())
         stream.addTrack(track);
       await waitForMedia(context.resume(), signal);
+      if (settings.audioOffset) {
+        await waitForMedia(
+          new Promise<void>((resolve, reject) => {
+            if (audio!.readyState >= 1) {
+              resolve();
+              return;
+            }
+            audio!.onloadedmetadata = () => resolve();
+            audio!.onerror = () =>
+              reject(new Error("Source audio could not be decoded."));
+          }),
+          signal,
+        );
+        audio.currentTime = settings.audioOffset;
+        await waitForMedia(
+          new Promise<void>((resolve, reject) => {
+            if (!audio!.seeking) {
+              resolve();
+              return;
+            }
+            audio!.onseeked = () => resolve();
+            audio!.onerror = () =>
+              reject(
+                new Error("Source audio could not seek to the trim start."),
+              );
+          }),
+          signal,
+        );
+      }
       await waitForMedia(audio.play(), signal);
     }
   } catch (error) {
@@ -344,7 +418,18 @@ export async function exportAnimation(
   };
   raf = requestAnimationFrame(animate);
   try {
-    return await recordStream(stream, format, total, signal);
+    const blob = await recordStream(
+      stream,
+      format,
+      total,
+      signal,
+      Math.round(200_000 + (settings.quality / 100) * 7_800_000),
+    );
+    if (blob.size > settings.maxBytes)
+      throw new Error(
+        "Video exceeds the file-size budget. Reduce resolution or quality.",
+      );
+    return blob;
   } finally {
     cancelAnimationFrame(raf);
     stream.getTracks().forEach((t) => t.stop());

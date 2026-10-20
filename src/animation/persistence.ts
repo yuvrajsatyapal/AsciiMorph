@@ -4,8 +4,7 @@ import {
   type AnimationProject,
 } from "./project";
 const KEY = "asciimorph-animation-v1";
-const MAX_PROJECTS = 8,
-  MAX_STORED_CHARACTERS = 80_000_000;
+const MAX_STORED_CHARACTERS = 80_000_000;
 export interface AnimationSummary {
   id: string;
   name: string;
@@ -27,23 +26,6 @@ function summary(project: AnimationProject, data: string): AnimationSummary {
     frames: project.frames.length,
     characters: data.length,
   };
-}
-function retained(rows: AnimationSummary[], currentId: string) {
-  const current = rows.find((row) => row.id === currentId)!;
-  const result = [current];
-  let chars = current.characters;
-  for (const row of rows
-    .filter((row) => row.id !== currentId)
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))) {
-    if (
-      result.length >= MAX_PROJECTS ||
-      chars + row.characters > MAX_STORED_CHARACTERS
-    )
-      continue;
-    result.push(row);
-    chars += row.characters;
-  }
-  return result;
 }
 function database(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -89,8 +71,7 @@ function readLocal(): LocalArchive {
       typeof value.latest !== "string" ||
       !value.projects ||
       typeof value.projects !== "object" ||
-      !Array.isArray(value.catalog) ||
-      value.catalog.length > MAX_PROJECTS
+      !Array.isArray(value.catalog)
     )
       throw new Error("Invalid animation archive.");
     return value as LocalArchive;
@@ -108,10 +89,7 @@ export async function saveAnimation(project: AnimationProject) {
     row = summary(project, data);
   if (typeof indexedDB === "undefined") {
     const old = readLocal(),
-      catalog = retained(
-        [...old.catalog.filter((item) => item.id !== project.id), row],
-        project.id,
-      );
+      catalog = [row, ...old.catalog.filter((item) => item.id !== project.id)];
     const archive: LocalArchive = {
       kind: "animation-archive",
       latest: project.id,
@@ -123,7 +101,12 @@ export async function saveAnimation(project: AnimationProject) {
         ]),
       ),
     };
-    localStorage.setItem(KEY, JSON.stringify(archive));
+    const serialized = JSON.stringify(archive);
+    if (serialized.length > MAX_STORED_CHARACTERS)
+      throw new Error(
+        "Animation storage budget reached. Back up and explicitly delete projects in the library.",
+      );
+    localStorage.setItem(KEY, serialized);
     return;
   }
   const db = await database();
@@ -132,23 +115,9 @@ export async function saveAnimation(project: AnimationProject) {
       const tx = db.transaction(["projects", "catalog"], "readwrite"),
         projects = tx.objectStore("projects"),
         catalog = tx.objectStore("catalog");
-      const request = catalog.getAll();
-      request.onsuccess = () => {
-        const all = request.result as AnimationSummary[],
-          keep = retained(
-            [...all.filter((item) => item.id !== project.id), row],
-            project.id,
-          ),
-          ids = new Set(keep.map((item) => item.id));
-        for (const item of all)
-          if (!ids.has(item.id)) {
-            projects.delete(`project:${item.id}`);
-            catalog.delete(item.id);
-          }
-        projects.put(data, `project:${project.id}`);
-        projects.put(data, "latest");
-        catalog.put(row);
-      };
+      projects.put(data, `project:${project.id}`);
+      projects.put(data, "latest");
+      catalog.put(row);
       tx.oncomplete = () => resolve();
       tx.onerror = () =>
         reject(tx.error || new Error("Animation save failed."));
@@ -200,4 +169,50 @@ export async function loadAnimation(
     }
   }
   return typeof data === "string" ? parseAnimation(data) : null;
+}
+
+export async function deleteAnimation(id: string) {
+  if (typeof indexedDB === "undefined") {
+    const archive = readLocal();
+    delete archive.projects[id];
+    archive.catalog = archive.catalog.filter((row) => row.id !== id);
+    if (archive.latest === id) archive.latest = archive.catalog[0]?.id || "";
+    localStorage.setItem(KEY, JSON.stringify(archive));
+    return;
+  }
+  const db = await database();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(["projects", "catalog"], "readwrite");
+      const projects = tx.objectStore("projects"),
+        catalog = tx.objectStore("catalog");
+      const latest = projects.get("latest");
+      latest.onsuccess = () => {
+        const current =
+          typeof latest.result === "string"
+            ? parseAnimation(latest.result)
+            : null;
+        projects.delete(`project:${id}`);
+        catalog.delete(id);
+        if (current?.id === id) {
+          const rows = catalog.getAll();
+          rows.onsuccess = () => {
+            const remaining = (rows.result as AnimationSummary[]).sort((a, b) =>
+              b.updatedAt.localeCompare(a.updatedAt),
+            );
+            if (!remaining[0]) projects.delete("latest");
+            else {
+              const next = projects.get(`project:${remaining[0].id}`);
+              next.onsuccess = () => projects.put(next.result, "latest");
+            }
+          };
+        }
+      };
+      tx.oncomplete = () => resolve();
+      tx.onabort = tx.onerror = () =>
+        reject(tx.error || new Error("Delete failed."));
+    });
+  } finally {
+    db.close();
+  }
 }

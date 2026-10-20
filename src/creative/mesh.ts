@@ -314,6 +314,11 @@ export const CUBE: Mesh = {
     [1, 6, 5],
   ],
 };
+export interface MeshRenderOptions {
+  perspective?: number;
+  wireframe?: boolean;
+  lightDirection?: Vec3;
+}
 export function renderMesh(
   mesh: Mesh,
   yaw: number,
@@ -321,6 +326,7 @@ export function renderMesh(
   zoom: number,
   light: number,
   color = "#e9b86e",
+  options: MeshRenderOptions = {},
 ) {
   if (
     ![yaw, pitch, zoom, light].every(Number.isFinite) ||
@@ -328,6 +334,20 @@ export function renderMesh(
     zoom > 3
   )
     throw new Error("Invalid view");
+  const perspective = options.perspective ?? 0,
+    direction = options.lightDirection ?? [-0.3, 0.5, 0.8];
+  if (
+    !Number.isFinite(perspective) ||
+    perspective < 0 ||
+    perspective > 1 ||
+    direction.length !== 3 ||
+    !direction.every(Number.isFinite) ||
+    !Math.hypot(...direction) ||
+    !/^#[a-f0-9]{6}$/i.test(color)
+  )
+    throw new Error("Invalid material or projection");
+  validate(mesh);
+  const directionLength = Math.hypot(...direction);
   const width = 80,
     height = 40,
     doc = createDocument(width, height, "3D snapshot"),
@@ -345,7 +365,11 @@ export function renderMesh(
   });
   const points = transformed.map(
     ([x, y, z]) =>
-      [width / 2 + x * 17 * zoom, height / 2 - y * 17 * zoom, z] as Vec3,
+      [
+        width / 2 + (x * 17 * zoom) / (1 - z * perspective * 0.25),
+        height / 2 - (y * 17 * zoom) / (1 - z * perspective * 0.25),
+        z,
+      ] as Vec3,
   );
   let work = 0;
   for (const [a, b, c] of mesh.faces) {
@@ -363,7 +387,10 @@ export function renderMesh(
       0.2 +
         Math.max(
           0,
-          (normal[0] * -0.3 + normal[1] * 0.5 + normal[2] * 0.8) / len,
+          (normal[0] * direction[0] +
+            normal[1] * direction[1] +
+            normal[2] * direction[2]) /
+            (len * directionLength),
         ) *
           light,
     );
@@ -408,7 +435,13 @@ export function renderMesh(
               (p[0] - r[0]) * (y + 0.5 - r[1])) /
             den,
           cc = 1 - aa - bb;
-        if (aa < 0 || bb < 0 || cc < 0) continue;
+        if (
+          aa < 0 ||
+          bb < 0 ||
+          cc < 0 ||
+          (options.wireframe && Math.min(aa, bb, cc) > 0.055)
+        )
+          continue;
         const z = aa * p[2] + bb * q[2] + cc * r[2],
           i = y * width + x;
         if (z > depth[i]) {

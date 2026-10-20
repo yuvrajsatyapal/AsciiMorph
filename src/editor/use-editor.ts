@@ -2,6 +2,9 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useStore } from "zustand";
 import { workspace } from "./store";
+import { registerNavigationGuard } from "@/workspace/navigation";
+import { saveActiveDraft } from "@/converter/handoff";
+import { usePersistentState } from "@/workspace/preferences";
 import {
   createDocument,
   graphemes,
@@ -81,18 +84,21 @@ export function useEditor() {
   const doc = state.activeId ? state.documents[state.activeId] : null;
   const [ready, setReady] = useState(false),
     [resume, setResume] = useState<AsciiDocument | null>(null),
-    [tool, setToolState] = useState<Tool>("pencil"),
-    [character, setCharacter] = useState("#"),
-    [fg, setFgState] = useState("#E9B86E"),
-    [bg, setBg] = useState<string | null>(null),
-    [brush, setBrush] = useState(1),
+    [tool, setToolState] = usePersistentState<Tool>("editor-tool", "pencil"),
+    [character, setCharacter] = usePersistentState("editor-character", "#"),
+    [fg, setFgState] = usePersistentState("editor-foreground", "#E9B86E"),
+    [bg, setBg] = usePersistentState<string | null>("editor-background", null),
+    [brush, setBrush] = usePersistentState("editor-brush", 1),
     [resetEraser, setResetEraser] = useState(true),
     [stamp, setStamp] = useState("Star"),
     [selection, setSelection] = useState<Rect | null>(null),
     [caret, setCaret] = useState<Point>({ x: 0, y: 0 }),
-    [zoom, setZoom] = useState(1),
-    [grid, setGrid] = useState(true),
-    [monochrome, setMonochrome] = useState(false),
+    [zoom, setZoom] = usePersistentState("editor-zoom", 1),
+    [grid, setGrid] = usePersistentState("editor-grid", true),
+    [monochrome, setMonochrome] = usePersistentState(
+      "editor-monochrome",
+      false,
+    ),
     [preview, setPreview] = useState<AsciiDocument | null>(null),
     [status, setStatus] = useState("Not saved"),
     [message, setMessage] = useState(""),
@@ -108,6 +114,7 @@ export function useEditor() {
     typing = useRef(0),
     spaceHand = useRef(false),
     saved = useRef<AsciiDocument | null>(null);
+  useEffect(() => registerNavigationGuard(saveActiveDraft), []);
   const notify = useCallback((text: string) => setMessage(text), []);
   const current = () => {
     const s = workspace.getState();
