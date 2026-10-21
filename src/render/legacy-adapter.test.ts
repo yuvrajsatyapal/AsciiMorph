@@ -388,3 +388,62 @@ describe("explicit legacy handoff", () => {
     expect(encode).not.toHaveBeenCalled();
   });
 });
+
+it("expanded packed geometry requires explicit legacy adaptation before document allocation", () => {
+  const ids = vi.spyOn(crypto, "randomUUID");
+  const base: PackedGlyphGrid = {
+    version: 1,
+    width: 1,
+    height: 1,
+    cellWidth: 192,
+    cellHeight: 320,
+    calibrationId: "",
+    glyphIndices: new Uint16Array([1]),
+    foreground: new Uint8Array([255, 255, 255, 255]),
+    background: new Uint8Array(4),
+    alpha: new Float32Array([1]),
+  };
+  for (const [cellWidth, cellHeight] of [
+    [64.001, 128],
+    [64, 128.001],
+    [192, 320],
+    [512, 512],
+  ]) {
+    expect(() =>
+      gridToDocument({ ...base, cellWidth, cellHeight }, undefined, "Large"),
+    ).toThrow(/adaptation required/i);
+  }
+  expect(ids).not.toHaveBeenCalled();
+  for (const [cellWidth, cellHeight] of [
+    [1, 1],
+    [1.8, 3],
+    [6.6, 11],
+    [64, 128],
+  ]) {
+    const doc = gridToDocument(
+      { ...base, cellWidth, cellHeight },
+      undefined,
+      "Compatible",
+    );
+    expect(validateDocument(doc)).toEqual(doc);
+  }
+});
+it("legacy settings retain original independent converter geometry limits", () => {
+  const source = { id: "legacy", revision: 0, width: 1, height: 1 };
+  for (const patch of [
+    { cellWidth: 1.8 },
+    { cellWidth: 6.99 },
+    { cellWidth: 16.01 },
+    { cellHeight: 13.99 },
+    { cellHeight: 28.01 },
+    { cellWidth: 192, cellHeight: 320 },
+  ])
+    expect(() => legacySettingsToCharacter(settings(patch), source)).toThrow();
+  for (const [cellWidth, cellHeight] of [
+    [7, 14],
+    [16, 28],
+  ])
+    expect(
+      legacySettingsToCharacter(settings({ cellWidth, cellHeight }), source),
+    ).toMatchObject({ cellWidth, cellHeight });
+});

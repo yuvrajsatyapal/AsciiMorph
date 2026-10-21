@@ -1,5 +1,7 @@
 import { backingSize, MAX_BACKING_PIXELS } from "@/core/render";
 import {
+  MIN_CHARACTER_CELL_DIMENSION,
+  MAX_CHARACTER_CELL_DIMENSION,
   TRANSPARENT_GLYPH_INDEX,
   validateGrid,
   type GlyphCalibrationV1,
@@ -14,32 +16,82 @@ interface Dictionary {
   surfaces: Map<number, Surface>;
   scratch?: Surface;
   pixels: number;
+  bytes: number;
 }
 // At most four dictionaries and 32 million retained canvas pixels, including tint
 // scratch. Keys are immutable calibration snapshots or canonical Braille geometry.
 const dictionaries = new Map<GlyphCalibrationV1 | string, Dictionary>();
 let retainedPixels = 0;
+let retainedBytes = 0;
+const MAX_CANONICAL_BYTES = 32 * 1024 * 1024;
 function surface(width: number, height: number): Surface {
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("Canvas rendering is unavailable");
-  return { canvas, ctx };
+  try {
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas rendering is unavailable");
+    return { canvas, ctx };
+  } catch (error) {
+    canvas.width = 0;
+    canvas.height = 0;
+    throw error;
+  }
 }
-function dropOldest(): void {
-  const key = dictionaries.keys().next().value!;
+function dropDictionary(key: GlyphCalibrationV1 | string): void {
   const d = dictionaries.get(key)!;
+  for (const { canvas } of d.surfaces.values()) {
+    canvas.width = 0;
+    canvas.height = 0;
+  }
+  if (d.scratch) {
+    d.scratch.canvas.width = 0;
+    d.scratch.canvas.height = 0;
+  }
+  d.surfaces.clear();
+  d.scratch = undefined;
   retainedPixels -= d.pixels;
+  retainedBytes -= d.bytes;
   dictionaries.delete(key);
 }
+function dropOldest(): void {
+  dropDictionary(dictionaries.keys().next().value!);
+}
+function maskBudget(
+  width: number,
+  height: number,
+  count: number,
+  canonical: boolean,
+) {
+  backingSize(width, height);
+  // Glyphs + tint scratch + one construction readback (RGBA pixel equivalents).
+  const pixels = width * height * (count + 2),
+    bytes = canonical ? width * height * count + 40 * count : 0;
+  if (
+    !Number.isSafeInteger(pixels) ||
+    pixels > MAX_BACKING_PIXELS ||
+    bytes > MAX_CANONICAL_BYTES
+  )
+    throw new Error("Glyph mask surface/array budget exceeded");
+  return { pixels, bytes };
+}
 /** Canonical 2×4 geometric dots, not platform-font calibration. */
-function canonicalBraille(
+export function canonicalBraille(
   cellWidth: number,
   cellHeight: number,
 ): GlyphCalibrationV1 {
+  if (
+    ![cellWidth, cellHeight].every(
+      (v) =>
+        Number.isFinite(v) &&
+        v >= MIN_CHARACTER_CELL_DIMENSION &&
+        v <= MAX_CHARACTER_CELL_DIMENSION,
+    )
+  )
+    throw new Error("Invalid canonical geometry");
   const width = Math.ceil(cellWidth),
     height = Math.ceil(cellHeight);
+  maskBudget(width, height, 256, true);
   const masks = new Uint8Array(width * height * 256);
   const bits = [
     [0, 3],
@@ -95,7 +147,9 @@ function canonicalBraille(
       }
     coverage[mask] = sum / (width * height * 255);
     for (let bin = 0; bin < 9; bin++)
-      shapes[mask * 9 + bin] /= counts[bin] * 255;
+      shapes[mask * 9 + bin] = counts[bin]
+        ? shapes[mask * 9 + bin] / (counts[bin] * 255)
+        : 0;
   }
   const max = coverage[255];
   if (max) for (let mask = 0; mask < 256; mask++) coverage[mask] /= max;
@@ -129,19 +183,23 @@ function dictionary(
     ? calibration!.maskHeight
     : Math.ceil(grid.cellHeight);
   const count = grid.calibrationId ? calibration!.glyphs.length : 256;
-  backingSize(width, height);
-  // Every glyph could be used, plus one tint scratch. Validate the whole bound
-  // before creating even the first canvas, rather than growing without a budget.
-  const pixels = width * height * (count + 1);
-  if (pixels > MAX_BACKING_PIXELS)
-    throw new Error("Glyph mask surface budget exceeded");
+  const { pixels, bytes } = maskBudget(
+    width,
+    height,
+    count,
+    !grid.calibrationId,
+  );
   const hit = dictionaries.get(key);
   if (hit) {
     dictionaries.delete(key);
     dictionaries.set(key, hit);
     return hit;
   }
-  while (dictionaries.size >= 4 || retainedPixels + pixels > MAX_BACKING_PIXELS)
+  while (
+    dictionaries.size >= 4 ||
+    retainedPixels + pixels > MAX_BACKING_PIXELS ||
+    retainedBytes + bytes > MAX_CANONICAL_BYTES
+  )
     dropOldest();
   const d: Dictionary = {
     width,
@@ -151,8 +209,10 @@ function dictionary(
       : canonicalBraille(grid.cellWidth, grid.cellHeight),
     surfaces: new Map(),
     pixels,
+    bytes,
   };
   retainedPixels += pixels;
+  retainedBytes += bytes;
   dictionaries.set(key, d);
   return d;
 }
@@ -160,15 +220,21 @@ function glyphSurface(d: Dictionary, index: number): Surface {
   const hit = d.surfaces.get(index);
   if (hit) return hit;
   const s = surface(d.width, d.height);
-  const image = s.ctx.createImageData(d.width, d.height);
-  const offset = index * d.width * d.height;
-  for (let i = 0; i < d.width * d.height; i++) {
-    image.data[i * 4] = image.data[i * 4 + 1] = image.data[i * 4 + 2] = 255;
-    image.data[i * 4 + 3] = d.calibration.masks[offset + i];
+  try {
+    const image = s.ctx.createImageData(d.width, d.height);
+    const offset = index * d.width * d.height;
+    for (let i = 0; i < d.width * d.height; i++) {
+      image.data[i * 4] = image.data[i * 4 + 1] = image.data[i * 4 + 2] = 255;
+      image.data[i * 4 + 3] = d.calibration.masks[offset + i];
+    }
+    s.ctx.putImageData(image, 0, 0);
+    d.surfaces.set(index, s);
+    return s;
+  } catch (error) {
+    s.canvas.width = 0;
+    s.canvas.height = 0;
+    throw error;
   }
-  s.ctx.putImageData(image, 0, 0);
-  d.surfaces.set(index, s);
-  return s;
 }
 function color(bytes: Uint8Array, offset: number): string {
   return `#${bytes[offset].toString(16).padStart(2, "0")}${bytes[offset + 1].toString(16).padStart(2, "0")}${bytes[offset + 2].toString(16).padStart(2, "0")}`;
@@ -237,6 +303,13 @@ export function paintCharacterGrid(
         grid.cellHeight,
       );
     }
+  } catch (error) {
+    for (const [key, value] of dictionaries)
+      if (value === d) {
+        dropDictionary(key);
+        break;
+      }
+    throw error;
   } finally {
     ctx.restore();
   }

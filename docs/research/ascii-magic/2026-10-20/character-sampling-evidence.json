@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "date": "2026-10-21",
+  "evidence": "Static read-only public asset inspection, conditional on fixed input imageData and ordinary character branch; no runtime parity claim",
+  "source": {
+    "url": "https://www.ascii-magic.com/app/_next/static/chunks/09wgr6f2vxer0.js",
+    "sha256": "80976f22b8f5fbeeb91e27fc9978852b4dddff71e7ce4db88067330981371504",
+    "offsetUnit": "Unicode character, exclusive ends"
+  },
+  "ranges": {
+    "input_ramp_and_image": [
+      100739,
+      100987
+    ],
+    "normalization": [
+      101545,
+      101831
+    ],
+    "cell_sampling": [
+      105221,
+      105716
+    ],
+    "tone_channels": [
+      106138,
+      106291
+    ],
+    "nonrandom_ramp_choice": [
+      113635,
+      113945
+    ],
+    "normalized_luminance": [
+      105959,
+      106019
+    ]
+  },
+  "findings": [
+    "The common path holds ramp K from a mode pool or charSet, and input pixels ep from imageData.",
+    "It estimates luminance minimum/maximum on a sampled grid using .299R+.587G+.114B; zero normalization span becomes1.",
+    "Cell pixels are selected at floored cell centers mapped into input imageData dimensions, rather than the current core area average.",
+    "For fixed imageData, normalized luminance M is computed before the contrast/brightness RGB channel stage. The later ordinary ramp index derives from M plus threshold/edge terms, not those tone-adjusted channels.",
+    "The nonrandom ordinary selection indexes the provided ramp directly with a clamped brightness-derived index; no browser coverage-sorted dictionary selection is visible in this bounded path."
+  ],
+  "limits": [
+    "Upstream imageData preparation and every optional branch are not proved here.",
+    "Threshold, edge, animation, alpha, grading and style-specific branches require separate full semantics/fixtures.",
+    "The isolated affine contrast mapping does not establish full Rust/reference character output equivalence; current core has intentionally different sampling/matching."
+  ]
+}

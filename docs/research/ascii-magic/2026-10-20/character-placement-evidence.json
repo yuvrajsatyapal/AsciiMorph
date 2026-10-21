@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "analysisDate": "2026-10-21",
+  "method": "Static inert source inspection; no downloaded code executed or copied into production",
+  "source": {
+    "url": "https://www.ascii-magic.com/app/_next/static/chunks/09wgr6f2vxer0.js",
+    "sha256": "80976f22b8f5fbeeb91e27fc9978852b4dddff71e7ce4db88067330981371504",
+    "offsetUnit": "Unicode character; exclusive ends"
+  },
+  "anchors": {
+    "font_and_baseline": [
+      102190,
+      102261
+    ],
+    "plain_glyph_call": [
+      114903,
+      114955
+    ],
+    "helper_direct_fill": [
+      15849,
+      15875
+    ]
+  },
+  "observations": [
+    "Common renderer sets scaled Courier New/Courier/monospace font and top baseline.",
+    "Ordinary unscaled non-bitmap character path forwards col*cellWidth+z and row*cellHeight+offset to drawCharFx. Its final ordinary fillText uses these coordinates unchanged.",
+    "No textAlign assignment was found in the bounded common-renderer slice [95000,115000); effective alignment depends on context state and is not proved by this bounded negative search."
+  ],
+  "limits": [
+    "Depth/motion/scaling/bitmap/batched WebGL paths have separate placement; this does not establish all effects or actual platform font pixels.",
+    "Current browser calibration uses middle/center placement; geometry widening intentionally leaves that legacy behavior. A reference placement option and browser fixture are required before declaring character pixel parity."
+  ]
+}

@@ -4,7 +4,7 @@ import { createCharacterEngine } from "./wasm-character";
 import { legacySettingsToCharacter } from "./legacy-adapter";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { GlyphCalibrationV1, PackedGlyphGrid } from "./character-contract";
-import { paintCharacterGrid } from "./character-paint";
+import { canonicalBraille, paintCharacterGrid } from "./character-paint";
 
 const calibration = (): GlyphCalibrationV1 => ({
   version: 1,
@@ -330,3 +330,174 @@ describe("packed character paint", () => {
     expect(b.create.mock.calls.length).toBeGreaterThan(before); // Old dictionaries were evicted.
   });
 });
+
+it("tiny canonical Braille has finite empty bins and preserves dot bit positions", () => {
+  for (const [w, h] of [
+    [1, 1],
+    [1.8, 3],
+    [6.6, 11],
+  ]) {
+    const c = canonicalBraille(w, h);
+    expect(c.cellWidth).toBe(w);
+    expect(c.maskWidth).toBe(Math.ceil(w));
+    expect(
+      [...c.coverage, ...c.shapes].every(
+        (v) => Number.isFinite(v) && v >= 0 && v <= 1,
+      ),
+    ).toBe(true);
+    expect(
+      [...c.masks.slice(0, c.maskWidth * c.maskHeight)].every((v) => v === 0),
+    ).toBe(true);
+  }
+  const c = canonicalBraille(20, 40);
+  const positions = [
+    [0, 0],
+    [0, 1],
+    [0, 2],
+    [1, 0],
+    [1, 1],
+    [1, 2],
+    [0, 3],
+    [1, 3],
+  ];
+  positions.forEach(([col, row], bit) => {
+    let sum = 0,
+      xsum = 0,
+      ysum = 0;
+    for (let i = 0; i < 800; i++) {
+      const a = c.masks[(1 << bit) * 800 + i];
+      sum += a;
+      xsum += a * (i % 20);
+      ysum += a * Math.floor(i / 20);
+    }
+    expect(xsum / sum).toBeCloseTo((col + 0.5) * 10 - 0.5);
+    expect(ysum / sum).toBeCloseTo((row + 0.5) * 10 - 0.5);
+  });
+});
+it.each([
+  [1.8, 3],
+  [6.6, 11],
+  [192, 320],
+])(
+  "fractional logical destination %s x %s and view scaling remain separate",
+  (w, h) => {
+    const b = canvasBoundary(),
+      c = { ...calibration(), cellWidth: w, cellHeight: h };
+    const g = { ...grid(), cellWidth: w, cellHeight: h };
+    const ctx = b.output as unknown as CanvasRenderingContext2D;
+    paintCharacterGrid(ctx, g, c, 1);
+    expect(b.output.drawImage.mock.calls[0].slice(-4)).toEqual([0, 0, w, h]);
+    paintCharacterGrid(ctx, g, c, 2);
+    expect(b.output.scale).toHaveBeenLastCalledWith(2, 2);
+    expect(b.output.drawImage.mock.calls.at(-1)!.slice(-4)).toEqual([
+      w,
+      0,
+      w,
+      h,
+    ]);
+  },
+);
+it("preflights transient readback pixels using actual independent masks", () => {
+  const b = canvasBoundary(),
+    c = {
+      ...calibration(),
+      cellWidth: 1,
+      cellHeight: 1,
+      maskWidth: 3000,
+      maskHeight: 3000,
+      masks: new Uint8Array(18_000_000),
+    };
+  expect(() =>
+    paintCharacterGrid(
+      b.output as unknown as CanvasRenderingContext2D,
+      { ...grid(), cellWidth: 1, cellHeight: 1 },
+      c,
+      1,
+    ),
+  ).toThrow(/mask.*budget/i);
+  expect(b.create).not.toHaveBeenCalled();
+});
+it("eviction zeros owned surfaces and preserves caller canvas and calibration masks", () => {
+  const b = canvasBoundary(),
+    ctx = b.output as unknown as CanvasRenderingContext2D,
+    c = calibration();
+  const masks = c.masks.slice();
+  paintCharacterGrid(ctx, grid(), c, 1);
+  const owned = b.create.mock.results.map((r) => r.value as HTMLCanvasElement);
+  for (let i = 0; i < 4; i++) {
+    const next = { ...calibration(), id: `release-${i}` };
+    paintCharacterGrid(ctx, { ...grid(), calibrationId: next.id }, next, 1);
+  }
+  expect(
+    owned.every((canvas) => canvas.width === 0 && canvas.height === 0),
+  ).toBe(true);
+  expect(c.masks).toEqual(masks);
+});
+it("large canonical dictionaries evict by aggregate pixels before the count cap", () => {
+  const b = canvasBoundary(),
+    ctx = b.output as unknown as CanvasRenderingContext2D;
+  for (const w of [191, 192, 193]) {
+    paintCharacterGrid(
+      ctx,
+      {
+        ...grid(),
+        cellWidth: w,
+        cellHeight: 320,
+        calibrationId: "",
+        glyphIndices: new Uint16Array([1, 1, 65535]),
+      },
+      undefined,
+      1,
+    );
+  }
+  const first = b.create.mock.results[0].value as HTMLCanvasElement;
+  expect(first.width).toBe(0);
+});
+it("surface creation/readback failure rolls back ownership and restores caller state", () => {
+  const b = canvasBoundary(),
+    ctx = b.output as unknown as CanvasRenderingContext2D,
+    c = calibration();
+  // An already constructed glyph surface must be released if later tint construction fails.
+  b.output.drawImage.mockImplementationOnce(() => {
+    throw new Error("failed draw");
+  });
+  expect(() => paintCharacterGrid(ctx, grid(), c, 1)).toThrow("failed draw");
+  expect(
+    b.create.mock.results.every(
+      (r) => (r.value as HTMLCanvasElement).width === 0,
+    ),
+  ).toBe(true);
+  expect(ctx.globalAlpha).toBe(0.37);
+  const before = b.create.mock.calls.length;
+  paintCharacterGrid(ctx, grid(), c, 1);
+  expect(b.create.mock.calls.length).toBeGreaterThan(before);
+});
+it.each(["context", "readback"])(
+  "%s allocation failure zeros newly owned surfaces and remains retryable",
+  (failure) => {
+    const b = canvasBoundary(),
+      ctx = b.output as unknown as CanvasRenderingContext2D,
+      c = calibration();
+    const normal = document.createElement.bind(document);
+    b.create.mockImplementationOnce(((tag: string) => {
+      const canvas = normal(tag) as HTMLCanvasElement;
+      if (failure === "context") canvas.getContext = () => null;
+      else
+        b.contexts.at(-1)!.createImageData.mockImplementationOnce(() => {
+          throw new Error("readback failure");
+        });
+      return canvas;
+    }) as typeof document.createElement);
+    expect(() => paintCharacterGrid(ctx, grid(), c, 1)).toThrow(
+      /unavailable|readback/,
+    );
+    const owned = b.create.mock.results
+      .filter((r) => r.type === "return")
+      .map((r) => r.value as HTMLCanvasElement);
+    expect(
+      owned.every((canvas) => canvas.width === 0 && canvas.height === 0),
+    ).toBe(true);
+    expect(ctx.globalAlpha).toBe(0.37);
+    expect(() => paintCharacterGrid(ctx, grid(), c, 1)).not.toThrow();
+  },
+);

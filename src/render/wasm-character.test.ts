@@ -313,3 +313,53 @@ describe("character WASM typed budget boundary", () => {
     );
   });
 });
+
+it("expanded f64 geometry survives real WASM with independent raster extents", async () => {
+  const e = await createCharacterEngine(bytes);
+  e.setSource(source());
+  for (const [cellWidth, cellHeight] of [
+    [1.8, 3],
+    [6.6, 11],
+    [192, 320],
+    [512, 512],
+  ]) {
+    const c = {
+      ...calibration(),
+      id: `geometry-${cellWidth}`,
+      cellWidth,
+      cellHeight,
+      maskWidth: 3,
+      maskHeight: 2,
+      masks: new Uint8Array(12).fill(255),
+    };
+    e.setCalibration(c);
+    expect(() =>
+      e.begin({
+        ...settings,
+        cellWidth: cellWidth === 512 ? 511.9 : cellWidth + 0.1,
+        cellHeight,
+      }),
+    ).toThrow(/calibration/i);
+    const g = finish(e, e.begin({ ...settings, cellWidth, cellHeight }));
+    expect([g.cellWidth, g.cellHeight]).toEqual([cellWidth, cellHeight]);
+    expect(g.calibrationId).toBe(c.id);
+  }
+  e.dispose();
+});
+it("staged replacement peak preserves previous real WASM calibration and job", async () => {
+  const e = await createCharacterEngine(bytes, { memoryBudgetBytes: 1000 });
+  e.setSource(source());
+  e.setCalibration(calibration());
+  const id = e.begin(settings);
+  expect(() =>
+    e.setCalibration({
+      ...calibration(),
+      id: "large",
+      maskWidth: 180,
+      masks: new Uint8Array(360),
+    }),
+  ).toThrow(expect.objectContaining({ code: "BudgetExceeded" }));
+  expect(finish(e, id).calibrationId).toBe("cal");
+  expect(finish(e, e.begin(settings)).calibrationId).toBe("cal");
+  e.dispose();
+});

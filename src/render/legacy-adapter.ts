@@ -96,6 +96,10 @@ export function gridToDocument(
     throw new Error(
       "Legacy documents support at most 300 cells per side; packed grid cannot be handed off without resizing",
     );
+  if (grid.cellWidth > 64 || grid.cellHeight > 128)
+    throw new Error(
+      "Legacy adaptation required: logical cells exceed document width 1..64 or height 1..128",
+    );
   const doc = createDocument(grid.width, grid.height, name);
   doc.cellWidth = grid.cellWidth;
   doc.cellHeight = grid.cellHeight;

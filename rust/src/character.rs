@@ -116,8 +116,8 @@ impl CharacterSettings {
         )?;
         let c = self.crop;
         for (v, min, max) in [
-            (self.cell_width, 7.0, 16.0),
-            (self.cell_height, 14.0, 28.0),
+            (self.cell_width, 1.0, 512.0),
+            (self.cell_height, 1.0, 512.0),
             (c.x, 0.0, 1.0),
             (c.y, 0.0, 1.0),
             (c.width, 0.0, 1.0),

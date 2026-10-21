@@ -1,4 +1,6 @@
 /** Conservative first-delivery limits, independent of the legacy converter. */
+export const MIN_CHARACTER_CELL_DIMENSION = 1;
+export const MAX_CHARACTER_CELL_DIMENSION = 512;
 export const MAX_CHARACTER_CELLS = 60_000;
 export const MAX_SOURCE_DIMENSION = 16_384;
 export const DEFAULT_MEMORY_BUDGET_BYTES = 268_435_456;
@@ -109,8 +111,18 @@ function dimensions(value: RecordValue, limit: number): number {
   return w * h;
 }
 function geometry(value: RecordValue): void {
-  number(value.cellWidth, 7, 16, "cellWidth");
-  number(value.cellHeight, 14, 28, "cellHeight");
+  number(
+    value.cellWidth,
+    MIN_CHARACTER_CELL_DIMENSION,
+    MAX_CHARACTER_CELL_DIMENSION,
+    "cellWidth",
+  );
+  number(
+    value.cellHeight,
+    MIN_CHARACTER_CELL_DIMENSION,
+    MAX_CHARACTER_CELL_DIMENSION,
+    "cellHeight",
+  );
 }
 function version(value: RecordValue): void {
   if (value.version !== 1) fail("version");

@@ -302,3 +302,74 @@ fn live_session_cap_does_not_recycle_stale_handles() {
     }
     assert_eq!(abi::render_drop(replacement), 1);
 }
+#[test]
+fn existing_f64_offsets_preserve_expanded_geometry() {
+    use asciimorph_engine::session::decode_settings;
+    for (w, h) in [
+        (1f64, 1f64),
+        (1.8, 3.),
+        (6.6, 11.),
+        (192., 320.),
+        (512., 512.),
+    ] {
+        let mut b = wire_settings();
+        b[32..40].copy_from_slice(&w.to_le_bytes());
+        b[40..48].copy_from_slice(&h.to_le_bytes());
+        assert_eq!(b.len(), 160);
+        let cfg = decode_settings(&b).unwrap();
+        assert_eq!((cfg.cell_width, cfg.cell_height), (w, h));
+        let mut s = RenderSession::new(20000).unwrap();
+        upload(&mut s, &source(1, 255)).unwrap();
+        let id = s.begin(cfg).unwrap();
+        while s.step(id, 1000).unwrap() != JobStatus::Complete {}
+        assert_eq!(s.output(id).unwrap().len(), 48);
+        s.release(id).unwrap();
+        assert_eq!(s.storage_bytes(), 4);
+    }
+    for value in [0f64, 0.999, 512.001, f64::NAN, f64::INFINITY] {
+        for offset in [32, 40] {
+            let mut b = wire_settings();
+            b[offset..offset + 8].copy_from_slice(&value.to_le_bytes());
+            assert!(decode_settings(&b).is_err());
+        }
+    }
+}
+#[test]
+fn actual_mask_extents_and_staged_replacement_peak_keep_previous_job() {
+    let mut s = RenderSession::new(1200).unwrap();
+    upload(&mut s, &source(1, 255)).unwrap();
+    let old = calibration(0, [0; 4]);
+    let p = s.stage(old.len()).unwrap();
+    s.stage_mut(p).unwrap().copy_from_slice(&old);
+    s.upload(2, p, old.len()).unwrap();
+    s.unstage(p).unwrap();
+    let mut cfg = settings();
+    cfg.mapping = Mapping::Glyph;
+    cfg.cell_width = 192.;
+    cfg.cell_height = 320.;
+    let id = s.begin(cfg).unwrap();
+    // Independent 80x1 raster extents, not derived from 192x320 logical geometry.
+    let mut replacement = Vec::new();
+    for v in [1u32, 2, 0, 0, 4, 80, 1, 0] {
+        replacement.extend_from_slice(&v.to_le_bytes());
+    }
+    replacement.extend(vec![0; 320]);
+    for _ in 0..40 {
+        replacement.extend_from_slice(&0.5f32.to_le_bytes());
+    }
+    let p = s.stage(replacement.len()).unwrap();
+    s.stage_mut(p).unwrap().copy_from_slice(&replacement);
+    assert_eq!(
+        s.upload(2, p, replacement.len()),
+        Err(RenderError::BudgetExceeded)
+    );
+    s.unstage(p).unwrap();
+    while s.step(id, 1000).unwrap() != JobStatus::Complete {}
+    s.release(id).unwrap();
+    assert_eq!(s.source().unwrap().rgba(), &[255; 4]);
+    let p = s.stage(replacement.len()).unwrap();
+    s.stage_mut(p).unwrap().copy_from_slice(&replacement);
+    s.upload(2, p, replacement.len()).unwrap();
+    s.unstage(p).unwrap();
+    assert_eq!(s.storage_bytes(), 4 + 320 + 160);
+}

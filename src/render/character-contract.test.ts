@@ -156,3 +156,32 @@ describe("packed character boundary", () => {
       ).toThrow();
   });
 });
+
+it("preserves finite logical geometry independently of mask extents", () => {
+  for (const [cellWidth, cellHeight] of [
+    [1, 1],
+    [1.8, 3],
+    [6.6, 11],
+    [192, 320],
+    [512, 512],
+  ]) {
+    const geometry = { cellWidth, cellHeight };
+    expect(
+      validateCharacterSettings({ ...settings(), ...geometry }).cellWidth,
+    ).toBe(cellWidth);
+    const c = { ...calibration(), ...geometry };
+    expect(validateGlyphCalibration(c).maskWidth).toBe(1);
+    expect(() => validateGrid({ ...grid(), ...geometry }, c)).not.toThrow();
+  }
+  for (const value of [0, -1, 0.999, 512.001, NaN, Infinity, -Infinity]) {
+    for (const field of ["cellWidth", "cellHeight"]) {
+      expect(() =>
+        validateCharacterSettings({ ...settings(), [field]: value }),
+      ).toThrow();
+      expect(() =>
+        validateGlyphCalibration({ ...calibration(), [field]: value }),
+      ).toThrow();
+      expect(() => validateGrid({ ...grid(), [field]: value })).toThrow();
+    }
+  }
+});

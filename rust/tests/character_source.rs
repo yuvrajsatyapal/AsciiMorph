@@ -160,3 +160,31 @@ fn full_geometry_rotation_and_crop_rounding() {
     };
     assert_eq!(transform(&source, &s).unwrap().rgba()[0], 6);
 }
+#[test]
+fn expanded_logical_geometry_is_exact_and_keeps_small_source_budgets() {
+    let source = SourceImage::new(1, 1, vec![255; 4], 8192).unwrap();
+    for (w, h) in [(1., 1.), (1.8, 3.), (6.6, 11.), (192., 320.), (512., 512.)] {
+        let mut s = CharacterSettings::new(1, 1).unwrap();
+        s.cell_width = w;
+        s.cell_height = h;
+        assert_eq!(s.validate(), Ok(()));
+        assert_eq!((s.cell_width, s.cell_height), (w, h));
+        assert_eq!(prepare(&source, &s).unwrap().alpha, vec![1.]);
+    }
+    for v in [
+        0.,
+        -1.,
+        0.999,
+        512.001,
+        f64::NAN,
+        f64::INFINITY,
+        f64::NEG_INFINITY,
+    ] {
+        let mut s = CharacterSettings::new(1, 1).unwrap();
+        s.cell_width = v;
+        assert_eq!(s.validate(), Err(RenderError::InvalidInput));
+        s.cell_width = 1.;
+        s.cell_height = v;
+        assert_eq!(s.validate(), Err(RenderError::InvalidInput));
+    }
+}

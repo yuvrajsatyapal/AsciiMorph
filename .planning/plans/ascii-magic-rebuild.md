@@ -10,7 +10,7 @@
 
 **Spec:** `.planning/specs/ascii-magic-rebuild.md` (user approved 2026-10-20).
 
-**Status:** Proposed implementation plan; production implementation awaits plan/design review. Prototype is a disposable design artifact, not the Rust studio.
+**Status:** The user approved the specification/design and implementation is ongoing. Rust-core Tasks 1–7 have progressed through implementation/review; overall rebuild acceptance remains open and the task checkboxes below retain their own status. The prototype is a disposable design artifact, not the production Rust studio. Detailed shared-data work follows the [project contract plan](ascii-magic-project-contract.md); character UI/project-adapter integration first requires the coordinated [character geometry extension plan](ascii-magic-character-geometry.md).
 
 ## Global constraints
 
