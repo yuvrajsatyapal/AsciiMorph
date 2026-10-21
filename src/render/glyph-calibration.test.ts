@@ -468,3 +468,386 @@ it("joining subscribers must fit delivery bytes as well as count slots", async (
   await work;
   expect(c.usage.totalBytes).toBe(0);
 });
+
+const referenceInput = { ...input, fontPolicy: "verified-family" as const };
+function metrics(left = 1.25, right = 12.5, ascent = 2.5, descent = 20.25) {
+  const context = {
+    clearRect: vi.fn(),
+    fillText: vi.fn((s: string) => {
+      painted = s;
+    }),
+    getImageData: raster,
+    measureText: vi.fn(() => ({
+      actualBoundingBoxLeft: left,
+      actualBoundingBoxRight: right,
+      actualBoundingBoxAscent: ascent,
+      actualBoundingBoxDescent: descent,
+    })),
+  };
+  vi.mocked(HTMLCanvasElement.prototype.getContext).mockReturnValue(
+    context as unknown as CanvasRenderingContext2D,
+  );
+  return context;
+}
+it("reference uses measured shared negative fractional origin, explicit alignment and input order", async () => {
+  const ctx = metrics();
+  const c = createGlyphCalibrator();
+  const a = await c.calibrateReferenceCharacters({
+    ...referenceInput,
+    ramp: "😀 é",
+  });
+  expect(a).toMatchObject({
+    version: 1,
+    originX: -1.25,
+    originY: -2.5,
+    placement: "top-start-ltr",
+    ordering: "input",
+    fontPolicy: "verified-family",
+    spaceIndexOr65535: 1,
+  });
+  expect(a.calibration.glyphs).toEqual(["😀", " ", "é"]);
+  expect([a.calibration.maskWidth, a.calibration.maskHeight]).toEqual([14, 23]);
+  expect(ctx).toMatchObject({
+    textAlign: "start",
+    textBaseline: "top",
+    direction: "ltr",
+  });
+  expect(ctx.fillText).toHaveBeenCalledWith("😀", 1.25, 2.5);
+  expect(a.calibration.masks[0]).toBe(255);
+  const legacy = await c.calibrateGlyphs({ ...input, ramp: "😀 é" });
+  expect(legacy.glyphs).toEqual([" ", "é", "😀"]);
+  expect(legacy.id).not.toBe(a.calibration.id);
+  expect(
+    (await c.calibrateReferenceCharacters({ ...referenceInput, ramp: "😀 é" }))
+      .calibration.id,
+  ).toBe(a.calibration.id);
+  a.calibration.masks[0] = 0;
+  expect(
+    (await c.calibrateReferenceCharacters({ ...referenceInput, ramp: "😀 é" }))
+      .calibration.masks[0],
+  ).toBe(255);
+  c.clearGlyphCalibrationCache();
+});
+it("reference rejects duplicate/invalid ramps while legacy dedup remains independent", async () => {
+  metrics();
+  const c = createGlyphCalibrator();
+  for (const ramp of ["aba", "😀😀 ", "a\n", "\u0301a", "a\u200b"])
+    await expect(
+      c.calibrateReferenceCharacters({ ...referenceInput, ramp }),
+    ).rejects.toThrow();
+  expect(load).not.toHaveBeenCalled();
+});
+it("reference controlled fallback is exact and does not weaken named family verification", async () => {
+  metrics();
+  const c = createGlyphCalibrator();
+  const stack = '"Courier New", Courier, monospace';
+  const a = await c.calibrateReferenceCharacters({
+    ...referenceInput,
+    fontFamily: stack,
+    fontPolicy: "reference-system-monospace",
+  });
+  expect(a.calibration.fontKey).toContain("intentional-system-fallback");
+  expect(load).toHaveBeenCalledWith(`14px ${stack}`, input.ramp);
+  for (const fontFamily of ["monospace", "Courier New", "Missing, monospace"])
+    await expect(
+      c.calibrateReferenceCharacters({
+        ...referenceInput,
+        fontFamily,
+        fontPolicy: "reference-system-monospace",
+      }),
+    ).rejects.toThrow();
+  await expect(
+    c.calibrateReferenceCharacters({ ...referenceInput, fontFamily: stack }),
+  ).rejects.toThrow();
+  await expect(
+    c.calibrateReferenceCharacters({
+      ...referenceInput,
+      fontFamily: "Missing",
+    }),
+  ).rejects.toThrow(/registered/i);
+  await expect(
+    c.calibrateReferenceCharacters({
+      ...referenceInput,
+      fontFamily: "monospace",
+    }),
+  ).resolves.toHaveProperty("fontPolicy", "verified-family");
+});
+it("reference font revision, ramp permutation and geometry separate cache identities", async () => {
+  metrics();
+  const c = createGlyphCalibrator();
+  const first = await c.calibrateReferenceCharacters(referenceInput);
+  for (const patch of [
+    { fontRevision: "b" },
+    { ramp: "😀 é" },
+    { cellWidth: 10 },
+    { fontSize: 15 },
+    { cellHeight: 19 },
+  ])
+    expect(
+      (await c.calibrateReferenceCharacters({ ...referenceInput, ...patch }))
+        .calibration.id,
+    ).not.toBe(first.calibration.id);
+  expect(first.calibration.fontKey).toContain("top-start-ltr");
+  expect(first.calibration.fontKey).toContain("-1.25");
+});
+it("reference preserves exact ordinary space identity separately from another empty mask", async () => {
+  metrics(0, 0, 0, 0);
+  raster.mockImplementation((_x: number, _y: number, w: number, h: number) => ({
+    data: new Uint8ClampedArray(w * h * 4),
+  }));
+  const c = createGlyphCalibrator();
+  const a = await c.calibrateReferenceCharacters({
+    ...referenceInput,
+    ramp: " .",
+  });
+  expect(a.spaceIndexOr65535).toBe(0);
+  expect(a.calibration.glyphs).toEqual([" ", "."]);
+  expect([a.calibration.maskWidth, a.calibration.maskHeight]).toEqual([9, 18]);
+  expect(
+    (await c.calibrateReferenceCharacters({ ...referenceInput, ramp: ".x" }))
+      .spaceIndexOr65535,
+  ).toBe(65535);
+});
+it("reference provisional admission precedes font loading and full canvas allocation", async () => {
+  metrics();
+  const c = createGlyphCalibrator({ workingBytes: 100000, cacheBytes: 1 });
+  const create = vi.spyOn(document, "createElement");
+  await expect(
+    c.calibrateReferenceCharacters(referenceInput),
+  ).rejects.toMatchObject({ name: "CalibrationBudgetError" });
+  expect(load).not.toHaveBeenCalled();
+  expect(create).not.toHaveBeenCalled();
+  expect(c.usage.totalBytes).toBe(0);
+});
+it.each([NaN, Infinity, 100000])(
+  "reference invalid or excessive measured bound %s never allocates full masks",
+  async (bound) => {
+    const ctx = metrics(bound);
+    const c = createGlyphCalibrator();
+    const create = vi.spyOn(document, "createElement");
+    await expect(
+      c.calibrateReferenceCharacters(referenceInput),
+    ).rejects.toThrow();
+    expect(raster).not.toHaveBeenCalled();
+    expect(ctx.fillText).not.toHaveBeenCalled();
+    const canvas = create.mock.results.find(
+      (r) => r.type === "return" && r.value instanceof HTMLCanvasElement,
+    )!.value as HTMLCanvasElement;
+    expect([canvas.width, canvas.height]).toEqual([0, 0]);
+    expect(c.usage.totalBytes).toBe(0);
+  },
+);
+it("reference pending joins reserve provisional delivery and retain noncancellable work over abort/clear", async () => {
+  metrics();
+  const c = createGlyphCalibrator({ activeJobs: 1 });
+  const font = deferredFont();
+  load.mockReturnValueOnce(font.promise);
+  const ac = new AbortController();
+  const a = c.calibrateReferenceCharacters(referenceInput, ac.signal);
+  const first = c.usage;
+  expect(first.activeJobBytes).toBe(66560);
+  expect(first.deliveryBytes).toBe(16793600);
+  const b = c.calibrateReferenceCharacters(referenceInput, ac.signal);
+  expect(c.usage.deliveryBytes).toBe(33587200);
+  await Promise.resolve();
+  const ra = expect(a).rejects.toMatchObject({ name: "AbortError" });
+  const rb = expect(b).rejects.toMatchObject({ name: "AbortError" });
+  ac.abort();
+  await Promise.all([ra, rb]);
+  c.clearGlyphCalibrationCache();
+  expect(c.usage.activeJobBytes).toBe(first.activeJobBytes);
+  await expect(
+    c.calibrateReferenceCharacters(referenceInput),
+  ).rejects.toMatchObject({ name: "CalibrationBudgetError" });
+  font.resolve();
+  await new Promise((r) => setTimeout(r, 0));
+  expect(c.usage.totalBytes).toBe(0);
+  expect(raster).not.toHaveBeenCalled();
+});
+it("reference subscribers upgrade together and later joins/cache hits use actual charges", async () => {
+  metrics();
+  const c = createGlyphCalibrator();
+  const font = deferredFont();
+  load.mockReturnValueOnce(font.promise);
+  const request = { ...referenceInput, ramp: " abcdefghijklmnop" };
+  const a = c.calibrateReferenceCharacters(request),
+    b = c.calibrateReferenceCharacters(request);
+  await Promise.resolve();
+  font.resolve();
+  await new Promise((r) => setTimeout(r, 0));
+  expect(c.usage.deliveryBytes).toBe(2 * (14 * 23 * 17 + 40 * 17 + 16384));
+  const d = c.calibrateReferenceCharacters(request);
+  expect(c.usage.subscribers).toBe(3);
+  expect(c.usage.deliveryBytes).toBe(3 * (14 * 23 * 17 + 40 * 17 + 16384));
+  const [av, bv, dv] = await Promise.all([a, b, d]);
+  expect(av.calibration.id).toBe(bv.calibration.id);
+  expect(dv.calibration.id).toBe(av.calibration.id);
+  expect(c.usage.subscribers).toBe(0);
+  expect(c.usage.cacheBytes).toBe(14 * 23 * 17 + 40 * 17 + 16384);
+  c.clearGlyphCalibrationCache();
+  expect(c.usage.totalBytes).toBe(0);
+});
+it.each([true, false])(
+  "reference clear preserves old generation ownership, oldFirst=%s",
+  async (oldFirst) => {
+    metrics();
+    const c = createGlyphCalibrator();
+    const old = deferredFont(),
+      fresh = deferredFont();
+    load.mockReturnValueOnce(old.promise).mockReturnValueOnce(fresh.promise);
+    const a = c.calibrateReferenceCharacters(referenceInput);
+    await Promise.resolve();
+    c.clearGlyphCalibrationCache();
+    const b = c.calibrateReferenceCharacters(referenceInput);
+    await Promise.resolve();
+    expect(c.usage.activeJobs).toBe(2);
+    if (oldFirst) {
+      old.resolve();
+      await a;
+      fresh.resolve();
+      await b;
+    } else {
+      fresh.resolve();
+      await b;
+      old.resolve();
+      await a;
+    }
+    expect(
+      (await c.calibrateReferenceCharacters(referenceInput)).calibration.id,
+    ).toBe((await b).calibration.id);
+    c.clearGlyphCalibrationCache();
+    expect(c.usage.totalBytes).toBe(0);
+  },
+);
+it("reference failed measured upgrade rejects every subscriber before full canvas and leaves no reservations", async () => {
+  metrics(0, 1000, 0, 1000);
+  const c = createGlyphCalibrator({
+    workingBytes: 34 * 1024 * 1024,
+    cacheBytes: 1,
+  });
+  const f = deferredFont();
+  load.mockReturnValueOnce(f.promise);
+  const a = c.calibrateReferenceCharacters({
+    ...referenceInput,
+    ramp: " abcdefghi",
+  });
+  const b = c.calibrateReferenceCharacters({
+    ...referenceInput,
+    ramp: " abcdefghi",
+  });
+  const ra = expect(a).rejects.toMatchObject({
+    name: "CalibrationBudgetError",
+  });
+  const rb = expect(b).rejects.toMatchObject({
+    name: "CalibrationBudgetError",
+  });
+  await Promise.resolve();
+  f.resolve();
+  await Promise.all([ra, rb]);
+  expect(raster).not.toHaveBeenCalled();
+  expect(c.usage.totalBytes).toBe(0);
+  metrics();
+  await expect(
+    c.calibrateReferenceCharacters(referenceInput),
+  ).resolves.toHaveProperty("version", 1);
+  expect(c.usage.totalBytes).toBe(0);
+});
+it("reference cache hit charges exact measured delivery when a provisional copy could not fit", async () => {
+  metrics();
+  const c = createGlyphCalibrator({
+    workingBytes: 20 * 1024 * 1024,
+    cacheBytes: 1024 * 1024,
+  });
+  const first = await c.calibrateReferenceCharacters(referenceInput);
+  const f = deferredFont();
+  load.mockReturnValueOnce(f.promise);
+  const ac = new AbortController();
+  const work = c.calibrateGlyphs(
+    { ...input, cellWidth: 512, cellHeight: 512, ramp: " abcdefghijklmnopqrs" },
+    ac.signal,
+  );
+  expect(c.usage.totalBytes).toBeGreaterThan(16 * 1024 * 1024);
+  expect(
+    (await c.calibrateReferenceCharacters(referenceInput)).calibration.id,
+  ).toBe(first.calibration.id);
+  const rejected = expect(work).rejects.toMatchObject({ name: "AbortError" });
+  ac.abort();
+  await rejected;
+  await Promise.resolve();
+  f.resolve();
+  await new Promise((r) => setTimeout(r, 0));
+  c.clearGlyphCalibrationCache();
+  expect(c.usage.totalBytes).toBe(0);
+});
+it("reference cancellation after measured admission releases full work and canvas at batch boundary", async () => {
+  metrics();
+  const c = createGlyphCalibrator();
+  const ac = new AbortController();
+  const create = vi.spyOn(document, "createElement");
+  const work = c.calibrateReferenceCharacters(
+    { ...referenceInput, ramp: " abcdefghijklmnop" },
+    ac.signal,
+  );
+  const rejected = expect(work).rejects.toMatchObject({ name: "AbortError" });
+  await new Promise((r) => setTimeout(r, 0));
+  expect(raster).toHaveBeenCalledTimes(8);
+  ac.abort();
+  await rejected;
+  await new Promise((r) => setTimeout(r, 0));
+  expect(raster).toHaveBeenCalledTimes(8);
+  expect(c.usage.totalBytes).toBe(0);
+  const canvas = create.mock.results.find(
+    (r) => r.type === "return" && r.value instanceof HTMLCanvasElement,
+  )!.value as HTMLCanvasElement;
+  expect([canvas.width, canvas.height]).toEqual([0, 0]);
+});
+it("reference measured geometry changes identity after explicit invalidation", async () => {
+  metrics();
+  const c = createGlyphCalibrator();
+  const a = await c.calibrateReferenceCharacters(referenceInput);
+  c.clearGlyphCalibrationCache();
+  metrics(2.75, 20, 1.25, 21);
+  const b = await c.calibrateReferenceCharacters(referenceInput);
+  expect(b.calibration.fontKey).not.toBe(a.calibration.fontKey);
+  expect([
+    b.originX,
+    b.originY,
+    b.calibration.maskWidth,
+    b.calibration.maskHeight,
+  ]).toEqual([-2.75, -1.25, 23, 23]);
+  c.clearGlyphCalibrationCache();
+});
+it("reference and legacy share active job budget rather than separate allocators", async () => {
+  metrics();
+  const c = createGlyphCalibrator({ activeJobs: 1 });
+  const f = deferredFont();
+  load.mockReturnValueOnce(f.promise);
+  const a = c.calibrateGlyphs(input);
+  await expect(
+    c.calibrateReferenceCharacters(referenceInput),
+  ).rejects.toMatchObject({ name: "CalibrationBudgetError" });
+  await Promise.resolve();
+  f.resolve();
+  await a;
+  await expect(
+    c.calibrateReferenceCharacters(referenceInput),
+  ).resolves.toHaveProperty("version", 1);
+  c.clearGlyphCalibrationCache();
+  expect(c.usage.totalBytes).toBe(0);
+});
+it("reference hard sixteen MiB result cap precedes raster even with larger injected limits", async () => {
+  const ctx = metrics(0, 1000, 0, 1000);
+  raster.mockImplementation(() => {
+    throw new Error("full allocation reached");
+  });
+  const c = createGlyphCalibrator({ retainedBytes: 32 * 1024 * 1024 });
+  await expect(
+    c.calibrateReferenceCharacters({
+      ...referenceInput,
+      ramp: " abcdefghijklmnop",
+    }),
+  ).rejects.toMatchObject({ name: "CalibrationBudgetError" });
+  expect(ctx.fillText).not.toHaveBeenCalled();
+  expect(raster).not.toHaveBeenCalled();
+  expect(c.usage.totalBytes).toBe(0);
+});

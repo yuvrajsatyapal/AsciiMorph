@@ -111,3 +111,48 @@ it("cache byte limit evicts the oldest entry below the count cap", () => {
   expect(second).toHaveBeenCalledOnce();
   expect(b.usage.totalBytes).toBe(0);
 });
+it("atomic measured upgrade replaces all live charges or changes nothing", () => {
+  const e = estimateGlyphCalibration(1, 1, 2);
+  const b = createCalibrationBudget({ workingBytes: 100000, cacheBytes: 1 });
+  const [j, d] = b.reserveJob(e);
+  const d2 = b.reserveDelivery(e);
+  const before = b.usage;
+  expect(() =>
+    b.reviseJob(j, [d, d2], estimateGlyphCalibration(100, 100, 2)),
+  ).toThrow(CalibrationBudgetError);
+  expect(b.usage).toEqual(before);
+  const smaller = estimateGlyphCalibration(1, 2, 2);
+  b.reviseJob(j, [d, d2], smaller);
+  expect(b.usage.activeJobBytes).toBe(smaller.jobBytes);
+  expect(b.usage.deliveryBytes).toBe(2 * smaller.deliveryBytes);
+  expect(() => b.reviseJob(j, [d, d], smaller)).toThrow();
+  [j, d, d2].forEach(b.release);
+  expect(b.usage.totalBytes).toBe(0);
+});
+it("measured replacement rejects unsafe individual charges without mutating or evicting", () => {
+  const e = estimateGlyphCalibration(1, 1, 2),
+    evict = vi.fn();
+  const b = createCalibrationBudget({
+    workingBytes: 200000,
+    cacheBytes: 50000,
+  });
+  const [cached, cd] = b.reserveJob(e);
+  b.release(cd);
+  b.cache(cached, e, evict);
+  const [j, d] = b.reserveJob(e);
+  const before = b.usage;
+  expect(() => b.reviseJob(j, [d], { ...e, jobBytes: -1 })).toThrow(
+    CalibrationBudgetError,
+  );
+  expect(b.usage).toEqual(before);
+  expect(evict).not.toHaveBeenCalled();
+  expect(() => b.reviseJob(j, [d], { ...e, jobBytes: 300000 })).toThrow(
+    CalibrationBudgetError,
+  );
+  expect(b.usage).toEqual(before);
+  expect(evict).not.toHaveBeenCalled();
+  b.release(d);
+  b.release(j);
+  b.clearCache();
+  expect(b.usage.totalBytes).toBe(0);
+});

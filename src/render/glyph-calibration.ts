@@ -8,11 +8,19 @@ import {
 
 import {
   createCalibrationBudget,
+  CalibrationBudgetError,
+  DEFAULT_CALIBRATION_LIMITS,
   estimateGlyphCalibration,
+  estimateReferenceMetrics,
   type CalibrationLimits,
   type CalibrationReservation,
   type CalibrationEstimate,
 } from "./glyph-calibration-budget";
+
+import {
+  validateReferenceCharacterAtlas,
+  type ReferenceCharacterAtlasV1,
+} from "./reference-characters";
 
 export interface GlyphCalibrationInput {
   fontFamily: string;
@@ -21,6 +29,18 @@ export interface GlyphCalibrationInput {
   cellHeight: number;
   ramp: string;
   fontRevision: string;
+}
+export interface ReferenceCharacterCalibrationInput
+  extends GlyphCalibrationInput {
+  fontPolicy: ReferenceCharacterAtlasV1["fontPolicy"];
+}
+export const REFERENCE_MONOSPACE_STACK = '"Courier New", Courier, monospace';
+type CalibrationValue = GlyphCalibrationV1 | ReferenceCharacterAtlasV1;
+function isAtlas(c: CalibrationValue): c is ReferenceCharacterAtlasV1 {
+  return "calibration" in c;
+}
+function snapshotValue(c: CalibrationValue): CalibrationValue {
+  return isAtlas(c) ? { ...c, calibration: copy(c.calibration) } : copy(c);
 }
 let nextId = 0;
 function copy(c: GlyphCalibrationV1): GlyphCalibrationV1 {
@@ -111,12 +131,12 @@ function loadedFamilyMatches(face: FontFace, name: string): boolean {
     return false;
   }
 }
-async function measure(
+async function loadFont(
   input: GlyphCalibrationInput,
   glyphs: string[],
-  fontKey: string,
   live: () => boolean,
-): Promise<GlyphCalibrationV1> {
+  controlled = false,
+): Promise<void> {
   if (
     typeof document === "undefined" ||
     !document.fonts?.load ||
@@ -124,7 +144,9 @@ async function measure(
   )
     throw new Error("Browser font loading unavailable");
   const font = `${input.fontSize}px ${input.fontFamily}`;
-  const family = fontFamilyIdentity(input.fontFamily);
+  const family = controlled
+    ? { name: "", generic: true }
+    : fontFamilyIdentity(input.fontFamily);
   const loaded = await document.fonts.load(font, glyphs.join(""));
   if (!live()) throw abort();
   // FontFaceSet.check alone reports true for unknown names using fallback fonts.
@@ -144,84 +166,203 @@ async function measure(
   }
   if (!document.fonts.check(font, glyphs.join("")))
     throw new Error("Requested font unavailable");
+}
+async function rasterize(
+  input: GlyphCalibrationInput,
+  glyphs: string[],
+  fontKey: string,
+  live: () => boolean,
+  canvas: HTMLCanvasElement,
+  width: number,
+  height: number,
+  reference?: { originX: number; originY: number },
+): Promise<GlyphCalibrationV1> {
+  const font = `${input.fontSize}px ${input.fontFamily}`;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) throw new Error("Canvas glyph rasterization unavailable");
+  ctx.font = font;
+  ctx.textAlign = reference ? "start" : "center";
+  ctx.textBaseline = reference ? "top" : "middle";
+  if (reference) ctx.direction = "ltr";
+  ctx.fillStyle = "#fff";
+  const measured: {
+    glyph: string;
+    order: number;
+    mask: Uint8Array;
+    shape: Float32Array;
+    coverage: number;
+  }[] = [];
+  const counts = new Uint32Array(9);
+  for (let order = 0; order < glyphs.length; order++) {
+    if (order && order % 8 === 0)
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    if (!live()) throw abort();
+    const glyph = glyphs[order];
+    counts.fill(0);
+    ctx.clearRect(0, 0, width, height);
+    ctx.fillText(
+      glyph,
+      reference ? -reference.originX : input.cellWidth / 2,
+      reference ? -reference.originY : input.cellHeight / 2,
+    );
+    const data = ctx.getImageData(0, 0, width, height).data;
+    if (data.length !== width * height * 4)
+      throw new Error("Invalid canvas alpha mask");
+    const mask = new Uint8Array(width * height),
+      shape = new Float32Array(9);
+    let sum = 0;
+    for (let y = 0; y < height; y++)
+      for (let x = 0; x < width; x++) {
+        const i = y * width + x,
+          alpha = data[i * 4 + 3];
+        mask[i] = alpha;
+        sum += alpha;
+        const bin =
+          Math.min(2, Math.floor((y * 3) / height)) * 3 +
+          Math.min(2, Math.floor((x * 3) / width));
+        shape[bin] += alpha;
+        counts[bin]++;
+      }
+    for (let i = 0; i < 9; i++)
+      shape[i] = counts[i] ? shape[i] / (counts[i] * 255) : 0;
+    measured.push({
+      glyph,
+      order,
+      mask,
+      shape,
+      coverage: sum / (width * height * 255),
+    });
+  }
+  if (!reference)
+    measured.sort((a, b) => a.coverage - b.coverage || a.order - b.order);
+  const max = Math.max(...measured.map((g) => g.coverage));
+  const masks = new Uint8Array(width * height * glyphs.length),
+    shapes = new Float32Array(glyphs.length * 9);
+  measured.forEach((g, i) => {
+    masks.set(g.mask, i * width * height);
+    shapes.set(g.shape, i * 9);
+  });
+  return validateGlyphCalibration({
+    version: 1,
+    id: `glyph-v1-${++nextId}`,
+    fontKey,
+    cellWidth: input.cellWidth,
+    cellHeight: input.cellHeight,
+    glyphs: measured.map((g) => g.glyph),
+    maskWidth: width,
+    maskHeight: height,
+    masks,
+    coverage: Float32Array.from(measured, (g) => (max ? g.coverage / max : 0)),
+    shapes,
+  });
+}
+async function measure(
+  input: GlyphCalibrationInput,
+  glyphs: string[],
+  fontKey: string,
+  live: () => boolean,
+): Promise<GlyphCalibrationV1> {
+  await loadFont(input, glyphs, live);
   const canvas = document.createElement("canvas");
   const width = Math.ceil(input.cellWidth),
     height = Math.ceil(input.cellHeight);
   canvas.width = width;
   canvas.height = height;
   try {
+    return await rasterize(input, glyphs, fontKey, live, canvas, width, height);
+  } finally {
+    canvas.width = 0;
+    canvas.height = 0;
+  }
+}
+/** Metrics only precede measured admission. Native font/measureText allocations are
+ * browser owned and excluded; the 16x16 surface is bounded and reused for raster.
+ */
+async function measureReference(
+  input: ReferenceCharacterCalibrationInput,
+  glyphs: string[],
+  fontKey: string,
+  live: () => boolean,
+  admit: (e: CalibrationEstimate) => void,
+): Promise<ReferenceCharacterAtlasV1> {
+  await loadFont(
+    input,
+    glyphs,
+    live,
+    input.fontPolicy === "reference-system-monospace",
+  );
+  const canvas = document.createElement("canvas");
+  canvas.width = 16;
+  canvas.height = 16;
+  try {
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
     if (!ctx) throw new Error("Canvas glyph rasterization unavailable");
-    ctx.font = font;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillStyle = "#fff";
-    const measured: {
-      glyph: string;
-      order: number;
-      mask: Uint8Array;
-      shape: Float32Array;
-      coverage: number;
-    }[] = [];
-    const counts = new Uint32Array(9);
-    for (let order = 0; order < glyphs.length; order++) {
-      if (order && order % 8 === 0)
-        await new Promise<void>((resolve) => setTimeout(resolve, 0));
-      if (!live()) throw abort();
-      const glyph = glyphs[order];
-      counts.fill(0);
-      ctx.clearRect(0, 0, width, height);
-      ctx.fillText(glyph, input.cellWidth / 2, input.cellHeight / 2);
-      const data = ctx.getImageData(0, 0, width, height).data;
-      if (data.length !== width * height * 4)
-        throw new Error("Invalid canvas alpha mask");
-      const mask = new Uint8Array(width * height),
-        shape = new Float32Array(9);
-      let sum = 0;
-      for (let y = 0; y < height; y++)
-        for (let x = 0; x < width; x++) {
-          const i = y * width + x,
-            alpha = data[i * 4 + 3];
-          mask[i] = alpha;
-          sum += alpha;
-          const bin =
-            Math.min(2, Math.floor((y * 3) / height)) * 3 +
-            Math.min(2, Math.floor((x * 3) / width));
-          shape[bin] += alpha;
-          counts[bin]++;
-        }
-      for (let i = 0; i < 9; i++)
-        shape[i] = counts[i] ? shape[i] / (counts[i] * 255) : 0;
-      measured.push({
-        glyph,
-        order,
-        mask,
-        shape,
-        coverage: sum / (width * height * 255),
-      });
+    ctx.font = `${input.fontSize}px ${input.fontFamily}`;
+    ctx.textAlign = "start";
+    ctx.textBaseline = "top";
+    ctx.direction = "ltr";
+    let left = 0,
+      top = 0,
+      right = input.cellWidth,
+      bottom = input.cellHeight;
+    for (const glyph of glyphs) {
+      const m = ctx.measureText(glyph);
+      const bounds = [
+        m.actualBoundingBoxLeft,
+        m.actualBoundingBoxRight,
+        m.actualBoundingBoxAscent,
+        m.actualBoundingBoxDescent,
+      ];
+      if (!bounds.every(Number.isFinite))
+        throw new Error("Invalid glyph metrics");
+      left = Math.min(left, -bounds[0]);
+      right = Math.max(right, bounds[1]);
+      top = Math.min(top, -bounds[2]);
+      bottom = Math.max(bottom, bounds[3]);
     }
-    measured.sort((a, b) => a.coverage - b.coverage || a.order - b.order);
-    const max = measured.at(-1)!.coverage;
-    const masks = new Uint8Array(width * height * glyphs.length),
-      shapes = new Float32Array(glyphs.length * 9);
-    measured.forEach((g, i) => {
-      masks.set(g.mask, i * width * height);
-      shapes.set(g.shape, i * 9);
-    });
-    return validateGlyphCalibration({
+    const width = Math.ceil(right - left),
+      height = Math.ceil(bottom - top);
+    // Same retained dimensions/origin envelope as the accepted atlas contract.
+    if (
+      width > 16384 ||
+      height > 16384 ||
+      !Number.isFinite(left) ||
+      !Number.isFinite(top) ||
+      Math.abs(left) > width ||
+      Math.abs(top) > height
+    )
+      throw new Error("Invalid glyph metric extent/origin");
+    const estimate = estimateGlyphCalibration(width, height, glyphs.length);
+    // The profile cap is fixed even when a factory uses larger legacy test limits.
+    if (estimate.retainedBytes > DEFAULT_CALIBRATION_LIMITS.retainedBytes)
+      throw new CalibrationBudgetError(
+        "Reference atlas retained-result budget exceeded",
+      );
+    if (!live()) throw abort();
+    admit(estimate); // Atomically revise J and all current D before full allocation.
+    canvas.width = width;
+    canvas.height = height;
+    const geometry = { originX: left, originY: top };
+    const actualKey = JSON.stringify([fontKey, width, height, left, top]);
+    const calibration = await rasterize(
+      input,
+      glyphs,
+      actualKey,
+      live,
+      canvas,
+      width,
+      height,
+      geometry,
+    );
+    const space = glyphs.indexOf(" ");
+    return validateReferenceCharacterAtlas({
       version: 1,
-      id: `glyph-v1-${++nextId}`,
-      fontKey,
-      cellWidth: input.cellWidth,
-      cellHeight: input.cellHeight,
-      glyphs: measured.map((g) => g.glyph),
-      maskWidth: width,
-      maskHeight: height,
-      masks,
-      coverage: Float32Array.from(measured, (g) =>
-        max ? g.coverage / max : 0,
-      ),
-      shapes,
+      calibration,
+      ...geometry,
+      placement: "top-start-ltr",
+      ordering: "input",
+      fontPolicy: input.fontPolicy,
+      spaceIndexOr65535: space < 0 ? 65535 : space,
     });
   } finally {
     canvas.width = 0;
@@ -238,11 +379,13 @@ async function measure(
 export function createGlyphCalibrator(limits: Partial<CalibrationLimits> = {}) {
   const budget = createCalibrationBudget(limits);
   interface CacheEntry {
-    value: GlyphCalibrationV1;
+    value: CalibrationValue;
+    estimate: CalibrationEstimate;
     token: CalibrationReservation;
   }
   interface Subscriber {
-    deliver: (value?: GlyphCalibrationV1, error?: unknown) => void;
+    token: CalibrationReservation;
+    deliver: (value?: CalibrationValue, error?: unknown) => void;
   }
   interface Job {
     token: CalibrationReservation;
@@ -259,20 +402,47 @@ export function createGlyphCalibrator(limits: Partial<CalibrationLimits> = {}) {
     budget.clearCache();
     pending.clear();
   }
-  async function calibrateGlyphs(
-    input: GlyphCalibrationInput,
+  async function calibrate(
+    input: GlyphCalibrationInput | ReferenceCharacterCalibrationInput,
     signal?: AbortSignal,
-  ): Promise<GlyphCalibrationV1> {
+    reference = false,
+  ): Promise<CalibrationValue> {
     const snapshot = { ...input },
       glyphs = validate(snapshot);
-    fontFamilyIdentity(snapshot.fontFamily);
+    const policy = "fontPolicy" in snapshot ? snapshot.fontPolicy : undefined;
+    if (reference) {
+      if (
+        policy !== "verified-family" &&
+        policy !== "reference-system-monospace"
+      )
+        throw new Error("Invalid reference font policy");
+      if (graphemes(snapshot.ramp).length !== glyphs.length)
+        throw new Error("Duplicate reference ramp graphemes");
+      if (policy === "reference-system-monospace") {
+        if (snapshot.fontFamily !== REFERENCE_MONOSPACE_STACK)
+          throw new Error("Expected exact controlled reference font stack");
+      } else fontFamilyIdentity(snapshot.fontFamily);
+    } else fontFamilyIdentity(snapshot.fontFamily);
     if (signal?.aborted) throw abort();
-    const estimate = estimateGlyphCalibration(
-      Math.ceil(snapshot.cellWidth),
-      Math.ceil(snapshot.cellHeight),
-      glyphs.length,
-    );
+    const estimate = reference
+      ? estimateReferenceMetrics()
+      : estimateGlyphCalibration(
+          Math.ceil(snapshot.cellWidth),
+          Math.ceil(snapshot.cellHeight),
+          glyphs.length,
+        );
     const fontKey = JSON.stringify([
+      ...(reference
+        ? [
+            "reference-characters-v1",
+            "input",
+            "top-start-ltr",
+            policy,
+            policy === "reference-system-monospace"
+              ? "intentional-system-fallback"
+              : "exact-family",
+          ]
+        : []),
       snapshot.fontFamily,
       snapshot.fontSize,
       snapshot.fontRevision,
@@ -289,8 +459,8 @@ export function createGlyphCalibrator(limits: Partial<CalibrationLimits> = {}) {
       const unpin = budget.pin(hit.token);
       let delivery: CalibrationReservation | undefined;
       try {
-        delivery = budget.reserveDelivery(estimate);
-        return copy(hit.value);
+        delivery = budget.reserveDelivery(hit.estimate);
+        return snapshotValue(hit.value);
       } finally {
         if (delivery) budget.release(delivery);
         unpin();
@@ -311,11 +481,12 @@ export function createGlyphCalibrator(limits: Partial<CalibrationLimits> = {}) {
       };
       pending.set(key, job);
       start = true;
-    } else delivery = budget.reserveDelivery(estimate);
+    } else delivery = budget.reserveDelivery(job.estimate);
     const current = job;
-    const result = new Promise<GlyphCalibrationV1>((resolve, reject) => {
+    const result = new Promise<CalibrationValue>((resolve, reject) => {
       let done = false;
       const subscriber: Subscriber = {
+        token: delivery,
         deliver(value, error) {
           if (done) return;
           done = true;
@@ -323,7 +494,7 @@ export function createGlyphCalibrator(limits: Partial<CalibrationLimits> = {}) {
           current.users.delete(subscriber);
           try {
             if (error !== undefined) reject(error);
-            else resolve(copy(value!));
+            else resolve(snapshotValue(value!));
           } catch (error) {
             reject(error);
           } finally {
@@ -346,12 +517,23 @@ export function createGlyphCalibrator(limits: Partial<CalibrationLimits> = {}) {
       void Promise.resolve().then(async () => {
         let cached = false;
         try {
-          const value = await measure(
-            snapshot,
-            glyphs,
-            fontKey,
-            () => !current.abandoned && current.users.size > 0,
-          );
+          const live = () => !current.abandoned && current.users.size > 0;
+          const value = reference
+            ? await measureReference(
+                snapshot as ReferenceCharacterCalibrationInput,
+                glyphs,
+                fontKey,
+                live,
+                (actual) => {
+                  budget.reviseJob(
+                    current.token,
+                    [...current.users].map((u) => u.token),
+                    actual,
+                  );
+                  current.estimate = actual;
+                },
+              )
+            : await measure(snapshot, glyphs, fontKey, live);
           if (
             current.epoch === generation &&
             current.users.size > 0 &&
@@ -360,7 +542,12 @@ export function createGlyphCalibrator(limits: Partial<CalibrationLimits> = {}) {
             cached = budget.cache(current.token, current.estimate, () => {
               cache.delete(key);
             });
-            if (cached) cache.set(key, { value, token: current.token });
+            if (cached)
+              cache.set(key, {
+                value,
+                estimate: current.estimate,
+                token: current.token,
+              });
           }
           for (const subscriber of [...current.users])
             subscriber.deliver(value);
@@ -375,8 +562,21 @@ export function createGlyphCalibrator(limits: Partial<CalibrationLimits> = {}) {
     }
     return result;
   }
+  function calibrateGlyphs(
+    input: GlyphCalibrationInput,
+    signal?: AbortSignal,
+  ): Promise<GlyphCalibrationV1> {
+    return calibrate(input, signal) as Promise<GlyphCalibrationV1>;
+  }
+  function calibrateReferenceCharacters(
+    input: ReferenceCharacterCalibrationInput,
+    signal?: AbortSignal,
+  ): Promise<ReferenceCharacterAtlasV1> {
+    return calibrate(input, signal, true) as Promise<ReferenceCharacterAtlasV1>;
+  }
   return {
     calibrateGlyphs,
+    calibrateReferenceCharacters,
     clearGlyphCalibrationCache,
     get usage() {
       return budget.usage;
@@ -386,5 +586,7 @@ export function createGlyphCalibrator(limits: Partial<CalibrationLimits> = {}) {
 }
 const defaultCalibrator = createGlyphCalibrator();
 export const calibrateGlyphs = defaultCalibrator.calibrateGlyphs;
+export const calibrateReferenceCharacters =
+  defaultCalibrator.calibrateReferenceCharacters;
 export const clearGlyphCalibrationCache =
   defaultCalibrator.clearGlyphCalibrationCache;

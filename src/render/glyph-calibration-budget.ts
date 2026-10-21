@@ -47,6 +47,20 @@ export function estimateGlyphCalibration(
   };
 }
 export type CalibrationEstimate = ReturnType<typeof estimateGlyphCalibration>;
+/** Before font loading: one tiny RGBA surface plus bounded bookkeeping, no masks.
+ * Each subscriber reserves the maximum result snapshot plus metadata allowance.
+ */
+export function estimateReferenceMetrics(): CalibrationEstimate {
+  return {
+    pixels: 256,
+    maskBytes: 0,
+    retainedBytes: 0,
+    cacheBytes: 0,
+    deliveryBytes: DEFAULT_CALIBRATION_LIMITS.retainedBytes + 16384,
+    jobBytes: 65536 + 16 * 16 * 4,
+  };
+}
+
 export interface CalibrationReservation {
   readonly id: symbol;
 }
@@ -162,6 +176,45 @@ export function createCalibrationBudget(
         );
       fit(e.deliveryBytes);
       return add("delivery", e.deliveryBytes);
+    },
+    /** Validate the entire replacement before mutating tokens or evicting cache.
+     * Synchronous commit makes the measured J + all current D upgrade atomic.
+     */
+    reviseJob(
+      token: CalibrationReservation,
+      deliveries: CalibrationReservation[],
+      e: CalibrationEstimate,
+    ) {
+      for (const bytes of Object.values(e)) safe(bytes);
+      retained(e);
+      const job = charge(token);
+      if (job.kind !== "job") throw new Error("Expected job reservation");
+      if (new Set(deliveries).size !== deliveries.length)
+        throw new Error("Duplicate delivery reservation");
+      const subscribers = deliveries.map((t) => {
+        const c = charge(t);
+        if (c.kind !== "delivery")
+          throw new Error("Expected delivery reservation");
+        return c;
+      });
+      const replacement = safe(
+        e.jobBytes + safe(e.deliveryBytes * subscribers.length),
+      );
+      const previous =
+        job.bytes + subscribers.reduce((sum, c) => sum + c.bytes, 0);
+      let total = safe(usage().totalBytes - previous + replacement);
+      const evictions: CalibrationReservation[] = [];
+      for (const [t, c] of caches) {
+        if (total <= limits.workingBytes) break;
+        if (!c.pins) {
+          evictions.push(t);
+          total -= c.bytes;
+        }
+      }
+      if (total > limits.workingBytes) throw new CalibrationBudgetError();
+      for (const t of evictions) release(t);
+      job.bytes = e.jobBytes;
+      for (const c of subscribers) c.bytes = e.deliveryBytes;
     },
     release,
     pin(token: CalibrationReservation) {
