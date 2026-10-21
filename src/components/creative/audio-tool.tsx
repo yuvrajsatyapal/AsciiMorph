@@ -6,6 +6,7 @@ import {
   AudioFilePlayback,
   audioFeatures,
   beatResponse,
+  decodeAudioFile,
   releaseAudio,
   type AudioMode,
   type AudioResources,
@@ -190,13 +191,7 @@ export function AudioTool() {
       };
       pending.current = resource;
       if (file) {
-        const buffer = await context.decodeAudioData(await file.arrayBuffer());
-        if (
-          !Number.isFinite(buffer.duration) ||
-          buffer.duration > 600 ||
-          buffer.duration <= 0
-        )
-          throw new Error("Choose audio up to 10 minutes long.");
+        const buffer = await decodeAudioFile(file, context);
         if (id !== generation.current || !mounted.current) {
           releaseAudio(resource);
           return;

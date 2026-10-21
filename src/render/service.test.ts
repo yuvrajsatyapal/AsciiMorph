@@ -479,3 +479,133 @@ it("runtime_worker_failure_rejects_all_jobs_and_marks_recovery_state", async () 
   expect(h.factory).toHaveBeenCalledOnce();
   await h.service.dispose();
 });
+
+describe("Task 6 review fatal-response regressions", () => {
+  it.each([
+    ["WorkerFailure", "aborted-render"],
+    ["CapabilityUnavailable", "aborted-render"],
+    ["WorkerFailure", "cancel-message"],
+    ["CapabilityUnavailable", "cancel-message"],
+  ] as const)(
+    "current %s for %s rejects other work after local abort",
+    async (code, fatalFor) => {
+      const h = setup();
+      await h.ready();
+      const w = h.workers[0];
+      w.postMessage = (data) => {
+        w.sent.push(data);
+      };
+      const abort = new AbortController();
+      const preview = h.service.renderPreview(request("aborted"), abort.signal);
+      const exported = h.service.renderExport({
+        ...request("other"),
+        outputWidth: 1,
+        outputHeight: 1,
+      });
+      const exportOutcome = exported.then(
+        () => "result",
+        (error) => (error as RenderError).code,
+      );
+      const cancelled = expect(preview).rejects.toMatchObject({
+        code: "Cancelled",
+      });
+      await Promise.resolve();
+      abort.abort();
+      await cancelled;
+      const sent = w.sent.find(
+        (m) =>
+          (m as { type: string; jobId?: string }).type === "renderPreview" &&
+          (m as { jobId?: string }).jobId === "aborted",
+      ) as { requestId: string };
+      const cancel = w.sent.find(
+        (m) => (m as { type: string }).type === "cancel",
+      ) as { requestId: string };
+      w.emit("message", {
+        version: 1,
+        requestId:
+          fatalFor === "aborted-render" ? sent.requestId : cancel.requestId,
+        type: "error",
+        jobId: "aborted",
+        revision: 1,
+        sourceId: "src",
+        sourceRevision: 1,
+        calibrationId: "cal",
+        error: { code, message: "fatal after local abort", recoverable: true },
+      });
+      try {
+        expect(h.service.state).toBe("recoverable-error");
+        expect(await exportOutcome).toBe(code);
+        expect(w.terminate).toHaveBeenCalledOnce();
+        expect(h.factory).toHaveBeenCalledOnce();
+      } finally {
+        await h.service.dispose();
+      }
+    },
+  );
+  it("stale_generation_fatal_response_does_not_fail_current_connection", async () => {
+    const h = setup();
+    await h.ready();
+    const old = h.workers[0];
+    const oldMessage = [...old.listeners.get("message")!][0];
+    old.emit("error", {});
+    await h.service.initialize();
+    oldMessage({
+      data: {
+        version: 1,
+        requestId: "old-unmatched",
+        type: "error",
+        error: {
+          code: "WorkerFailure",
+          message: "stale trap",
+          recoverable: true,
+        },
+      },
+    });
+    expect(h.service.state).toBe("ready");
+    expect(h.workers[1].terminate).not.toHaveBeenCalled();
+    expect((await h.service.renderPreview(request("still-valid"))).jobId).toBe(
+      "still-valid",
+    );
+    await h.service.dispose();
+  });
+});
+
+it("abort_cancel_trap_rejects_the_other_lane_through_real_runtime_transport", async () => {
+  const h = setup();
+  await h.ready();
+  const w = h.workers[0];
+  w.steps = 1000;
+  const abort = new AbortController();
+  const preview = h.service.renderPreview(request("aborted"), abort.signal);
+  const exported = h.service.renderExport({
+    ...request("other"),
+    outputWidth: 1,
+    outputHeight: 1,
+  });
+  const cancelled = expect(preview).rejects.toMatchObject({
+    code: "Cancelled",
+  });
+  const failed = expect(exported).rejects.toMatchObject({
+    code: "WorkerFailure",
+    recoverable: true,
+  });
+  await vi.waitFor(() => expect(w.engine.begin).toHaveBeenCalledTimes(2), {
+    interval: 1,
+  });
+  vi.mocked(w.engine.cancel).mockImplementationOnce(() => {
+    throw new WebAssembly.RuntimeError("cancel after abort trap");
+  });
+  abort.abort();
+  await cancelled;
+  await failed;
+  expect(h.service.state).toBe("recoverable-error");
+  expect(w.terminate).toHaveBeenCalledOnce();
+  expect(w.engine.dispose).toHaveBeenCalledOnce();
+  expect(h.factory).toHaveBeenCalledOnce();
+  await h.service.initialize();
+  expect((await h.service.renderPreview(request("recovered"))).jobId).toBe(
+    "recovered",
+  );
+  await h.service.dispose();
+  expect(w.terminate).toHaveBeenCalledOnce();
+});

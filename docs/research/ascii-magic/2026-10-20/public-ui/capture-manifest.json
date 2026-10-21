@@ -1,84 +1,462 @@
 {
   "schema_version": 1,
   "audit_date": "2026-10-20",
-  "status": "blocked_browser_unavailable",
+  "status": "captured_with_desktop_raster_clipping",
   "requested_viewport_css_px": {
     "width": 1280,
     "height": 900
   },
-  "completed_captures": [],
+  "completed_captures": [
+    {
+      "document": {
+        "height": 18153,
+        "width": 1280
+      },
+      "fonts": "loaded",
+      "heading": "Turn your images\n      and videos into {}",
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "title": "Free ASCII Art Generator, Image & Video to ASCII | ASCII Magic",
+      "url": "https://www.ascii-magic.com/",
+      "viewport": {
+        "dpr": 2,
+        "height": 900,
+        "width": 1280
+      },
+      "file": "home-desktop.jpg",
+      "capturedOn": "2026-10-21",
+      "bytes": 88370,
+      "raster": {
+        "width": 943,
+        "height": 900
+      },
+      "sha256": "e096edad2ee7ffb5a0ecbcbb63c6853d79d41e41b3180a2f17c09a4f0e5bd7f4",
+      "rightClipped": true,
+      "bottomClipped": false
+    },
+    {
+      "document": {
+        "height": 18153,
+        "width": 1280
+      },
+      "fonts": "loaded",
+      "heading": "Turn your images\n      and videos into {LEGO Art}",
+      "scroll": {
+        "x": 0,
+        "y": 6387
+      },
+      "title": "Free ASCII Art Generator, Image & Video to ASCII | ASCII Magic",
+      "url": "https://www.ascii-magic.com/#postfx",
+      "viewport": {
+        "dpr": 2,
+        "height": 900,
+        "width": 1280
+      },
+      "file": "home-post-effects.jpg",
+      "capturedOn": "2026-10-21",
+      "bytes": 76113,
+      "raster": {
+        "width": 943,
+        "height": 900
+      },
+      "sha256": "7e087cc8782b914fff1218349b82bd86aa4e012b4e604e6d010e942bedbb21af",
+      "rightClipped": true,
+      "bottomClipped": false
+    },
+    {
+      "document": {
+        "height": 17362,
+        "width": 1280
+      },
+      "fonts": "loaded",
+      "heading": "Every style in ASCII Magic",
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "title": "All Styles, ASCII Art, Pixel Art, Voxel & 100+ More | ASCII Magic",
+      "url": "https://www.ascii-magic.com/styles",
+      "viewport": {
+        "dpr": 2,
+        "height": 900,
+        "width": 1280
+      },
+      "file": "styles-catalog.jpg",
+      "capturedOn": "2026-10-21",
+      "bytes": 67845,
+      "raster": {
+        "width": 943,
+        "height": 900
+      },
+      "sha256": "d068195e65960c2dcfc2faf2919cf85f2496f96d36d37c2839006057d0cf4231",
+      "rightClipped": true,
+      "bottomClipped": false
+    },
+    {
+      "document": {
+        "height": 8668,
+        "width": 1280
+      },
+      "fonts": "loaded",
+      "heading": "One-click ASCII presets.",
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "title": "ASCII Art Recipes, Free One-Click Presets | ASCII Magic",
+      "url": "https://www.ascii-magic.com/recipes",
+      "viewport": {
+        "dpr": 2,
+        "height": 900,
+        "width": 1280
+      },
+      "file": "recipes-catalog.jpg",
+      "capturedOn": "2026-10-21",
+      "bytes": 61583,
+      "raster": {
+        "width": 943,
+        "height": 900
+      },
+      "sha256": "f4b85b42b95896b1d3d44358707d2193ee644b8d5ff6c819616d454355d9ea68",
+      "rightClipped": true,
+      "bottomClipped": false
+    },
+    {
+      "document": {
+        "height": 9381,
+        "width": 1280
+      },
+      "fonts": "loaded",
+      "heading": "Text to ASCII Art Generator with Animated Effects",
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "title": "Text to ASCII Art Generator with Animated Effects, Free | ASCII Magic",
+      "url": "https://www.ascii-magic.com/text-to-ascii",
+      "viewport": {
+        "dpr": 2,
+        "height": 900,
+        "width": 1280
+      },
+      "file": "text-to-ascii.jpg",
+      "capturedOn": "2026-10-21",
+      "bytes": 73576,
+      "raster": {
+        "width": 943,
+        "height": 900
+      },
+      "sha256": "7c9ea21de68b53aa85d3b3b3c9462f871417380053f438e1b26ff93736943a02",
+      "rightClipped": true,
+      "bottomClipped": false
+    },
+    {
+      "document": {
+        "height": 12350,
+        "width": 1280
+      },
+      "fonts": "loaded",
+      "heading": "Blur Text, Censor It, Hide It or Scramble It",
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "title": "Blur Text Online, Censor, Spoiler and Hide Text | ASCII Magic",
+      "url": "https://www.ascii-magic.com/tools/blur-text",
+      "viewport": {
+        "dpr": 2,
+        "height": 900,
+        "width": 1280
+      },
+      "file": "blur-tool.jpg",
+      "capturedOn": "2026-10-21",
+      "bytes": 80035,
+      "raster": {
+        "width": 943,
+        "height": 900
+      },
+      "sha256": "6e9320cd084fdc1b27c8232b3fb77af95cbb53d5eb6193f382bf157944a595a3",
+      "rightClipped": true,
+      "bottomClipped": false
+    },
+    {
+      "document": {
+        "height": 8291,
+        "width": 1280
+      },
+      "fonts": "loaded",
+      "heading": "Censor and Redact Text, Black Bars You Can Copy and Paste",
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "title": "Censor Text Generator, Redacted Text and Black Bars to Copy | ASCII Magic",
+      "url": "https://www.ascii-magic.com/tools/censor-text",
+      "viewport": {
+        "dpr": 2,
+        "height": 900,
+        "width": 1280
+      },
+      "file": "censor-tool.jpg",
+      "capturedOn": "2026-10-21",
+      "bytes": 84539,
+      "raster": {
+        "width": 943,
+        "height": 900
+      },
+      "sha256": "1a5de8b2ff66084e83af45dbfd14188c05913bd3ee35b61a76a3f8d9edda6c14",
+      "rightClipped": true,
+      "bottomClipped": false
+    },
+    {
+      "document": {
+        "height": 21983,
+        "width": 1280
+      },
+      "fonts": "loaded",
+      "heading": "Shrug Emoji \u00af\\_(\u30c4)_/\u00af, Emoji Combos and 122 Text Faces to Copy",
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "title": "Shrug Emoji \u00af\\_(\u30c4)_/\u00af, Emoji Combos and Text Faces to Copy | ASCII Magic",
+      "url": "https://www.ascii-magic.com/tools/text-faces",
+      "viewport": {
+        "dpr": 2,
+        "height": 900,
+        "width": 1280
+      },
+      "file": "text-faces.jpg",
+      "capturedOn": "2026-10-21",
+      "bytes": 78956,
+      "raster": {
+        "width": 943,
+        "height": 900
+      },
+      "sha256": "ed0f5b74449126429ef481cbb58ebc8376d8af8f733b71157c036a4dc7544de1",
+      "rightClipped": true,
+      "bottomClipped": false
+    },
+    {
+      "document": {
+        "height": 78000,
+        "width": 1280
+      },
+      "fonts": "loaded",
+      "heading": "Animated ASCII art library",
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "title": "Animated ASCII Art & ASCII Animations Library | ASCII Magic",
+      "url": "https://www.ascii-magic.com/ascii",
+      "viewport": {
+        "dpr": 2,
+        "height": 900,
+        "width": 1280
+      },
+      "file": "library.jpg",
+      "capturedOn": "2026-10-21",
+      "bytes": 125575,
+      "raster": {
+        "width": 943,
+        "height": 900
+      },
+      "sha256": "13805284debc7593ff03775060a6ef18f6c2298bbad91167cd60a6e293a65c53",
+      "rightClipped": true,
+      "bottomClipped": false
+    },
+    {
+      "document": {
+        "height": 6072,
+        "width": 1280
+      },
+      "fonts": "loaded",
+      "heading": "Abu Simbel Colossi",
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "title": "Abu Simbel Colossi ASCII Art (Animated) | ASCII Magic",
+      "url": "https://www.ascii-magic.com/ascii/abu-simbel-colossi",
+      "viewport": {
+        "dpr": 2,
+        "height": 900,
+        "width": 1280
+      },
+      "file": "library-detail.jpg",
+      "capturedOn": "2026-10-21",
+      "bytes": 190707,
+      "raster": {
+        "width": 943,
+        "height": 900
+      },
+      "sha256": "33fa5a94953c8c3f51b0cf48e5268fe1ec4374b2d523a93eb0485e04187844a3",
+      "rightClipped": true,
+      "bottomClipped": false
+    },
+    {
+      "document": {
+        "height": 4581,
+        "width": 1280
+      },
+      "fonts": "loaded",
+      "heading": "Animated ASCII banner maker for GitHub READMEs",
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "title": "ASCII Banner Maker: Animated SVG Banners for GitHub READMEs | ASCII Magic",
+      "url": "https://www.ascii-magic.com/ascii/banner",
+      "viewport": {
+        "dpr": 2,
+        "height": 900,
+        "width": 1280
+      },
+      "file": "readme-banner.jpg",
+      "capturedOn": "2026-10-21",
+      "bytes": 85652,
+      "raster": {
+        "width": 943,
+        "height": 900
+      },
+      "sha256": "23b8ce0b1cb9558b6fc1bb7bb0814783cdf0be8b9b27971ea71514d7e8da24d6",
+      "rightClipped": true,
+      "bottomClipped": false
+    },
+    {
+      "document": {
+        "height": 3606,
+        "width": 1280
+      },
+      "fonts": "loaded",
+      "heading": "Documentation",
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "title": "Documentation | ASCII Magic Docs",
+      "url": "https://www.ascii-magic.com/docs",
+      "viewport": {
+        "dpr": 2,
+        "height": 900,
+        "width": 1280
+      },
+      "file": "docs.jpg",
+      "capturedOn": "2026-10-21",
+      "bytes": 93089,
+      "raster": {
+        "width": 943,
+        "height": 900
+      },
+      "sha256": "2684484a8f3cdc634df1332d68bbac29197c752edb09cf87fc0d52238bfeef86",
+      "rightClipped": true,
+      "bottomClipped": false
+    },
+    {
+      "document": {
+        "height": 35648,
+        "width": 390
+      },
+      "fonts": "loaded",
+      "heading": "Turn your images\n      and videos into {LEGO Art}",
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "title": "Free ASCII Art Generator, Image & Video to ASCII | ASCII Magic",
+      "url": "https://www.ascii-magic.com/",
+      "viewport": {
+        "dpr": 1,
+        "height": 844,
+        "width": 390
+      },
+      "file": "home-narrow.jpg",
+      "capturedOn": "2026-10-21",
+      "bytes": 49145,
+      "raster": {
+        "width": 390,
+        "height": 844
+      },
+      "sha256": "e40d59bfde21ff0b28f5c2b6a1a8fa960aeb657e7cfa5870cff9b5aae9567f66",
+      "rightClipped": false,
+      "bottomClipped": false
+    }
+  ],
   "planned_views": [
     {
       "id": "home-hero",
       "url": "https://www.ascii-magic.com/",
       "purpose": "Hero, announcement and navigation; top of page",
-      "status": "not_captured"
+      "status": "captured_clipped"
     },
     {
       "id": "home-post-effects",
       "url": "https://www.ascii-magic.com/#postfx",
       "purpose": "Representative landing effects section; scroll to observed section",
-      "status": "not_captured"
+      "status": "captured_clipped"
     },
     {
       "id": "styles-catalog",
       "url": "https://www.ascii-magic.com/styles",
       "purpose": "Categorized style discovery cards",
-      "status": "not_captured"
+      "status": "captured_clipped"
     },
     {
       "id": "recipes-catalog",
       "url": "https://www.ascii-magic.com/recipes",
       "purpose": "Client-rendered recipe preview cards",
-      "status": "not_captured"
+      "status": "captured_clipped"
     },
     {
       "id": "text-to-ascii",
       "url": "https://www.ascii-magic.com/text-to-ascii",
       "purpose": "Text banner input, live preview and option controls",
-      "status": "not_captured"
+      "status": "captured_clipped"
     },
     {
       "id": "blur-tool",
       "url": "https://www.ascii-magic.com/tools/blur-text",
       "purpose": "Default Blur mode with before/after and output actions",
-      "status": "not_captured"
+      "status": "captured_clipped"
     },
     {
       "id": "censor-tool",
       "url": "https://www.ascii-magic.com/tools/censor-text",
       "purpose": "Dedicated censor controls and before/after",
-      "status": "not_captured"
+      "status": "captured_clipped"
     },
     {
       "id": "text-faces",
       "url": "https://www.ascii-magic.com/tools/text-faces",
       "purpose": "Face and emoji browse/search/copy shell",
-      "status": "not_captured"
+      "status": "captured_clipped"
     },
     {
       "id": "library",
       "url": "https://www.ascii-magic.com/ascii",
       "purpose": "Library search, category/look controls and previews",
-      "status": "not_captured"
+      "status": "captured_clipped"
     },
     {
       "id": "library-detail",
       "url": "https://www.ascii-magic.com/ascii/abu-simbel-colossi",
       "purpose": "Representative player/look and integration/export template",
-      "status": "not_captured"
+      "status": "captured_clipped"
     },
     {
       "id": "readme-banner",
       "url": "https://www.ascii-magic.com/ascii/banner",
       "purpose": "Distinct README banner maker preview/settings",
-      "status": "not_captured"
+      "status": "captured_clipped"
     },
     {
       "id": "docs",
       "url": "https://www.ascii-magic.com/docs",
       "purpose": "Distinct documentation navigation/article/contents shell",
-      "status": "not_captured"
+      "status": "captured_clipped"
     }
   ],
   "conditional_followup": {
@@ -88,7 +466,8 @@
       "width": 390,
       "height": 844
     },
-    "condition": "If responsive CSS can be exercised through available IAB viewport capability; record as narrow CSS baseline only, not touch-device verification."
+    "condition": "If responsive CSS can be exercised through available IAB viewport capability; record as narrow CSS baseline only, not touch-device verification.",
+    "status": "captured_narrow_css_only"
   },
   "blocking_evidence": [
     {
@@ -103,13 +482,29 @@
     {
       "tool": "cua.listBrowsers",
       "result": []
+    },
+    {
+      "date": "2026-10-21",
+      "context": "Parent reported IAB provider 2 available in parent session; one child retry authorized.",
+      "tool": "cua.createBrowserTab",
+      "arguments": {
+        "browserId": "2",
+        "url": "https://www.ascii-magic.com/",
+        "visible": false
+      },
+      "result": "Browser is not available: 2",
+      "followup": "Stopped without polling; parent may capture from its available session."
     }
   ],
   "limits": [
-    "No screenshots were captured, synthesized or substituted.",
-    "No tab was created and no viewport was altered, so no restoration was required.",
-    "Capture raster dimensions, document viewport, device scale factor and clipping remain unknown until actual capture.",
-    "Previous transient 1280\u00d7720 screenshots in the surface audit were not retained; they cannot serve as durable baselines.",
-    "Reference artwork and fonts are research evidence only, not licensed production assets."
-  ]
+    "Desktop DOM viewport1280x900 but actual raster943x900: right edge clipped. These are partial visual baselines, not full-width pixel-parity evidence.",
+    "Narrow homepage390x844 raster matches DOM; this verifies responsive homepage CSS only, not a touch-classified Studio shell.",
+    "All captures are viewport views, except one observed landing anchor. Long-page/offscreen sections remain incomplete.",
+    "A full-page library capture failed; no substitute was fabricated.",
+    "Animations and live demos were not frozen; captured frame content is not a deterministic visual golden.",
+    "Reference artwork/fonts remain research evidence; do not reuse in production.",
+    "Temporary viewport override reset and parent-created hidden tab closed."
+  ],
+  "last_attempt_date": "2026-10-21",
+  "capture_date": "2026-10-21"
 }

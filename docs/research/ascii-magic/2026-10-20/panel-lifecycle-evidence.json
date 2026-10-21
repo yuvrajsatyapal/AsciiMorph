@@ -18840,7 +18840,7 @@
     "desktopOnlyNotice": {
       "title": "More controls on desktop",
       "groups": "modeMatrix.mobile.desktopOnlyNoticeTitles",
-      "body": "reports omitted group titles and provides desktop continuation via copied look link",
+      "body": "Lists omitted group titles and explains that current settings are kept; no copy-look button/action is rendered in this notice",
       "evidence": {
         "source": "35duo3c5unmuj.js",
         "range": [

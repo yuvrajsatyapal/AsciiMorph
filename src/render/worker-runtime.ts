@@ -31,6 +31,7 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
   let loading: Promise<void> | undefined;
   let budget: number | undefined;
   let disposed = false;
+  let failure: RenderError | undefined;
   let source:
     | { id: string; revision: number; width: number; height: number }
     | undefined;
@@ -69,23 +70,55 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
       pendingExport = undefined;
     }
   }
-  function cancel(task: Task, release = true) {
-    remove(task);
-    if (release && task.handle !== undefined) {
-      try {
-        engine?.cancel(task.handle);
-      } catch {
-        /* Replacement may already invalidate a job. */
-      }
+  /** A failed engine is terminal for this worker; only a new worker may recover. */
+  function fatal(requestId: string, cause: unknown, identity?: RenderIdentity) {
+    if (failure) return;
+    failure = new RenderError(
+      "WorkerFailure",
+      cause instanceof Error ? cause.message : "Worker engine failed",
+    );
+    if (timer !== undefined) clearTimeout(timer);
+    timer = undefined;
+    const outstanding = tasks();
+    preview = undefined;
+    exporting = undefined;
+    pendingExport = undefined;
+    const failedEngine = engine;
+    engine = undefined;
+    source = undefined;
+    calibration = undefined;
+    try {
+      failedEngine?.dispose();
+    } catch {
+      /* The worker must stop even if engine disposal traps. */
     }
+    error(requestId, failure, identity);
+    for (const task of outstanding)
+      if (task.message.requestId !== requestId)
+        error(task.message.requestId, failure, task.message);
+  }
+  /** Used after successful uploads, which already invalidate numeric handles. */
+  function settleCancelled(task: Task) {
+    remove(task);
     options.postMessage({
       ...envelope(task.message.requestId),
       type: "cancelled",
       ...renderIdentity(task.message),
     });
   }
+  function cancel(task: Task) {
+    if (task.handle !== undefined) {
+      try {
+        engine!.cancel(task.handle);
+      } catch (cause) {
+        fatal(task.message.requestId, cause, task.message);
+        throw failure;
+      }
+    }
+    settleCancelled(task);
+  }
   function wake() {
-    if (!disposed && timer === undefined && (preview || exporting))
+    if (!disposed && !failure && timer === undefined && (preview || exporting))
       timer = setTimeout(runSlice, 0);
   }
   function runSlice() {
@@ -112,8 +145,11 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
       task.slices++;
       if (status === "complete") {
         const readbackAt = now();
-        const grid = engine.takeGrid(task.handle);
+        const handle = task.handle;
+        // takeGrid owns release, including its failure path; don't cancel a
+        // numeric handle that its readback already dropped.
         task.handle = undefined;
+        const grid = engine.takeGrid(handle);
         const finishedAt = now();
         remove(task);
         options.postMessage(
@@ -148,14 +184,24 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
           slices: task.slices,
         });
     } catch (cause) {
-      remove(task);
+      if (failure) return;
+      if (
+        !(cause instanceof RenderError) ||
+        cause.code === "WorkerFailure" ||
+        cause.code === "CapabilityUnavailable"
+      ) {
+        fatal(m.requestId, cause, m);
+        return;
+      }
       if (task.handle !== undefined) {
         try {
           engine.cancel(task.handle);
-        } catch {
-          /* A failing takeGrid may already release it. */
+        } catch (cleanupCause) {
+          fatal(m.requestId, cleanupCause, m);
+          return;
         }
       }
+      remove(task);
       error(m.requestId, cause, m);
     }
     wake();
@@ -165,9 +211,14 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
     disposed = true;
     if (timer !== undefined) clearTimeout(timer);
     timer = undefined;
-    for (const task of tasks()) cancel(task);
-    engine?.dispose();
+    for (const task of tasks()) settleCancelled(task);
+    const ownedEngine = engine;
     engine = undefined;
+    try {
+      ownedEngine?.dispose();
+    } catch {
+      /* Disposal still settles a failed engine. */
+    }
     source = undefined;
     calibration = undefined;
   }
@@ -195,6 +246,7 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
       }
       if (disposed)
         throw new RenderError("Disposed", "Render worker disposed", false);
+      if (failure) throw failure;
       if (m.type === "initialize") {
         if (budget !== undefined && budget !== m.memoryBudgetBytes)
           throw new RenderError(
@@ -254,7 +306,7 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
               "Source exceeds session memory budget",
             );
           engine.setSource(s);
-          for (const task of tasks()) cancel(task, false);
+          for (const task of tasks()) settleCancelled(task);
           source = {
             id: s.id,
             revision: s.revision,
@@ -276,7 +328,8 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
         if (!calibration || calibration.id !== c.id) {
           engine.setCalibration(c);
           for (const task of tasks())
-            if (task.message.settings.mapping === "glyph") cancel(task, false);
+            if (task.message.settings.mapping === "glyph")
+              settleCancelled(task);
           calibration = {
             id: c.id,
             key: calibrationIdentityKey(c),
@@ -351,7 +404,9 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
       });
       wake();
     } catch (cause) {
-      error(m.requestId, cause, "jobId" in m ? m : undefined);
+      if (!failure && !(cause instanceof RenderError))
+        fatal(m.requestId, cause, "jobId" in m ? m : undefined);
+      else error(m.requestId, failure ?? cause, "jobId" in m ? m : undefined);
     }
   }
   return { receive, dispose };

@@ -43,7 +43,7 @@ The shared navbar explicitly omits its Studio/Flow workspace tabs on mobile. Mob
 | Parameter sheet | Initially closed; Realtime title “Style parameters”, Generative title “Generate”. Realtime PropertiesDockContent mounts only while open. |
 | Sheet closing | Scrim, “Close parameters” grip, and Escape; body scrolling is locked while open and restored afterward. |
 
-Within the mobile parameter sheet, category navigation retains the primary style group plus `characters` and `animation`, with primary first. Other groups appear by name in **“More controls on desktop”**, after the primary body's Blur section, with a copied-look continuation action. Depth, Lights, Color, Post FX and Mask commonly fall into that notice. Text can still mount through the shared text-selected state path; actual CSS visibility of its navbar trigger on mobile remains unverified.
+Within the mobile parameter sheet, category navigation retains the primary style group plus `characters` and `animation`, with primary first. Other groups appear by name in **“More controls on desktop”**, after the primary body's Blur section, with explanatory text that settings are kept. No copied-look action is rendered by this notice. Depth, Lights, Color, Post FX and Mask commonly fall into that notice. Text can still mount through the shared text-selected state path; actual CSS visibility of its navbar trigger on mobile remains unverified.
 
 The Animation category stays present. For modes outside the captured `motionAllowed` set, it shows **“This style moves on desktop”** instead of normal animation controls. That set is characters, mixed, dots, pixel, lego, mosaic, braille, 3d, block-chars, disco, shapes, and dither. The separate animation-coming-soon registry is empty in the captured source.
 

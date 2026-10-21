@@ -126,6 +126,65 @@ export function audioArtwork(
     }
   return doc;
 }
+function probeAudioDuration(file: File): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const element = document.createElement("audio"),
+      url = URL.createObjectURL(file);
+    const cleanup = () => {
+      element.removeEventListener("loadedmetadata", loaded);
+      element.removeEventListener("error", failed);
+      element.pause();
+      element.removeAttribute("src");
+      element.load();
+      URL.revokeObjectURL(url);
+    };
+    const loaded = () => {
+      const duration = element.duration;
+      cleanup();
+      resolve(duration);
+    };
+    const failed = () => {
+      cleanup();
+      reject(
+        new Error("This audio format is unsupported or could not be decoded."),
+      );
+    };
+    element.addEventListener("loadedmetadata", loaded);
+    element.addEventListener("error", failed);
+    element.preload = "metadata";
+    try {
+      element.src = url;
+      element.load();
+    } catch {
+      failed();
+    }
+  });
+}
+
+function validateAudioDuration(duration: number) {
+  if (!Number.isFinite(duration) || duration <= 0 || duration > 600)
+    throw new Error("Choose audio up to 10 minutes long.");
+}
+
+export async function decodeAudioFile(
+  file: File,
+  context: AudioContext,
+  probe: (file: File) => Promise<number> = probeAudioDuration,
+) {
+  validateAudioDuration(await probe(file));
+  const bytes = await file.arrayBuffer();
+  let buffer: AudioBuffer;
+  try {
+    buffer = await context.decodeAudioData(bytes);
+  } catch {
+    throw new Error(
+      "This audio format is unsupported or could not be decoded.",
+    );
+  }
+  validateAudioDuration(buffer.duration);
+  return buffer;
+}
+
 /** Decoded PCM avoids silent MediaElementAudioSource output in WebKit. */
 export class AudioFilePlayback {
   private source: AudioBufferSourceNode | null = null;
@@ -175,7 +234,10 @@ export class AudioFilePlayback {
     const playing = !!this.source;
     this.pause();
     this.offset = Math.max(0, Math.min(position, this.buffer.duration));
-    if (playing) this.play();
+    if (playing) {
+      if (this.offset === this.buffer.duration) this.onEnded();
+      else this.play();
+    }
   }
 }
 export interface AudioResources {

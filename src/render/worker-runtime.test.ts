@@ -113,7 +113,7 @@ function harness(steps = 4) {
     cancel: vi.fn((id) => {
       active.delete(id);
     }),
-    dispose: vi.fn(),
+    dispose: vi.fn(() => active.clear()),
   };
   const runtime = createWorkerRuntime({
     createEngine: async () => engine,
@@ -139,7 +139,7 @@ function harness(steps = 4) {
       calibration: calibration(),
     });
   };
-  return { messages, transfers, calls, engine, send, ready, runtime };
+  return { messages, transfers, calls, active, engine, send, ready, runtime };
 }
 describe("worker runtime", () => {
   it("cancel_processed_between_wasm_steps", async () => {
@@ -434,4 +434,122 @@ it("unexpected_numeric_trap_is_a_visible_worker_failure", async () => {
     }),
   );
   h.runtime.dispose();
+});
+
+describe("Task 6 review cancellation regressions", () => {
+  it("cancel_trap_fails_all_lanes_and_stops_the_engine", async () => {
+    const h = harness(1000);
+    await h.ready();
+    h.send(job("preview"));
+    h.send(job("export", "renderExport"));
+    h.send(job("pending", "renderExport"));
+    await vi.waitFor(() => expect(h.engine.begin).toHaveBeenCalledTimes(2), {
+      interval: 1,
+    });
+    vi.mocked(h.engine.cancel).mockImplementationOnce(() => {
+      throw new WebAssembly.RuntimeError("cancel trap");
+    });
+    h.send({
+      version: 1,
+      requestId: "cancel",
+      type: "cancel",
+      targetRequestId: "preview",
+      jobId: "preview",
+      revision: 1,
+      sourceId: "src",
+      sourceRevision: 1,
+      calibrationId: "cal",
+    });
+    const stepsAtFailure = h.calls.length;
+    await delay(12);
+    try {
+      for (const requestId of ["preview", "export", "pending"])
+        expect(h.messages).toContainEqual(
+          expect.objectContaining({
+            type: "error",
+            requestId,
+            error: expect.objectContaining({
+              code: "WorkerFailure",
+              recoverable: true,
+            }),
+          }),
+        );
+      expect(h.messages).not.toContainEqual(
+        expect.objectContaining({ type: "cancelled", requestId: "preview" }),
+      );
+      expect(h.messages).not.toContainEqual(
+        expect.objectContaining({ type: "result" }),
+      );
+      expect(h.calls).toHaveLength(stepsAtFailure);
+      expect(h.engine.dispose).toHaveBeenCalledOnce();
+      expect(h.active.size).toBe(0);
+      h.send(job("after-failure"));
+      await delay();
+      expect(h.engine.begin).toHaveBeenCalledTimes(2);
+      expect(h.messages).toContainEqual(
+        expect.objectContaining({
+          type: "error",
+          requestId: "after-failure",
+          error: expect.objectContaining({ code: "WorkerFailure" }),
+        }),
+      );
+    } finally {
+      h.runtime.dispose();
+    }
+    expect(h.engine.dispose).toHaveBeenCalledOnce();
+  });
+  it("preview_supersession_cancel_trap_rejects_replacement_too", async () => {
+    const h = harness(1000);
+    await h.ready();
+    h.send(job("original"));
+    await delay(2);
+    vi.mocked(h.engine.cancel).mockImplementationOnce(() => {
+      throw new WebAssembly.RuntimeError("supersession trap");
+    });
+    h.send(job("replacement"));
+    await delay(5);
+    try {
+      for (const requestId of ["original", "replacement"])
+        expect(h.messages).toContainEqual(
+          expect.objectContaining({
+            type: "error",
+            requestId,
+            error: expect.objectContaining({ code: "WorkerFailure" }),
+          }),
+        );
+      expect(h.engine.begin).toHaveBeenCalledOnce();
+    } finally {
+      h.runtime.dispose();
+    }
+  });
+  it("successful_input_replacement_only_settles_jobs_already_invalidated_by_engine", async () => {
+    const h = harness(1000);
+    await h.ready();
+    h.send(job("old-source"));
+    await delay(2);
+    vi.mocked(h.engine.cancel).mockImplementation(() => {
+      throw new Error("cannot cancel an invalidated handle");
+    });
+    h.send({
+      version: 1,
+      requestId: "new-source",
+      type: "setSource",
+      source: { ...source(), revision: 2 },
+    });
+    h.send({ ...job("old-cal"), sourceRevision: 2 });
+    await delay(2);
+    h.send({
+      version: 1,
+      requestId: "new-cal",
+      type: "setCalibration",
+      calibration: { ...calibration(), id: "cal2" },
+    });
+    expect(h.engine.cancel).not.toHaveBeenCalled();
+    expect(h.engine.dispose).not.toHaveBeenCalled();
+    for (const requestId of ["old-source", "old-cal"])
+      expect(h.messages).toContainEqual(
+        expect.objectContaining({ type: "cancelled", requestId }),
+      );
+    h.runtime.dispose();
+  });
 });

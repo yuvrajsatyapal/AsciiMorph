@@ -1,28 +1,23 @@
-# Public website screenshot capture manifest
+# Public UI capture manifest
 
-Date: 2026-10-20. **Incomplete: browser unavailable; zero captures.**
+Captured2026-10-21 from the parent IAB session after child sessions reported unavailable.13actual JPEGs saved; no synthetic substitutes.
 
-The requested hidden IAB tab could not be created: `cua.createBrowserTab("iab", "https://www.ascii-magic.com/", { visible: false })` returned `Browser is not available: iab`. `cua.listBrowsers()` returned an empty list. No tab was created, no viewport was changed, and no existing user/prototype tab was touched.
+Desktop DOM viewport1280×900, device scale factor2; raster943×900 clips the right edge. Narrow homepage390×844 raster matches its DOM viewport. These partial desktop screenshots support visible layout details; they do not establish complete desktop pixel parity.
 
-This records a capture plan and blocker, not visual baseline evidence. The earlier surface audit inspected two transient 1280×720 views but did not retain their pixels. Those observations must not be represented as saved screenshots.
+| Capture | URL | DOM viewport | Raster | Right clipped |
+| --- | --- | --- | --- | --- |
+| [home-desktop.jpg](home-desktop.jpg) | https://www.ascii-magic.com/ | 1280×900 | 943×900 | True |
+| [home-post-effects.jpg](home-post-effects.jpg) | https://www.ascii-magic.com/#postfx | 1280×900 | 943×900 | True |
+| [styles-catalog.jpg](styles-catalog.jpg) | https://www.ascii-magic.com/styles | 1280×900 | 943×900 | True |
+| [recipes-catalog.jpg](recipes-catalog.jpg) | https://www.ascii-magic.com/recipes | 1280×900 | 943×900 | True |
+| [text-to-ascii.jpg](text-to-ascii.jpg) | https://www.ascii-magic.com/text-to-ascii | 1280×900 | 943×900 | True |
+| [blur-tool.jpg](blur-tool.jpg) | https://www.ascii-magic.com/tools/blur-text | 1280×900 | 943×900 | True |
+| [censor-tool.jpg](censor-tool.jpg) | https://www.ascii-magic.com/tools/censor-text | 1280×900 | 943×900 | True |
+| [text-faces.jpg](text-faces.jpg) | https://www.ascii-magic.com/tools/text-faces | 1280×900 | 943×900 | True |
+| [library.jpg](library.jpg) | https://www.ascii-magic.com/ascii | 1280×900 | 943×900 | True |
+| [library-detail.jpg](library-detail.jpg) | https://www.ascii-magic.com/ascii/abu-simbel-colossi | 1280×900 | 943×900 | True |
+| [readme-banner.jpg](readme-banner.jpg) | https://www.ascii-magic.com/ascii/banner | 1280×900 | 943×900 | True |
+| [docs.jpg](docs.jpg) | https://www.ascii-magic.com/docs | 1280×900 | 943×900 | True |
+| [home-narrow.jpg](home-narrow.jpg) | https://www.ascii-magic.com/ | 390×844 | 390×844 | False |
 
-Requested desktop CSS viewport: **1280×900**. Actual raster dimensions, document viewport, scale factor and clipping must be filled from successful captures. Twelve representative planned views:
-
-| Capture | Exact observed URL | Intended view |
-| --- | --- | --- |
-| home-hero | https://www.ascii-magic.com/ | Hero, announcement and navigation; top of page |
-| home-post-effects | https://www.ascii-magic.com/#postfx | Representative landing effects section; scroll to observed section |
-| styles-catalog | https://www.ascii-magic.com/styles | Categorized style discovery cards |
-| recipes-catalog | https://www.ascii-magic.com/recipes | Client-rendered recipe preview cards |
-| text-to-ascii | https://www.ascii-magic.com/text-to-ascii | Text banner input, live preview and option controls |
-| blur-tool | https://www.ascii-magic.com/tools/blur-text | Default Blur mode with before/after and output actions |
-| censor-tool | https://www.ascii-magic.com/tools/censor-text | Dedicated censor controls and before/after |
-| text-faces | https://www.ascii-magic.com/tools/text-faces | Face and emoji browse/search/copy shell |
-| library | https://www.ascii-magic.com/ascii | Library search, category/look controls and previews |
-| library-detail | https://www.ascii-magic.com/ascii/abu-simbel-colossi | Representative player/look and integration/export template |
-| readme-banner | https://www.ascii-magic.com/ascii/banner | Distinct README banner maker preview/settings |
-| docs | https://www.ascii-magic.com/docs | Distinct documentation navigation/article/contents shell |
-
-A conditional 390×844 homepage view is planned when supported viewport controls are available. It establishes responsive CSS appearance only; it does not verify coarse-pointer, touch or a physical mobile device.
-
-The screenshot set remains blocked on IAB availability. No alternative capture mechanism was used. Reference UI artwork/media is retained only as investigation evidence and supplies no permission to redistribute it in the recreated product.
+The JSON retains original blocked attempts, exact captured URLs/scroll positions, document dimensions, fonts-ready state, byte counts and SHA-256 digests. A full-page library attempt failed at its78000px document height; no full-page file is claimed. Animations were not frozen. Phone capture is homepage responsive CSS only; coarse-pointer Studio remains unverified. Browser viewport restored and temporary hidden tab closed.

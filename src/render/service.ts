@@ -136,6 +136,22 @@ export function createRenderService(
       );
       return;
     }
+    // Fatal errors belong to this connection, even after a local abort removed
+    // their waiter. The listener already rejected stale worker generations.
+    if (
+      response.type === "error" &&
+      (response.error.code === "WorkerFailure" ||
+        response.error.code === "CapabilityUnavailable")
+    ) {
+      fail(
+        new RenderError(
+          response.error.code,
+          response.error.message,
+          response.error.recoverable,
+        ),
+      );
+      return;
+    }
     const waiter = waiters.get(response.requestId);
     if (!waiter) return;
     const request = waiter.message;
@@ -153,12 +169,7 @@ export function createRenderService(
         response.error.message,
         response.error.recoverable,
       );
-      if (
-        error.code === "WorkerFailure" ||
-        error.code === "CapabilityUnavailable"
-      )
-        fail(error);
-      else settle(response.requestId, error);
+      settle(response.requestId, error);
       return;
     }
     if (request.type === "initialize" && response.type === "ready")

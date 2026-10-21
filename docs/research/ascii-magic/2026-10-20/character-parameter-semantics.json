@@ -1,0 +1,516 @@
+{
+  "schemaVersion": 1,
+  "referenceAssetCaptureDate": "2026-10-20",
+  "analysisDate": "2026-10-21",
+  "status": "STATIC_PARAMETER_SEMANTICS_PROVED_FOR_NAMED_PATHS",
+  "method": "Read-only inert text/AST inspection and algebra. No downloaded JavaScript was imported, executed or rendered. No production code modified. Mathematical descriptions and metadata only; no implementation bodies copied.",
+  "sources": {
+    "05tjcpn0cqaiz.js": {
+      "kind": "public reference asset",
+      "path": "/tmp/asciimorph-reference-2026-10-20/05tjcpn0cqaiz.js",
+      "bytes": 47417,
+      "sha256": "d1c73d639fcf3d77dc7b41ee5cac6a4badd8204d572c084a19edfe93d2dec4b4",
+      "offsetUnit": "zero-based Unicode character",
+      "rangeEnd": "exclusive",
+      "url": "https://www.ascii-magic.com/app/_next/static/chunks/05tjcpn0cqaiz.js"
+    },
+    "09wgr6f2vxer0.js": {
+      "kind": "public reference asset",
+      "path": "/tmp/asciimorph-reference-2026-10-20/09wgr6f2vxer0.js",
+      "bytes": 183537,
+      "sha256": "80976f22b8f5fbeeb91e27fc9978852b4dddff71e7ce4db88067330981371504",
+      "offsetUnit": "zero-based Unicode character",
+      "rangeEnd": "exclusive",
+      "url": "https://www.ascii-magic.com/app/_next/static/chunks/09wgr6f2vxer0.js"
+    },
+    "2lr2okzrhyxxk.js": {
+      "kind": "public reference asset",
+      "path": "/tmp/asciimorph-reference-2026-10-20/2lr2okzrhyxxk.js",
+      "bytes": 366329,
+      "sha256": "15714e6e6a5a97f284ed0e31da3a70d88ebb12d87810b56384f5c72a9560a169",
+      "offsetUnit": "zero-based Unicode character",
+      "rangeEnd": "exclusive",
+      "url": "https://www.ascii-magic.com/app/_next/static/chunks/2lr2okzrhyxxk.js"
+    },
+    "1w_w6bk2u9ijc.js": {
+      "kind": "public reference asset",
+      "path": "/tmp/asciimorph-reference-2026-10-20/1w_w6bk2u9ijc.js",
+      "bytes": 135631,
+      "sha256": "630e1ce1b5b39d929664a2de7f2e9124bcc33dc1129809e663583a78f4f55374",
+      "offsetUnit": "zero-based Unicode character",
+      "rangeEnd": "exclusive",
+      "url": "https://www.ascii-magic.com/app/_next/static/chunks/1w_w6bk2u9ijc.js"
+    },
+    "rust/src/color.rs": {
+      "kind": "local working-tree snapshot",
+      "path": "/Users/yuvrajsatyapal/Desktop/Projects/AsciiMorph/rust/src/color.rs",
+      "bytes": 2992,
+      "sha256": "7e5e131a19b8b314037b49597d86aec7a4cd06b2526d5a49774fe31fd1942ae1",
+      "offsetUnit": "zero-based Unicode character",
+      "rangeEnd": "exclusive"
+    },
+    "rust/src/character.rs": {
+      "kind": "local working-tree snapshot",
+      "path": "/Users/yuvrajsatyapal/Desktop/Projects/AsciiMorph/rust/src/character.rs",
+      "bytes": 26285,
+      "sha256": "54ffd06a3bd6c8674ade9c9918537eac2cfd7933af0db7fd624d20d90fbec408",
+      "offsetUnit": "zero-based Unicode character",
+      "rangeEnd": "exclusive"
+    },
+    "src/render/character-contract.ts": {
+      "kind": "local working-tree snapshot",
+      "path": "/Users/yuvrajsatyapal/Desktop/Projects/AsciiMorph/src/render/character-contract.ts",
+      "bytes": 8922,
+      "sha256": "8f821cae435136890f96a4de19ebbe9bb58cc47fb4909dc10865fed698c4cc61",
+      "offsetUnit": "zero-based Unicode character",
+      "rangeEnd": "exclusive"
+    },
+    "src/render/glyph-calibration.ts": {
+      "kind": "local working-tree snapshot",
+      "path": "/Users/yuvrajsatyapal/Desktop/Projects/AsciiMorph/src/render/glyph-calibration.ts",
+      "bytes": 7917,
+      "sha256": "a620321a8065415bd6bdf191afb78a7ef569ebb23fae25d0b2cbe9064be5920a",
+      "offsetUnit": "zero-based Unicode character",
+      "rangeEnd": "exclusive"
+    }
+  },
+  "contrast": {
+    "stateKey": "contrast",
+    "baseline": {
+      "value": 20,
+      "scope": "RECIPE_DEFAULTS and createDefaultState; both are 20",
+      "evidence": [
+        {
+          "source": "05tjcpn0cqaiz.js",
+          "range": [
+            12293,
+            12304
+          ]
+        },
+        {
+          "source": "05tjcpn0cqaiz.js",
+          "range": [
+            24578,
+            24589
+          ]
+        }
+      ]
+    },
+    "ui": {
+      "min": -100,
+      "max": 100,
+      "explicitStep": null,
+      "evidence": {
+        "source": "2lr2okzrhyxxk.js",
+        "controlRange": [
+          289382,
+          289484
+        ],
+        "componentRange": [
+          288293,
+          289576
+        ]
+      }
+    },
+    "referenceCommonCpuTone": {
+      "scope": "Common character-family renderer, exported module 74247 render; not a universal formula for every named mode or every control labelled Contrast",
+      "factor": "K(c) = 259(c + 255) / [255(259 - c)]",
+      "factorInput": "engine state contrast c, without subtracting 20 or 100",
+      "factorEvidence": {
+        "source": "09wgr6f2vxer0.js",
+        "range": [
+          101063,
+          101109
+        ]
+      },
+      "channelTransform": "For an 8-bit channel x and brightness B: clamp(K(c)(x - 128) + 128 + 255B/100, 0, 255).",
+      "applicationEvidence": {
+        "source": "09wgr6f2vxer0.js",
+        "range": [
+          106138,
+          106291
+        ]
+      },
+      "brightnessEvidence": {
+        "source": "09wgr6f2vxer0.js",
+        "range": [
+          101043,
+          101062
+        ]
+      },
+      "mathematicalNeutral": {
+        "contrast": 0,
+        "factor": 1,
+        "brightness": 0,
+        "meaning": "This affine contrast/brightness stage is the identity before other processing."
+      },
+      "baseline20IsNeutral": false,
+      "restoration100IsNeutral": false
+    },
+    "referenceWebGlExample": {
+      "scope": "Captured renderUkiyoe toneSrc path; this example does not establish all shader-mode pipelines",
+      "factorEvidence": {
+        "source": "1w_w6bk2u9ijc.js",
+        "range": [
+          19792,
+          19841
+        ]
+      },
+      "uniformEvidence": {
+        "source": "1w_w6bk2u9ijc.js",
+        "range": [
+          21019,
+          21085
+        ]
+      },
+      "normalizedChannelTransform": "For normalized channel u: clamp((u - 0.501961)K(c) + 0.501961 + B/100, 0, 1); inversion, when enabled, is applied afterward.",
+      "applicationEvidence": {
+        "source": "1w_w6bk2u9ijc.js",
+        "range": [
+          2165,
+          2279
+        ]
+      },
+      "mathematicalContrastNeutral": 0,
+      "pivotNote": "0.501961 is the captured decimal pivot, approximately 128/255; do not claim exact CPU/GPU bit parity from this observation."
+    },
+    "defaultAndRestoreDistinction": {
+      "recipeBaseline": 20,
+      "declaredStyleNodeDefaultForOrdinaryModes": 100,
+      "liveOrdinaryModeEntry": "Retain current contrast unless an armed shader-exit transition restores it. No unconditional ordinary contrast=100 assignment is present in the forced helper.",
+      "shaderEntry": {
+        "modes": [
+          "cyanotype",
+          "hexhalftone",
+          "paperstock",
+          "oilpool",
+          "anodized"
+        ],
+        "setsContrast": 0,
+        "armsTransitionFlag": true
+      },
+      "shaderExit": "On a subsequent non-shader forced default application, if the transition flag is armed and current contrast is exactly 0, assign 100; then clear the flag. A nonzero current contrast is retained.",
+      "stageHold": "If stageHoldActive is true, helper returns before all these writes.",
+      "evidence": {
+        "source": "09wgr6f2vxer0.js",
+        "range": [
+          122868,
+          123871
+        ]
+      }
+    },
+    "otherContrastNamespace": {
+      "stateKey": "ditherContrast",
+      "baseline": 110,
+      "factor": "Kd(d) = d/100",
+      "mathematicalNeutral": 100,
+      "scope": "Separate dither preprocessing setting; not global contrast",
+      "evidence": [
+        {
+          "source": "09wgr6f2vxer0.js",
+          "range": [
+            35811,
+            35834
+          ]
+        },
+        {
+          "source": "09wgr6f2vxer0.js",
+          "range": [
+            35914,
+            35946
+          ]
+        },
+        {
+          "source": "09wgr6f2vxer0.js",
+          "range": [
+            39914,
+            39966
+          ]
+        }
+      ]
+    },
+    "currentRustTone": {
+      "scope": "Local rust/src/color.rs tone function as hashed in this artifact",
+      "contrastDomain": [
+        -100,
+        100
+      ],
+      "factor": "Let q = C/100. L(C) = (1 + q)/(1 - q), except C = 100 is explicitly assigned factor 255.",
+      "channelTransform": "255 × [clamp((x - 127.5)L(C) + 127.5 + 2.55Bc, 0, 255)/255]^(1/gamma)",
+      "mathematicalNeutral": {
+        "contrast": 0,
+        "brightness": 0,
+        "gamma": 1
+      },
+      "evidence": {
+        "source": "rust/src/color.rs",
+        "range": [
+          320,
+          686
+        ],
+        "startLine": 9,
+        "endLine": 20
+      },
+      "sameNeutralDoesNotMeanSameScale": true
+    },
+    "affineStageMapping": {
+      "status": "Algebraically derived candidate mapping for the isolated affine tone stage; not implemented or runtime-verified",
+      "factorTarget": "k = K(referenceContrast)",
+      "coreContrast": "C = 100(k - 1)/(k + 1)",
+      "coreBrightness": "Bc = B + (1 - k)/5.1",
+      "gammaCondition": 1,
+      "reason": "Contrast maps the slope; brightness adjustment compensates the 128 versus 127.5 pivot.",
+      "examples": [
+        {
+          "referenceContrast": -100,
+          "referenceFactor": 0.43852750013654485,
+          "slopeMatchedCoreContrast": -39.03105778722758,
+          "coreBrightnessOffsetForPivotAlignment": 0.11009264703205003,
+          "coreFactorWithUnadaptedSameNumber": 0.0
+        },
+        {
+          "referenceContrast": 0,
+          "referenceFactor": 1.0,
+          "slopeMatchedCoreContrast": 0.0,
+          "coreBrightnessOffsetForPivotAlignment": 0.0,
+          "coreFactorWithUnadaptedSameNumber": 1.0
+        },
+        {
+          "referenceContrast": 20,
+          "referenceFactor": 1.168676675691197,
+          "slopeMatchedCoreContrast": 7.777861844594087,
+          "coreBrightnessOffsetForPivotAlignment": -0.03307385797866609,
+          "coreFactorWithUnadaptedSameNumber": 1.4999999999999998
+        },
+        {
+          "referenceContrast": 100,
+          "referenceFactor": 2.267727216672833,
+          "slopeMatchedCoreContrast": 38.79538078345536,
+          "coreBrightnessOffsetForPivotAlignment": -0.24857396405349666,
+          "coreFactorWithUnadaptedSameNumber": 255
+        }
+      ],
+      "limits": [
+        "Only the isolated CPU affine stage is aligned; sampling, saturation, luminance weights, gamma, glyph mapping, levels/curves, inversion and clipping order can still differ.",
+        "Validate mapped values against target bounds and explicit render-mode semantics; do not silently clamp them or infer whole-frame parity.",
+        "The WebGL example uses a rounded normalized pivot; its exact intercept adjustment differs slightly.",
+        "The UI label, baseline or restoration value is not a universal mathematical normalization."
+      ]
+    }
+  },
+  "fontAndCellGeometry": {
+    "stateKey": "fontSize",
+    "baseline": {
+      "value": 11,
+      "scope": "RECIPE_DEFAULTS and initial state",
+      "evidence": [
+        {
+          "source": "05tjcpn0cqaiz.js",
+          "range": [
+            12122,
+            12133
+          ]
+        },
+        {
+          "source": "05tjcpn0cqaiz.js",
+          "range": [
+            24407,
+            24418
+          ]
+        }
+      ]
+    },
+    "ui": {
+      "label": "Cell Size",
+      "min": 3,
+      "max": 80,
+      "step": 1,
+      "evidence": {
+        "source": "2lr2okzrhyxxk.js",
+        "controlRange": [
+          202189,
+          202296
+        ],
+        "componentRange": [
+          201315,
+          206314
+        ]
+      }
+    },
+    "referenceCommonRenderer": {
+      "scope": "Common character-family render path; replacement renderers can define different size semantics",
+      "scale": "Caller argument scale if truthy, otherwise 1; allowed caller scale domain was not established here.",
+      "cellHeight": "F × S",
+      "cellWidth": "0.6 × F × S",
+      "canvasWidth": "max(1, round(sourceW × S))",
+      "canvasHeight": "max(1, round(sourceH × S))",
+      "columnsForCharacters": "floor(canvasWidth / cellWidth)",
+      "rowsForCharacters": "floor(canvasHeight / cellHeight)",
+      "ceilGridModes": [
+        "mosaic",
+        "lego",
+        "dots",
+        "pixel",
+        "3d",
+        "block-chars",
+        "disco"
+      ],
+      "fontPixelSize": "F × S",
+      "fontFamilyStack": "\"Courier New\", Courier, monospace",
+      "textBaseline": "top",
+      "geometryEvidence": {
+        "source": "09wgr6f2vxer0.js",
+        "range": [
+          95838,
+          96304
+        ]
+      },
+      "fontEvidence": {
+        "source": "09wgr6f2vxer0.js",
+        "range": [
+          102190,
+          102261
+        ]
+      },
+      "webGlAtlasFontEvidence": {
+        "source": "09wgr6f2vxer0.js",
+        "range": [
+          102379,
+          102410
+        ]
+      },
+      "glyphOrigin": "Ordinary glyph placement uses column × cellWidth and row × cellHeight before optional depth/effect offsets.",
+      "glyphPlacementEvidence": {
+        "source": "09wgr6f2vxer0.js",
+        "range": [
+          114854,
+          114901
+        ]
+      },
+      "fixedCellRelationNotFontMeasurement": "The grid cell width/height are explicitly calculated from fontSize; they are not derived from measured glyph advance in this path."
+    },
+    "scaleOneExamples": [
+      {
+        "fontSize": 3,
+        "cellWidth": 1.7999999999999998,
+        "cellHeight": 3,
+        "fontPixelSize": 3
+      },
+      {
+        "fontSize": 11,
+        "cellWidth": 6.6,
+        "cellHeight": 11,
+        "fontPixelSize": 11
+      },
+      {
+        "fontSize": 14,
+        "cellWidth": 8.4,
+        "cellHeight": 14,
+        "fontPixelSize": 14
+      },
+      {
+        "fontSize": 20,
+        "cellWidth": 12.0,
+        "cellHeight": 20,
+        "fontPixelSize": 20
+      },
+      {
+        "fontSize": 26,
+        "cellWidth": 15.6,
+        "cellHeight": 26,
+        "fontPixelSize": 26
+      },
+      {
+        "fontSize": 80,
+        "cellWidth": 48.0,
+        "cellHeight": 80,
+        "fontPixelSize": 80
+      }
+    ],
+    "currentCoreEnvelope": {
+      "cellWidth": [
+        7,
+        16
+      ],
+      "cellHeight": [
+        14,
+        28
+      ],
+      "characterSettingsDefault": {
+        "cellWidth": 10,
+        "cellHeight": 18,
+        "contrast": 0
+      },
+      "calibrationFontSizeDomain": [
+        1,
+        512
+      ],
+      "fontSizeIndependentFromCellDimensions": true,
+      "settingsEvidence": {
+        "source": "src/render/character-contract.ts",
+        "range": [
+          2899,
+          3043
+        ],
+        "startLine": 111,
+        "endLine": 114
+      },
+      "rustValidationEvidence": {
+        "source": "rust/src/character.rs",
+        "range": [
+          3031,
+          3103
+        ],
+        "startLine": 119,
+        "endLine": 120
+      },
+      "calibrationEvidence": {
+        "source": "src/render/glyph-calibration.ts",
+        "range": [
+          1229,
+          1453
+        ],
+        "startLine": 28,
+        "endLine": 30
+      }
+    },
+    "directScaleOneIntersection": {
+      "fontSizeContinuous": [
+        14,
+        26.666666666666668
+      ],
+      "integerUiValues": [
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26
+      ],
+      "default11Fits": false,
+      "fullUi3To80Fits": false,
+      "derivation": "Both 7 ≤ 0.6F ≤ 16 and 14 ≤ F ≤ 28 must hold. This intersection is 14 ≤ F ≤ 26⅔.",
+      "scope": "Direct reference geometry at render scale 1; this is not a proposed remapping of the UI range."
+    },
+    "adapterConsequence": "Preserving the full 3–80 reference range requires an explicit geometry/representation decision. Silently clamping to the current core envelope or equating fontSize to a preexisting cellWidth control changes grid density and cannot be claimed as parity.",
+    "remainingUnknowns": [
+      "The caller scale policy and all replacement-mode size semantics are outside this focused trace.",
+      "Font availability, fallback selection and actual glyph pixels were not runtime tested.",
+      "Reference and local calibration use different alignment/mask conventions; matching nominal font size and cell dimensions does not prove glyph raster parity.",
+      "Core cell-count/memory budgets still constrain grids independently of geometric range support."
+    ]
+  },
+  "implementationPolicy": {
+    "productionChanges": false,
+    "downloadedCodeExecuted": false,
+    "wholeRendererParityEstablished": false,
+    "coreRuntimeOrAbiChanged": false
+  }
+}
