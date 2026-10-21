@@ -2,7 +2,7 @@
 
 User requested commit and push directly on main, with all subsequent work on main and no new branches.
 
-This checkpoint fixes persistent-worker cancellation/fatal-failure recovery and repairs audio decoding/final-seek behavior. Both passed independent review. Packed character painting and explicit legacy document handoff remain local pending their independent review and are excluded from this commit. This is an in-progress rebuild: the reference production UI and complete feature parity remain unfinished.
+This checkpoint fixes persistent-worker cancellation/fatal-failure recovery and repairs audio decoding/final-seek behavior. Both passed independent review. A subsequent independently reviewed checkpoint adds packed character painting and explicit legacy document handoff; its review accepted both spec compliance and code quality. Browser pixel parity remains pending. This is an in-progress rebuild: the reference production UI and complete feature parity remain unfinished.
 
 Validation across the current working tree (including the uncommitted packed painter): the full JavaScript suite passes 308 tests (one skipped); all 41 Rust tests pass; production Next.js build including TypeScript passes. ESLint reports zero errors and three existing prototype warnings. Canvas composition unit checks do not establish browser pixel parity; actual browser fixtures and performance measurements remain scheduled.
 
