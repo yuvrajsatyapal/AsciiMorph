@@ -303,3 +303,23 @@ fn retained_calibration_capacity_is_in_job_preflight() {
         Err(RenderError::BudgetExceeded)
     ));
 }
+#[test]
+fn shape_score_preserves_legacy_sum_order_and_stable_ties() {
+    let src = source(1, 1, &[0]);
+    let mut s = CharacterSettings::new(1, 1).unwrap();
+    s.shape_aware = true;
+    let c = cal(
+        vec![0., 0.],
+        vec![
+            1., 0.5, 0.25, 0.125, 0.0625, 0.03125, 0.015625, 0.0078125, 0.00390625, 0.015625,
+            0.00390625, 1., 0.25, 0.0625, 0.125, 0.5, 0.03125, 0.0078125,
+        ],
+    );
+    for budget in [1, 4096] {
+        assert_eq!(
+            run(&src, s.clone(), Some(&c), budget).glyph_indices,
+            [0],
+            "work budget {budget}"
+        );
+    }
+}

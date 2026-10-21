@@ -5,9 +5,14 @@
     "requestedAt": "2026-10-20",
     "maxBytes": 4000000,
     "timeoutSeconds": 20,
-    "downloaded": false,
-    "error": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
-    "elapsedSeconds": 0.031
+    "downloaded": true,
+    "elapsedSeconds": 0.186,
+    "previousError": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
+    "httpStatus": 200,
+    "contentType": "application/javascript; charset=utf-8",
+    "bytes": 113024,
+    "sha256": "2c60806421f8033c48a870604c994bbf5e70b7012e8aa76a51770cd8ffc21c25",
+    "retrievedAt": "2026-10-20T17:28:33Z"
   },
   {
     "url": "https://www.ascii-magic.com/app/_next/static/chunks/1citd-91emiv-.js",
@@ -15,9 +20,14 @@
     "requestedAt": "2026-10-20",
     "maxBytes": 4000000,
     "timeoutSeconds": 20,
-    "downloaded": false,
-    "error": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
-    "elapsedSeconds": 0.031
+    "downloaded": true,
+    "elapsedSeconds": 0.196,
+    "previousError": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
+    "httpStatus": 200,
+    "contentType": "application/javascript; charset=utf-8",
+    "bytes": 317090,
+    "sha256": "9c7e575d0e4c3cdfb3a92458442bfc35d1dc64d1cd21d5e266ef65097975fbc6",
+    "retrievedAt": "2026-10-20T17:28:33Z"
   },
   {
     "url": "https://www.ascii-magic.com/app/_next/static/chunks/1e9ankkwjbloq.js",
@@ -25,9 +35,14 @@
     "requestedAt": "2026-10-20",
     "maxBytes": 4000000,
     "timeoutSeconds": 20,
-    "downloaded": false,
-    "error": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
-    "elapsedSeconds": 0.031
+    "downloaded": true,
+    "elapsedSeconds": 0.195,
+    "previousError": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
+    "httpStatus": 200,
+    "contentType": "application/javascript; charset=utf-8",
+    "bytes": 40080,
+    "sha256": "f43f3000633f100f6cc05d783a82d278ec42955b0ef879b87e6c13d475f9ab3d",
+    "retrievedAt": "2026-10-20T17:28:33Z"
   },
   {
     "url": "https://www.ascii-magic.com/app/_next/static/chunks/1l91ih9mmvrji.js",
@@ -35,9 +50,14 @@
     "requestedAt": "2026-10-20",
     "maxBytes": 4000000,
     "timeoutSeconds": 20,
-    "downloaded": false,
-    "error": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
-    "elapsedSeconds": 0.031
+    "downloaded": true,
+    "elapsedSeconds": 0.172,
+    "previousError": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
+    "httpStatus": 200,
+    "contentType": "application/javascript; charset=utf-8",
+    "bytes": 15420,
+    "sha256": "9748108e83535d73171ccae40e168729353eee5bff503d0197bf49809251e889",
+    "retrievedAt": "2026-10-20T17:28:33Z"
   },
   {
     "url": "https://www.ascii-magic.com/app/_next/static/chunks/1w_w6bk2u9ijc.js",
@@ -45,9 +65,14 @@
     "requestedAt": "2026-10-20",
     "maxBytes": 4000000,
     "timeoutSeconds": 20,
-    "downloaded": false,
-    "error": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
-    "elapsedSeconds": 0.0
+    "downloaded": true,
+    "elapsedSeconds": 0.124,
+    "previousError": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
+    "httpStatus": 200,
+    "contentType": "application/javascript; charset=utf-8",
+    "bytes": 135631,
+    "sha256": "630e1ce1b5b39d929664a2de7f2e9124bcc33dc1129809e663583a78f4f55374",
+    "retrievedAt": "2026-10-20T17:28:33Z"
   },
   {
     "url": "https://www.ascii-magic.com/app/_next/static/chunks/25m7tjigtxes6.js",
@@ -55,9 +80,14 @@
     "requestedAt": "2026-10-20",
     "maxBytes": 4000000,
     "timeoutSeconds": 20,
-    "downloaded": false,
-    "error": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
-    "elapsedSeconds": 0.0
+    "downloaded": true,
+    "elapsedSeconds": 0.095,
+    "previousError": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
+    "httpStatus": 200,
+    "contentType": "application/javascript; charset=utf-8",
+    "bytes": 3618,
+    "sha256": "97a5f0dee679753cba48f07eac21a483eed55c28f44d66094fcfb5b74a9aed5d",
+    "retrievedAt": "2026-10-20T17:28:33Z"
   },
   {
     "url": "https://www.ascii-magic.com/app/_next/static/chunks/2bpjqlb3d7pan.js",
@@ -65,9 +95,14 @@
     "requestedAt": "2026-10-20",
     "maxBytes": 4000000,
     "timeoutSeconds": 20,
-    "downloaded": false,
-    "error": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
-    "elapsedSeconds": 0.0
+    "downloaded": true,
+    "elapsedSeconds": 0.093,
+    "previousError": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
+    "httpStatus": 200,
+    "contentType": "application/javascript; charset=utf-8",
+    "bytes": 71207,
+    "sha256": "13219f7b5c9fe64e5aa194da9c4c38826e963af03858e92a3da16e8636e20823",
+    "retrievedAt": "2026-10-20T17:28:33Z"
   },
   {
     "url": "https://www.ascii-magic.com/app/_next/static/chunks/2d-1l54v26p8c.js",
@@ -75,9 +110,14 @@
     "requestedAt": "2026-10-20",
     "maxBytes": 4000000,
     "timeoutSeconds": 20,
-    "downloaded": false,
-    "error": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
-    "elapsedSeconds": 0.0
+    "downloaded": true,
+    "elapsedSeconds": 0.145,
+    "previousError": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
+    "httpStatus": 200,
+    "contentType": "application/javascript; charset=utf-8",
+    "bytes": 317090,
+    "sha256": "169a5d20a205eb7325f4d7c4912dad057f77016a556f18bb9317a89ad00faf0b",
+    "retrievedAt": "2026-10-20T17:28:33Z"
   },
   {
     "url": "https://www.ascii-magic.com/app/_next/static/chunks/2lr2okzrhyxxk.js",
@@ -85,9 +125,14 @@
     "requestedAt": "2026-10-20",
     "maxBytes": 4000000,
     "timeoutSeconds": 20,
-    "downloaded": false,
-    "error": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
-    "elapsedSeconds": 0.0
+    "downloaded": true,
+    "elapsedSeconds": 0.129,
+    "previousError": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
+    "httpStatus": 200,
+    "contentType": "application/javascript; charset=utf-8",
+    "bytes": 366329,
+    "sha256": "15714e6e6a5a97f284ed0e31da3a70d88ebb12d87810b56384f5c72a9560a169",
+    "retrievedAt": "2026-10-20T17:28:33Z"
   },
   {
     "url": "https://www.ascii-magic.com/app/_next/static/chunks/2p8lqnc5r1wt7.js",
@@ -95,9 +140,14 @@
     "requestedAt": "2026-10-20",
     "maxBytes": 4000000,
     "timeoutSeconds": 20,
-    "downloaded": false,
-    "error": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
-    "elapsedSeconds": 0.0
+    "downloaded": true,
+    "elapsedSeconds": 0.104,
+    "previousError": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
+    "httpStatus": 200,
+    "contentType": "application/javascript; charset=utf-8",
+    "bytes": 64043,
+    "sha256": "d0db527f938b3787a28fdc79c46f60bdf118359cba10512779269b4581360480",
+    "retrievedAt": "2026-10-20T17:28:33Z"
   },
   {
     "url": "https://www.ascii-magic.com/app/_next/static/chunks/35duo3c5unmuj.js",
@@ -105,9 +155,14 @@
     "requestedAt": "2026-10-20",
     "maxBytes": 4000000,
     "timeoutSeconds": 20,
-    "downloaded": false,
-    "error": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
-    "elapsedSeconds": 0.0
+    "downloaded": true,
+    "elapsedSeconds": 0.115,
+    "previousError": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
+    "httpStatus": 200,
+    "contentType": "application/javascript; charset=utf-8",
+    "bytes": 104816,
+    "sha256": "fa0688045bad0cfbe8ece63cb039f99cdf09134f87cdd5cd228d13a8c9cd65c2",
+    "retrievedAt": "2026-10-20T17:28:33Z"
   },
   {
     "url": "https://www.ascii-magic.com/app/_next/static/chunks/3cr1q6k-0qp_q.js",
@@ -115,9 +170,14 @@
     "requestedAt": "2026-10-20",
     "maxBytes": 4000000,
     "timeoutSeconds": 20,
-    "downloaded": false,
-    "error": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
-    "elapsedSeconds": 0.0
+    "downloaded": true,
+    "elapsedSeconds": 0.114,
+    "previousError": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
+    "httpStatus": 200,
+    "contentType": "application/javascript; charset=utf-8",
+    "bytes": 43707,
+    "sha256": "796e2bee430de1bbdc685a33a1bb2fe0c6614772c7ef0e8c60245015983d2178",
+    "retrievedAt": "2026-10-20T17:28:33Z"
   },
   {
     "url": "https://www.ascii-magic.com/app/_next/static/chunks/3kyu52o0ubrsv.js",
@@ -125,9 +185,14 @@
     "requestedAt": "2026-10-20",
     "maxBytes": 4000000,
     "timeoutSeconds": 20,
-    "downloaded": false,
-    "error": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
-    "elapsedSeconds": 0.0
+    "downloaded": true,
+    "elapsedSeconds": 0.104,
+    "previousError": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
+    "httpStatus": 200,
+    "contentType": "application/javascript; charset=utf-8",
+    "bytes": 47760,
+    "sha256": "3ed99f4d38bc1faea525ab928cb3da8f45958aec73f462b3fa49ea14b4700ed9",
+    "retrievedAt": "2026-10-20T17:28:33Z"
   },
   {
     "url": "https://www.ascii-magic.com/app/_next/static/chunks/3nkw2beysazoh.js",
@@ -135,9 +200,14 @@
     "requestedAt": "2026-10-20",
     "maxBytes": 4000000,
     "timeoutSeconds": 20,
-    "downloaded": false,
-    "error": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
-    "elapsedSeconds": 0.0
+    "downloaded": true,
+    "elapsedSeconds": 0.121,
+    "previousError": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
+    "httpStatus": 200,
+    "contentType": "application/javascript; charset=utf-8",
+    "bytes": 49942,
+    "sha256": "c160e3ccd8c4df5aab21e094826e059803ee3b4448ce96cc2ad30a550d357097",
+    "retrievedAt": "2026-10-20T17:28:33Z"
   },
   {
     "url": "https://www.ascii-magic.com/app/_next/static/chunks/3r_arwvnmlqld.js",
@@ -145,9 +215,14 @@
     "requestedAt": "2026-10-20",
     "maxBytes": 4000000,
     "timeoutSeconds": 20,
-    "downloaded": false,
-    "error": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
-    "elapsedSeconds": 0.0
+    "downloaded": true,
+    "elapsedSeconds": 0.115,
+    "previousError": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
+    "httpStatus": 200,
+    "contentType": "application/javascript; charset=utf-8",
+    "bytes": 44851,
+    "sha256": "3da2b07d7e848648fadc71833bf04d0949947a4e8d101f984841914f397d59d4",
+    "retrievedAt": "2026-10-20T17:28:33Z"
   },
   {
     "url": "https://www.ascii-magic.com/app/_next/static/chunks/3xbkq75mfrlgb.js",
@@ -155,8 +230,13 @@
     "requestedAt": "2026-10-20",
     "maxBytes": 4000000,
     "timeoutSeconds": 20,
-    "downloaded": false,
-    "error": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
-    "elapsedSeconds": 0.0
+    "downloaded": true,
+    "elapsedSeconds": 0.113,
+    "previousError": "<urlopen error [Errno 8] nodename nor servname provided, or not known>",
+    "httpStatus": 200,
+    "contentType": "application/javascript; charset=utf-8",
+    "bytes": 38385,
+    "sha256": "8e307f87ef98849cbd65429f08600ad95bd361eb71a8e99fb99a0a5ad1cd30d1",
+    "retrievedAt": "2026-10-20T17:28:33Z"
   }
 ]

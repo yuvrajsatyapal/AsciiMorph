@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "audit_date": "2026-10-20",
+  "status": "blocked_browser_unavailable",
+  "requested_viewport_css_px": {
+    "width": 1280,
+    "height": 900
+  },
+  "completed_captures": [],
+  "planned_views": [
+    {
+      "id": "home-hero",
+      "url": "https://www.ascii-magic.com/",
+      "purpose": "Hero, announcement and navigation; top of page",
+      "status": "not_captured"
+    },
+    {
+      "id": "home-post-effects",
+      "url": "https://www.ascii-magic.com/#postfx",
+      "purpose": "Representative landing effects section; scroll to observed section",
+      "status": "not_captured"
+    },
+    {
+      "id": "styles-catalog",
+      "url": "https://www.ascii-magic.com/styles",
+      "purpose": "Categorized style discovery cards",
+      "status": "not_captured"
+    },
+    {
+      "id": "recipes-catalog",
+      "url": "https://www.ascii-magic.com/recipes",
+      "purpose": "Client-rendered recipe preview cards",
+      "status": "not_captured"
+    },
+    {
+      "id": "text-to-ascii",
+      "url": "https://www.ascii-magic.com/text-to-ascii",
+      "purpose": "Text banner input, live preview and option controls",
+      "status": "not_captured"
+    },
+    {
+      "id": "blur-tool",
+      "url": "https://www.ascii-magic.com/tools/blur-text",
+      "purpose": "Default Blur mode with before/after and output actions",
+      "status": "not_captured"
+    },
+    {
+      "id": "censor-tool",
+      "url": "https://www.ascii-magic.com/tools/censor-text",
+      "purpose": "Dedicated censor controls and before/after",
+      "status": "not_captured"
+    },
+    {
+      "id": "text-faces",
+      "url": "https://www.ascii-magic.com/tools/text-faces",
+      "purpose": "Face and emoji browse/search/copy shell",
+      "status": "not_captured"
+    },
+    {
+      "id": "library",
+      "url": "https://www.ascii-magic.com/ascii",
+      "purpose": "Library search, category/look controls and previews",
+      "status": "not_captured"
+    },
+    {
+      "id": "library-detail",
+      "url": "https://www.ascii-magic.com/ascii/abu-simbel-colossi",
+      "purpose": "Representative player/look and integration/export template",
+      "status": "not_captured"
+    },
+    {
+      "id": "readme-banner",
+      "url": "https://www.ascii-magic.com/ascii/banner",
+      "purpose": "Distinct README banner maker preview/settings",
+      "status": "not_captured"
+    },
+    {
+      "id": "docs",
+      "url": "https://www.ascii-magic.com/docs",
+      "purpose": "Distinct documentation navigation/article/contents shell",
+      "status": "not_captured"
+    }
+  ],
+  "conditional_followup": {
+    "id": "home-narrow",
+    "url": "https://www.ascii-magic.com/",
+    "requested_viewport_css_px": {
+      "width": 390,
+      "height": 844
+    },
+    "condition": "If responsive CSS can be exercised through available IAB viewport capability; record as narrow CSS baseline only, not touch-device verification."
+  },
+  "blocking_evidence": [
+    {
+      "tool": "cua.createBrowserTab",
+      "arguments": {
+        "browserId": "iab",
+        "url": "https://www.ascii-magic.com/",
+        "visible": false
+      },
+      "result": "Browser is not available: iab"
+    },
+    {
+      "tool": "cua.listBrowsers",
+      "result": []
+    }
+  ],
+  "limits": [
+    "No screenshots were captured, synthesized or substituted.",
+    "No tab was created and no viewport was altered, so no restoration was required.",
+    "Capture raster dimensions, document viewport, device scale factor and clipping remain unknown until actual capture.",
+    "Previous transient 1280\u00d7720 screenshots in the surface audit were not retained; they cannot serve as durable baselines.",
+    "Reference artwork and fonts are research evidence only, not licensed production assets."
+  ]
+}

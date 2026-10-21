@@ -313,6 +313,21 @@ pub struct CharacterJob {
     grid: Option<GlyphGrid>,
 }
 impl CharacterJob {
+    /// Numeric job vectors only; callers add retained inputs and serialization peaks.
+    pub fn required_storage_bytes(settings: &CharacterSettings) -> Result<usize, RenderError> {
+        let (w, h) = settings.sample_dimensions()?;
+        let cells = settings.width as usize * settings.height as usize;
+        let targets = if settings.shape_aware && settings.mapping == Mapping::Glyph {
+            cells * 9
+        } else {
+            0
+        };
+        w.checked_mul(h)
+            .and_then(|n| n.checked_mul(28))
+            .and_then(|n| n.checked_add(targets * 8))
+            .and_then(|n| n.checked_add(cells * 14))
+            .ok_or(RenderError::BudgetExceeded)
+    }
     pub fn new(
         source: &SourceImage,
         settings: CharacterSettings,
@@ -337,9 +352,7 @@ impl CharacterJob {
         let bytes = source
             .storage_bytes()
             .checked_add(calibration.map_or(0, |c| c.storage_bytes()))
-            .and_then(|v| v.checked_add(n * 28))
-            .and_then(|v| v.checked_add(targets * 8))
-            .and_then(|v| v.checked_add(cells * 14))
+            .and_then(|v| v.checked_add(Self::required_storage_bytes(&settings).ok()?))
             .ok_or(RenderError::BudgetExceeded)?;
         if bytes > source.budget() {
             return Err(RenderError::BudgetExceeded);
@@ -636,11 +649,11 @@ impl CharacterJob {
                 self.density_score = distance;
                 self.density_best = j as u16;
             }
-            self.score = distance * 0.3;
+            self.score = 0.;
         }
         if !self.targets.is_empty() {
             let delta = c.shapes[j * 9 + self.bin] as f64 - self.targets[self.index * 9 + self.bin];
-            self.score += delta * delta / 9.;
+            self.score += delta * delta;
             self.bin += 1;
             if self.bin < 9 {
                 return;
@@ -649,7 +662,9 @@ impl CharacterJob {
         let score = if self.targets.is_empty() {
             (c.coverage[j] as f64 - value / 255.).abs()
         } else {
-            self.score
+            // Preserve JS operation order as well as f32 boundaries: sum all
+            // nine squares, divide once, then add the coverage penalty.
+            self.score / 9. + (c.coverage[j] as f64 - value / 255.).abs() * 0.3
         };
         if score < self.best_score {
             self.best_score = score;

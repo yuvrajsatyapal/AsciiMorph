@@ -1,9 +1,11 @@
-# Rebuild checkpoint — 2026-10-20
+# Rebuild checkpoint — 2026-10-21
 
-User requested committing current work, merging into main and pushing before implementation resumes.
+User requested another commit and push directly on main, with all subsequent work on main and no new branches.
 
-This checkpoint includes the existing workspace upgrades, reference research/design artifacts and new Rust character-core work. It is an in-progress rebuild, not full ASCII Magic parity.
+This checkpoint includes the reviewed Rust matching correction and session/ABI engine, rebuilt WASM, persistent worker/runtime/service, and expanded public-reference research. It is an in-progress rebuild. The production reference UI and full feature parity remain unfinished.
 
-Validation:25 Rust tests and21 render-contract/calibration tests pass. Previous full Vitest run:211 passed,2 failed,1 skipped; both failures are in existing audio-playback tests, including missing decodeAudioFile. Global TypeScript check is blocked by that same missing export. Rust matching independent review remains pending after interruption.
+Validation:41 Rust tests and56 focused TypeScript/WASM tests pass. Session/ABI and matching corrections passed independent review. Persistent worker/service implementation has focused passing checks; independent review is next. Existing audio-playback tests and global TypeScript still have the missing decodeAudioFile/seek issues recorded in the baseline repair plan.
 
-Raw downloaded reference HTML, raw REA diagnostic captures and generated local Next route import changes remain local. No downloaded competitor editor implementation is included in production source. Full production acceptance remains tracked in reference-parity.md.
+Reference evidence now includes521 UI descriptor variants across497 keys, 55 public route checks and explicit desktop/mobile panel lifecycle evidence. Public-site screenshot capture is incomplete because the browser was unavailable; no fabricated captures are claimed.
+
+Raw downloaded reference HTML, raw REA diagnostic captures, local execution handoff files and generated local Next route import changes remain local. No downloaded proprietary editor implementation is included in production source. Full production acceptance remains tracked in reference-parity.md.

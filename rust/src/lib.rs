@@ -1,4 +1,6 @@
 //! Bounded, deterministic alpha-weighted area sampling and Sobel gradients.
+pub mod abi;
+pub mod session;
 
 pub mod character;
 pub mod glyph;
