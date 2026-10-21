@@ -15,3 +15,11 @@ Raw downloaded reference HTML, raw REA diagnostic captures, local execution hand
 ## Coordinated geometry follow-up
 
 The new character contract now supports finite fractional cell dimensions1..512 across TypeScript/Rust/WASM. Calibration admission/cache/delivery ownership is byte-bounded; clearing does not discard active reservations. Tiny Braille bins remain finite, painter resources are released on eviction/failure, and incompatible legacy-editor geometry fails explicitly. Fresh independent review accepted the delivery with no actionable high/medium findings. Checks:144 scoped TypeScript tests,44 Rust tests, rebuiltWASM, typecheck and scopedESLint passed. No new full-build/browser-parity claim; actual browser font/output fixtures remain Task8. Independent project-format implementation is underway separately and is not included in this geometry checkpoint.
+
+## Project format and check reliability follow-up
+
+Strict project transport/schema/resource readiness passed independent review:70 contract tests plus26 legacy regressions; all six initial style schemas remain unavailable for rendering. Project JSON is detached, bounded by canonical serialized bytes and checked without invoking accessors. Settings, effect order, text, mask identities and export choices persist as typed data; no pixel renderer is fabricated by registering a schema.
+
+The integration check replaces fixed-delay worker completion assertions with request-specific conditions and a controlled delayed-step regression. ESLint excludes only the ephemeral SDD task workspace. Fresh review accepted both changes. Full integration:404 JavaScript tests pass with1 skipped; lint has0 errors and3 existing prototype warnings; productionbuild includingTypeScript passes. The build preceded the test/config-only reliability fix; no production code changed in that fix. Rust remains44 passing tests at the accepted geometry checkpoint.
+
+The next native Characters-profile task has started separately; its unfinished files are excluded from this checkpoint. All work remains onmain. Full UI/feature parity remains open.

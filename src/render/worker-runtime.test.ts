@@ -83,6 +83,24 @@ const job = (id: string, type = "renderPreview") => ({
   ...(type === "renderExport" ? { outputWidth: 1, outputHeight: 1 } : {}),
 });
 const delay = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
+async function waitForMessage(
+  messages: unknown[],
+  requestId: string,
+  type: string,
+) {
+  return vi.waitFor(
+    () => {
+      const message = messages.find(
+        (message) =>
+          (message as { requestId: string }).requestId === requestId &&
+          (message as { type: string }).type === type,
+      );
+      expect(message).toBeDefined();
+      return message;
+    },
+    { timeout: 2000, interval: 1 },
+  );
+}
 function harness(steps = 4) {
   const messages: unknown[] = [],
     transfers: Transferable[][] = [],
@@ -130,7 +148,7 @@ function harness(steps = 4) {
       type: "initialize",
       memoryBudgetBytes: 1_000_000,
     });
-    await delay();
+    await waitForMessage(messages, "init", "ready");
     send({ version: 1, requestId: "src", type: "setSource", source: source() });
     send({
       version: 1,
@@ -142,6 +160,44 @@ function harness(steps = 4) {
   return { messages, transfers, calls, active, engine, send, ready, runtime };
 }
 describe("worker runtime", () => {
+  it("waits_for_requested_result_through_controlled_delayed_steps", async () => {
+    vi.useFakeTimers();
+    const h = harness(1);
+    try {
+      const ready = h.ready();
+      await vi.advanceTimersByTimeAsync(1);
+      await ready;
+      let releaseRequested = false;
+      vi.mocked(h.engine.step).mockImplementation((id) =>
+        id === 1 && !releaseRequested ? "pending" : "complete",
+      );
+      h.send(job("requested"));
+      h.send(job("other", "renderExport"));
+      let settled = false;
+      const result = waitForMessage(h.messages, "requested", "result").then(
+        (message) => {
+          settled = true;
+          return message;
+        },
+      );
+      await vi.advanceTimersByTimeAsync(100);
+      expect(h.messages).toContainEqual(
+        expect.objectContaining({ requestId: "other", type: "result" }),
+      );
+      expect(h.messages).toContainEqual(
+        expect.objectContaining({ requestId: "requested", type: "progress" }),
+      );
+      expect(settled).toBe(false);
+      releaseRequested = true;
+      await vi.advanceTimersByTimeAsync(10);
+      expect(await result).toEqual(
+        expect.objectContaining({ requestId: "requested", type: "result" }),
+      );
+    } finally {
+      h.runtime.dispose();
+      vi.useRealTimers();
+    }
+  });
   it("cancel_processed_between_wasm_steps", async () => {
     const h = harness(20);
     await h.ready();
@@ -161,7 +217,7 @@ describe("worker runtime", () => {
         }),
       0,
     );
-    await delay(40);
+    await waitForMessage(h.messages, "a", "cancelled");
     expect(h.calls.length).toBeGreaterThan(0);
     expect(h.calls.length).toBeLessThan(20);
     expect(h.messages).toContainEqual(
@@ -174,10 +230,13 @@ describe("worker runtime", () => {
     const h = harness();
     await h.ready();
     h.send(job("a"));
-    await delay(2);
+    await vi.waitFor(() => expect(h.calls.length).toBeGreaterThan(0), {
+      timeout: 2000,
+      interval: 1,
+    });
     h.send(job("b"));
     h.send(job("c"));
-    await delay(60);
+    await waitForMessage(h.messages, "c", "result");
     for (const id of ["a", "b"])
       expect(h.messages).toContainEqual(
         expect.objectContaining({ type: "cancelled", requestId: id }),
@@ -193,11 +252,16 @@ describe("worker runtime", () => {
     const h = harness();
     await h.ready();
     h.send(job("e1", "renderExport"));
-    await delay(2);
+    await vi.waitFor(() => expect(h.calls.length).toBeGreaterThan(0), {
+      timeout: 2000,
+      interval: 1,
+    });
     h.send(job("p"));
     h.send(job("e2", "renderExport"));
     h.send(job("e3", "renderExport"));
-    await delay(80);
+    await Promise.all(
+      ["e1", "p", "e2"].map((id) => waitForMessage(h.messages, id, "result")),
+    );
     expect(h.messages).toContainEqual(
       expect.objectContaining({
         type: "error",
@@ -222,7 +286,10 @@ describe("worker runtime", () => {
     h.send(job("a"));
     h.send(job("e", "renderExport"));
     h.send(job("pending", "renderExport"));
-    await delay(2);
+    await vi.waitFor(() => expect(h.calls.length).toBeGreaterThan(0), {
+      timeout: 2000,
+      interval: 1,
+    });
     h.send({
       version: 1,
       requestId: "new",
@@ -230,7 +297,7 @@ describe("worker runtime", () => {
       source: { ...source(), revision: 2 },
     });
     h.send(job("stale"));
-    await delay(10);
+    await waitForMessage(h.messages, "stale", "error");
     for (const id of ["a", "e", "pending"])
       expect(h.messages).toContainEqual(
         expect.objectContaining({ type: "cancelled", requestId: id }),
@@ -248,7 +315,10 @@ describe("worker runtime", () => {
     const h = harness(20);
     await h.ready();
     h.send(job("a"));
-    await delay(2);
+    await vi.waitFor(() => expect(h.calls.length).toBeGreaterThan(0), {
+      timeout: 2000,
+      interval: 1,
+    });
     vi.mocked(h.engine.setSource).mockImplementationOnce(() => {
       throw new RenderError("InvalidInput", "bad");
     });
@@ -264,7 +334,7 @@ describe("worker runtime", () => {
       type: "setCalibration",
       calibration: { ...calibration(), id: "new" },
     });
-    await delay(10);
+    await waitForMessage(h.messages, "a", "cancelled");
     expect(h.messages).toContainEqual(
       expect.objectContaining({
         type: "error",
@@ -290,7 +360,7 @@ describe("worker runtime", () => {
     ])
       expect(() => validateWorkerRequest(value)).toThrow();
     h.send({ ...job("mismatch"), sourceRevision: 2 });
-    await delay();
+    await waitForMessage(h.messages, "mismatch", "error");
     expect(h.messages).toContainEqual(
       expect.objectContaining({ requestId: "mismatch", type: "error" }),
     );
@@ -318,7 +388,7 @@ describe("worker runtime", () => {
       type: "initialize",
       memoryBudgetBytes: 1000,
     });
-    await delay();
+    await waitForMessage(messages, "i", "error");
     expect(messages).toContainEqual(
       expect.objectContaining({
         type: "error",
@@ -345,7 +415,10 @@ describe("worker runtime", () => {
     });
     pending.receive({ version: 1, requestId: "d", type: "dispose" });
     resolve(h.engine);
-    await delay();
+    await vi.waitFor(() => expect(h.engine.dispose).toHaveBeenCalledOnce(), {
+      timeout: 2000,
+      interval: 1,
+    });
     expect(h.engine.dispose).toHaveBeenCalledOnce();
     h.runtime.dispose();
   });
@@ -373,7 +446,7 @@ describe("worker identity regressions", () => {
       type: "setCalibration",
       calibration: { ...calibration(), fontKey: "other" },
     });
-    await delay(50);
+    await waitForMessage(h.messages, "a", "result");
     expect(h.messages).toContainEqual(
       expect.objectContaining({
         requestId: "badcancel",
@@ -397,7 +470,7 @@ describe("worker identity regressions", () => {
     const h = harness();
     await h.ready();
     h.send(job("a"));
-    await delay(40);
+    await waitForMessage(h.messages, "a", "result");
     const progress = h.messages.find(
       (m) => (m as { type: string }).type === "progress",
     );
@@ -422,7 +495,7 @@ it("unexpected_numeric_trap_is_a_visible_worker_failure", async () => {
     throw new WebAssembly.RuntimeError("numeric trap");
   });
   h.send(job("trap"));
-  await delay(10);
+  await waitForMessage(h.messages, "trap", "error");
   expect(h.messages).toContainEqual(
     expect.objectContaining({
       type: "error",
@@ -484,7 +557,7 @@ describe("Task 6 review cancellation regressions", () => {
       expect(h.engine.dispose).toHaveBeenCalledOnce();
       expect(h.active.size).toBe(0);
       h.send(job("after-failure"));
-      await delay();
+      await waitForMessage(h.messages, "after-failure", "error");
       expect(h.engine.begin).toHaveBeenCalledTimes(2);
       expect(h.messages).toContainEqual(
         expect.objectContaining({
@@ -502,12 +575,15 @@ describe("Task 6 review cancellation regressions", () => {
     const h = harness(1000);
     await h.ready();
     h.send(job("original"));
-    await delay(2);
+    await vi.waitFor(() => expect(h.calls.length).toBeGreaterThan(0), {
+      timeout: 2000,
+      interval: 1,
+    });
     vi.mocked(h.engine.cancel).mockImplementationOnce(() => {
       throw new WebAssembly.RuntimeError("supersession trap");
     });
     h.send(job("replacement"));
-    await delay(5);
+    await waitForMessage(h.messages, "replacement", "error");
     try {
       for (const requestId of ["original", "replacement"])
         expect(h.messages).toContainEqual(
@@ -526,7 +602,10 @@ describe("Task 6 review cancellation regressions", () => {
     const h = harness(1000);
     await h.ready();
     h.send(job("old-source"));
-    await delay(2);
+    await vi.waitFor(() => expect(h.calls.length).toBeGreaterThan(0), {
+      timeout: 2000,
+      interval: 1,
+    });
     vi.mocked(h.engine.cancel).mockImplementation(() => {
       throw new Error("cannot cancel an invalidated handle");
     });
@@ -537,7 +616,10 @@ describe("Task 6 review cancellation regressions", () => {
       source: { ...source(), revision: 2 },
     });
     h.send({ ...job("old-cal"), sourceRevision: 2 });
-    await delay(2);
+    await vi.waitFor(() => expect(h.engine.begin).toHaveBeenCalledTimes(2), {
+      timeout: 2000,
+      interval: 1,
+    });
     h.send({
       version: 1,
       requestId: "new-cal",
