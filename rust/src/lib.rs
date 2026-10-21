@@ -3,6 +3,7 @@ pub mod abi;
 pub mod session;
 
 pub mod character;
+pub mod reference_characters;
 pub mod glyph;
 pub mod dither;
 pub mod color;
