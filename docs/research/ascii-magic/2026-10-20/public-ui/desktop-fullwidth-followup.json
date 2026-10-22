@@ -1,0 +1,40 @@
+{
+  "capture_date": "2026-10-22",
+  "url": "https://www.ascii-magic.com/app",
+  "method": "CUA IAB temporary viewport override and tab.screenshot(fullPage:true); DOM client dimensions verified; viewport reset and temporary tab closed; capture API returns JPEG bytes, saved with .jpg extension",
+  "observed_state": {
+    "mode": "Mosaic",
+    "fontSize": 11,
+    "brightness": 0,
+    "contrast": 70,
+    "bgMode": "Blurred Image",
+    "bgBlur": 0,
+    "bgOpacity": 100,
+    "blendMode": "Normal",
+    "zoom": "100%"
+  },
+  "limits": [
+    "Inherited reference state, not fresh defaults",
+    "Only browser viewport changed; no styles or controls edited",
+    "Reference art/thumbnail images are research evidence, not licensed production assets",
+    "Desktop capture only, no mobile input-capability claim"
+  ],
+  "captures": [
+    {
+      "file": "studio-1440x900-2026-10-22.jpg",
+      "mime": "image/jpeg",
+      "width": 1440,
+      "height": 900,
+      "bytes": 169631,
+      "sha256": "8788cc7b0090cbd72195d5f8cd8cb225e9c08d0764418145c8b8d14ba3c3a7e3"
+    },
+    {
+      "file": "studio-1920x1080-2026-10-22.jpg",
+      "mime": "image/jpeg",
+      "width": 1920,
+      "height": 1080,
+      "bytes": 240004,
+      "sha256": "be38ede26a586bacf162f934fb2f765ad8cf914fbe5a5fe705a9ffe69b3a5d47"
+    }
+  ]
+}
