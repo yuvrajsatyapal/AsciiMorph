@@ -608,7 +608,7 @@ describe("resource and renderer readiness", () => {
       ),
     ).toContain("not-ready");
   });
-  it("revalidates mutable callers and exposes the independent character subset as unavailable", () => {
+  it("revalidates mutable callers and preflights the available Characters binding", () => {
     const invalid = {
       ...renderProject(),
       style: { id: "missing", parameters: {} },
@@ -632,9 +632,8 @@ describe("resource and renderer readiness", () => {
       initialCatalogRegistry,
       resources(),
     );
-    expect(result.ready).toBe(false);
-    if (!result.ready)
-      expect(result.issues.map((i) => i.code)).toEqual(["not-ready"]);
+    // Full Characters font/atlas/context/budget admission is the exact adapter's job.
+    expect(result).toEqual({ ready: true });
   });
 });
 

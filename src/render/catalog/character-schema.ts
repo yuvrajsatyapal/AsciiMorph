@@ -1,11 +1,11 @@
 import type { StyleSchema } from "./types";
 
 /** Independent four-control subset. Anchors: ui-0306, charSet resolution, ui-0464/0465.
- * Data acceptance does not implement reference tone, sampling, calibrated ramps or output. */
+ * Complete Rust context v1 is independently implemented; reference parity stays open. */
 export const initialCharacterSchema: StyleSchema = {
   evidence: "independent-contract",
   defaultsVersion: 1,
-  binding: null,
+  binding: { dispatchId: 1, backend: "rust-cpu" },
   rules: {
     fontSize: { kind: "number", min: 3, max: 80 },
     charSet: { kind: "text", minLength: 2, maxLength: 512, graphemeRamp: true },
@@ -18,9 +18,9 @@ export const initialCharacterSchema: StyleSchema = {
     name: "Characters",
     category: "ASCII & Text",
     tags: [],
-    ready: false,
-    output: "glyph",
-    dispatchId: 0,
+    ready: true,
+    output: "rgba",
+    dispatchId: 1,
     parameters: [
       {
         key: "fontSize",

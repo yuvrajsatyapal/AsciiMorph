@@ -1,6 +1,6 @@
 # Characters profile — incremental verification
 
-The rebuild targets the full reference website. This checkpoint implements only the native glyph layer and its strict TypeScript contracts. It does not enable the complete Characters look or replace the production Studio yet. The browser atlas, additive WASM interface, worker integration, Rust backdrop and project binding are subsequent stages.
+The rebuild targets the full reference website. The latest checkpoint (Task5) binds the exact four-control Characters project to the complete Rust context through the existing worker/service. The production Studio shell, extra controls, full reference pixel parity and broader website acceptance remain pending. The sections below retain each stage’s evidence and limits in order.
 
 ## Native glyph layer
 
@@ -82,3 +82,50 @@ Fresh Task4 evidence:
 - The second browser fixture uses an owned1000×1000opaque gradient, actual controlled-stack calibrator, F11/default ramp and BlurS1. It admitted/completed4,000,000RGBA bytes,151×90grid, atlas7×11, allalpha255; corners were `[1,1,1,255]`, `[254,1,128,255]`, `[1,254,128,255]`, `[254,254,254,255]`. Service state became disposed, calibration-owned bytes0, and the real worker close event was observed. **One smoke sample only:** worker compute114.7ms/readback2.8ms/total117.6ms; service render wall119.7ms; calibration+upload+render171.7ms. This does not establish p95, the50ms/100ms performance targets, speedup, GPU choice or complete UI acceptance.
 
 The accepted single-global-atlas lifetime model remains: replacing font/ramp/atlas cancels captured dependent exports. A later pre-UI interaction task must add bounded captured-export atlas ownership or expose a deliberate visible limitation before promising independent look edits during export. Task4 does not expand that lifetime model or bind the four project controls.
+
+
+## Task 5 — exact four-control project binding, 2026-10-22
+
+`prepareCharactersProject(project, scale, atlas, resources)` now validates and detaches a complete saved project, then prepares the strict source/settings/context/binding payload. It accepts only canonical `characters` with exactly `fontSize`, `charSet`, `brightness`, and `contrast`. It rejects effects even when disabled, masks, text, Flow graph presence, extra keys and legacy controls. Source identity/revision/dimensions must match the uploaded resource. Crop uses floor/ceil pixel bounds followed by quarter-turn rotation; explicit scale derives the full frame without changing the saved project. Controller job IDs/revisions remain outside `RenderProjectV1`; source revision is separately preserved.
+
+The resources contract is `{ source, calibrationId, fontFamily, fontRevision, charactersProfileVersion, charactersContextVersion, memoryBudgetBytes }`. Both profile and **complete context** must be version1. Old profile-only WASM, missing/stale source/atlas/font identities, malformed measured keys and insufficient complete-frame budget fail visibly. Preflight reserves source plus measured atlas backing,48bytes/framepixel,28bytes/cell and4096bytes overhead. Other live jobs, staging, capacity surplus and authoritative aggregate admission remain worker checks; this is not process RSS or whole-browser memory accounting.
+
+Call `prepareCharactersGeometry(F,S)` before calibration. It returns font pixel size `F*S`, cell width `(.6*F)*S` and cell height `F*S`. This exact arithmetic matters at S3: F3.2 gives cell width5.76; `.6*(F*S)` instead gives5.760000000000001 and is correctly rejected as a different identity. Finite fractional font sizes are preserved. `readReferenceCalibrationIdentity(atlas)` reads the closed version1 key at the calibration boundary: profile/order/placement/policy/family/font pixels/revision plus measured mask dimensions and wrapper origins must agree. Matching cells cannot hide masks drawn at the wrong actual font size. The controlled stack remains exactly `"Courier New", Courier, monospace`; verified-family fixtures remain supported under the existing loaded-FontFace policy. No installed-Courier or exact-reference-font claim is added.
+
+Only canonical Characters is bound: Rust CPU dispatch1, complete `rgba` output. Every existing shader schema remains unbound/unavailable. The optional grid is metadata; it cannot represent the final blurred backdrop by itself. Full Characters parity stays **Open** in the parity ledger.
+
+The caller uploads source and atlas, then attaches request identity explicitly to the prepared fields (do not spread context/binding into the closed service request):
+
+```ts
+const prepared = prepareCharactersProject(project, scale, atlas, resources);
+const request = {
+  jobId, revision, timeUs: project.timeUs,
+  source: prepared.source,
+  sourceId: prepared.sourceId,
+  sourceRevision: prepared.sourceRevision,
+  calibrationId: prepared.calibrationId,
+  settings: prepared.settings,
+};
+const preview = await service.renderCharactersPreview(request);
+const exported = await service.renderCharactersExport({
+  ...request, jobId: exportJobId,
+  outputWidth: prepared.settings.frameWidth,
+  outputHeight: prepared.settings.frameHeight,
+});
+```
+
+`getProjectReadiness` remains a partial schema/source/binding preflight. It deliberately has no font/atlas/context/budget resources and can return ready for schema-valid masks/text which this first profile rejects. A regression documents that boundary. Production Characters submission **must** run the exact adapter; generic readiness alone does not admit this profile. Codec/encoder availability and export UI readiness are separate checks.
+
+Fresh Task5 evidence:
+
+- Adapter/registry RED:4failed/34passed for missing adapter/geometry/identity APIs and null catalog binding. GREEN:38/38. The explicit crop/rotation/S3/partial-readiness boundary additions gave79/79 across adapter, registry and project tests.
+- Identity reader hardening RED:1failed/45passed for a quoted unsafe font name accepted outside the calibrator’s input bounds; GREEN:46/46 after applying those same family restrictions. Actual calibrator tests cover both font policies and malformed/extended keys, wrong wrapper extents/origins and wrong profile/order/placement/policy/font fields.
+- Focused adapter/registry/calibration/budget/service/project/legacy run:164passed across7files. Full `npm run test`:501passed,1existing skipped across58files. The full-suite run preceded the final identity-reader input guard; the affected calibration file then passed46/46. No unreported failures remain.
+- `npm run test:rust`:85passed; no Rust/WASM implementation or binary changed in Task5. `npm run typecheck`, scoped ESLint and `git diff --check`:passed.
+- `npx playwright test -c tests/e2e/characters/playwright.config.ts`:3Chromium fixtures passed using the actual production calibrator, service and module worker through isolated Vite. A local-listener EPERM required approved elevated execution. The adapter fixture was subsequently rerun alone after adding explicit final-frame brightness/contrast assertions and removing a synthetic zoom assertion; it passed. Browser156.0.8078.4/macOS.
+- The independently authored97×67 source contains a gradient, hidden-red alpha0 strip, alpha128 edge and two marker pixels; Unicode ramp is `█é `. F3.2 produces50×20cells at S1/S3/S4, full frames97×67/291×201/388×268, canonical S3cells5.76×9.600000000000001 and S1margins1×3. FontSize edits change geometry; ramp/brightness/contrast edits change final paint. The fixture does not explicitly assert changed fontSize RGBA. Brightness/contrast preserve selected glyph indices. Seven equal-scale preview/export pairs have identical final RGBA. Input project/source bytes remain unchanged, disabled unknown effect failure is explicit, and an actual F4.2 atlas with F3.2 cells is rejected.
+- Normalized metrics compare whole-frame per-channel means (RGB and alpha) across scales, with declared tolerance<6byte levels, and grid-foreground channel means with tolerance<3. Observed maximum S3/S4 final-frame mean deltas were0.222394/0.228199byte; all four foreground mean deltas were0. Complete backdrop pixels survive the partial margins. These are aggregate normalization checks, not spatial pixel equivalence or font hinting parity. Existing native/WASM exact interpolation and alpha oracles remain authoritative for numerical behavior.
+
+The isolated harness is numerical/module-worker acceptance, not a replacement Studio UI. Saved-project extra-field tests reject view zoom; actual production `/app` view-only zoom, route controls and export interaction remain shell acceptance. Existing service regressions cover latest-preview cancellation, source/atlas replacement, stale identities, recovery, disposal and legacy outputs; Task5 does not invent route UI or duplicate that scheduler.
+
+The single-global-atlas limitation is unchanged: font/ramp/atlas replacement cancels dependent captured exports. The shell must either visibly defer those look edits while export finishes or first implement bounded per-job captured atlas ownership. Same-atlas brightness/contrast edits can share concurrent lanes; source replacement remains canceling by design. No production shell/build, reference pixel parity, full website completion, GPU selection, p95 target or universal export independence is claimed.

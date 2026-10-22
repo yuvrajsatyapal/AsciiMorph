@@ -1,6 +1,10 @@
 /** Versioned reference Characters contracts. Numeric rendering belongs to Rust.
- * Glyph layers are intermediate; the complete-look adapter waits for Rust backdrop composition.
+ * Glyph layers are intermediate; project binding requires complete Rust context v1.
  */
+import { graphemes } from "@/core/document";
+import { validateRenderProject } from "./project";
+import { initialCatalogRegistry } from "./catalog/initial-schemas";
+import { readReferenceCalibrationIdentity } from "./glyph-calibration";
 import { MAX_BACKING_PIXELS, MAX_BACKING_SIDE } from "@/core/render";
 import {
   DEFAULT_MEMORY_BUDGET_BYTES,
@@ -323,4 +327,165 @@ export function validateReferenceGlyphLayer(
   source: SourceRef,
 ): ReferenceGlyphLayerV1 {
   return frame(value, settings, atlas, source, true) as ReferenceGlyphLayerV1;
+}
+
+/** Canonical arithmetic shared by calibration callers and the project adapter.
+ * Font pixels use F*S; Rust cell width deliberately uses (.6*F)*S.
+ */
+export function prepareCharactersGeometry(
+  fontSize: number,
+  scale: 1 | 2 | 3 | 4,
+) {
+  number(fontSize, 3, 80, "fontSize");
+  if (![1, 2, 3, 4].includes(scale)) fail("renderScale");
+  return {
+    fontPixelSize: fontSize * scale,
+    cellWidth: 0.6 * fontSize * scale,
+    cellHeight: fontSize * scale,
+  };
+}
+export interface CharactersProjectResources {
+  source: SourceRef | null;
+  calibrationId: string | null;
+  fontFamily: string | null;
+  fontRevision: string | null;
+  charactersProfileVersion: 1 | null;
+  charactersContextVersion: 1 | null;
+  /** Configured session budget; worker admission still includes other live jobs. */
+  memoryBudgetBytes: number;
+}
+export interface PreparedCharactersProject {
+  source: SourceRef;
+  sourceId: string;
+  sourceRevision: number;
+  calibrationId: string;
+  settings: ReferenceCharactersSettingsV1;
+  context: ReferenceCharactersContextV1;
+  binding: { dispatchId: number; backend: "rust-cpu" };
+}
+/** Strict four-control project binding. Caller owns jobId/revision/timeUs, uploads
+ * and invokes renderCharactersPreview/Export; this function never renders in JS.
+ */
+export function prepareCharactersProject(
+  project: unknown,
+  scale: 1 | 2 | 3 | 4,
+  atlas: ReferenceCharacterAtlasV1,
+  resources: CharactersProjectResources,
+): PreparedCharactersProject {
+  if (arguments.length !== 4) fail("adapter arguments");
+  const p = validateRenderProject(project);
+  if (p.style.id !== "characters") fail("unsupported style");
+  if (p.effects.length)
+    fail("unsupported effects (including disabled effects)");
+  if (p.masks.length) fail("unsupported masks");
+  if (p.text.length) fail("unsupported text");
+  if (!p.source) fail("missing project source");
+  if (!resources || resources.charactersProfileVersion !== 1)
+    fail("missing WASM profile capability");
+  if (resources.charactersContextVersion !== 1)
+    fail("missing complete context capability");
+  const source = p.source,
+    retained = resources.source;
+  if (
+    !retained ||
+    retained.id !== source.id ||
+    retained.revision !== source.revision ||
+    retained.width !== source.width ||
+    retained.height !== source.height
+  )
+    fail("missing or mismatched source resource");
+  const a = validateReferenceCharacterAtlas(atlas),
+    c = a.calibration;
+  if (resources.calibrationId !== c.id)
+    fail("missing or mismatched atlas resource");
+  const font = readReferenceCalibrationIdentity(a);
+  const { fontSize, charSet, brightness, contrast } = p.style.parameters as {
+    fontSize: number;
+    charSet: string;
+    brightness: number;
+    contrast: number;
+  };
+  const geometry = prepareCharactersGeometry(fontSize, scale);
+  if (
+    !resources.fontFamily ||
+    resources.fontRevision === null ||
+    font.fontFamily !== resources.fontFamily ||
+    font.fontRevision !== resources.fontRevision ||
+    font.fontPixelSize !== geometry.fontPixelSize
+  )
+    fail("missing or mismatched measured font resource");
+  if (
+    c.cellWidth !== geometry.cellWidth ||
+    c.cellHeight !== geometry.cellHeight
+  )
+    fail("atlas geometry");
+  const glyphs = graphemes(charSet);
+  if (
+    glyphs.length !== c.glyphs.length ||
+    glyphs.some((g, i) => g !== c.glyphs[i])
+  )
+    fail("atlas ramp order");
+  const crop = p.crop,
+    left = Math.floor(crop.x * source.width),
+    top = Math.floor(crop.y * source.height),
+    width =
+      Math.min(source.width, Math.ceil((crop.x + crop.width) * source.width)) -
+      left,
+    height =
+      Math.min(
+        source.height,
+        Math.ceil((crop.y + crop.height) * source.height),
+      ) - top,
+    swapped = p.rotation === 90 || p.rotation === 270;
+  const settings = validateReferenceCharactersSettings(
+    {
+      version: 1,
+      frameWidth: Math.max(1, Math.round((swapped ? height : width) * scale)),
+      frameHeight: Math.max(1, Math.round((swapped ? width : height) * scale)),
+      fontSize,
+      renderScale: scale,
+      brightness,
+      contrast,
+      crop: { ...crop },
+      rotation: p.rotation,
+      backdrop: "blur",
+    },
+    source,
+    resources.memoryBudgetBytes,
+  );
+  const [columns, rows] = gridSize(settings);
+  const atlasBytes = [
+    ...new Set([c.masks.buffer, c.coverage.buffer, c.shapes.buffer]),
+  ].reduce((sum, b) => sum + b.byteLength, 0);
+  // Complete context reserves 48 bytes/pixel, rather than the glyph-only 8.
+  // Existing jobs/stages/capacity surplus remain authoritative worker checks.
+  const peak =
+    source.width * source.height * 4 +
+    atlasBytes +
+    settings.frameWidth * settings.frameHeight * 48 +
+    columns * rows * 28 +
+    4096;
+  if (
+    peak >
+    number(
+      resources.memoryBudgetBytes,
+      1,
+      DEFAULT_MEMORY_BUDGET_BYTES,
+      "complete frame budget",
+      true,
+    )
+  )
+    fail("complete frame budget");
+  const binding = initialCatalogRegistry.getStyle("characters")?.binding;
+  if (!binding || binding.dispatchId !== 1 || binding.backend !== "rust-cpu")
+    fail("catalog binding");
+  return {
+    source: { ...source },
+    sourceId: source.id,
+    sourceRevision: source.revision,
+    calibrationId: c.id,
+    settings,
+    context: REFERENCE_CHARACTERS_CONTEXT_V1,
+    binding: { ...binding, backend: "rust-cpu" },
+  };
 }

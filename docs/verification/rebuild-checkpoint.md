@@ -41,3 +41,11 @@ Rust now owns full-frame None/Solid/Blur backdrop generation and glyph compositi
 Fresh independent review accepted spec compliance and code quality with no actionable findings. Final checks:85 native tests,493 JavaScript tests with1 existing skip, rebuilt WASM, TypeScript, scoped ESLint and production Next build pass. Two Chromium tests exercise12 native-equivalent contexts and a measured-font1000×1000 real worker render. These establish implementation equivalence and smoke behavior, not reference pixel parity or p95 performance.
 
 The exact four-control project adapter and production `/app` UI are next. Atlas replacement/export independence and all remaining website styles/features remain open; full website completion is not claimed.
+
+## Exact Characters project binding — 2026-10-22
+
+The four-control adapter now prepares the real Rust service payload with exact source/crop/rotation, render-scale geometry, measured font identity and complete-context checks. Only canonical Characters is bound, with final RGBA output. Unsupported effects (including disabled data), masks, text and Flow fail explicitly; generic project readiness remains partial preflight.
+
+Fresh independent review passed spec and quality with no blocking findings. Verification:501 JavaScript tests pass with1 existing skip,85 native tests pass,3 real Chromium worker fixtures pass, and the final affected identity-reader46 tests plus adapter browser fixture pass after the narrow guard. TypeScript, scoped lint and production Next build pass. A minor report wording overclaim about a font-size pixel assertion was corrected to its actual geometry assertion.
+
+Production `/app` controller/UI implementation follows this checkpoint. Full website parity, production interaction/visual acceptance, captured-export atlas independence and performance-distribution acceptance remain open.

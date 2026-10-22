@@ -35,6 +35,73 @@ export interface ReferenceCharacterCalibrationInput
   fontPolicy: ReferenceCharacterAtlasV1["fontPolicy"];
 }
 export const REFERENCE_MONOSPACE_STACK = '"Courier New", Courier, monospace';
+/** Closed identity produced by the version-1 measured reference calibrator.
+ * This reads rasterization identity; it does not attest installed system fonts.
+ */
+export interface ReferenceCalibrationIdentityV1 {
+  version: 1;
+  fontPolicy: ReferenceCharacterAtlasV1["fontPolicy"];
+  fontFamily: string;
+  fontPixelSize: number;
+  fontRevision: string;
+}
+export function readReferenceCalibrationIdentity(
+  atlas: ReferenceCharacterAtlasV1,
+): ReferenceCalibrationIdentityV1 {
+  const a = validateReferenceCharacterAtlas(atlas);
+  const invalid = (): never => {
+    throw new Error("Invalid measured reference font identity");
+  };
+  let outer: unknown, inner: unknown;
+  try {
+    outer = JSON.parse(a.calibration.fontKey);
+    inner =
+      Array.isArray(outer) && typeof outer[0] === "string"
+        ? JSON.parse(outer[0])
+        : null;
+  } catch {
+    return invalid();
+  }
+  if (
+    !Array.isArray(outer) ||
+    outer.length !== 5 ||
+    outer[1] !== a.calibration.maskWidth ||
+    outer[2] !== a.calibration.maskHeight ||
+    outer[3] !== a.originX ||
+    outer[4] !== a.originY ||
+    !Array.isArray(inner) ||
+    inner.length !== 8 ||
+    inner[0] !== "reference-characters-v1" ||
+    inner[1] !== "input" ||
+    inner[2] !== "top-start-ltr" ||
+    inner[3] !== a.fontPolicy ||
+    inner[4] !==
+      (a.fontPolicy === "reference-system-monospace"
+        ? "intentional-system-fallback"
+        : "exact-family") ||
+    typeof inner[5] !== "string" ||
+    !inner[5].trim() ||
+    inner[5].length > 512 ||
+    /[;{}\n\r]/u.test(inner[5]) ||
+    typeof inner[6] !== "number" ||
+    !Number.isFinite(inner[6]) ||
+    inner[6] < 1 ||
+    inner[6] > 512 ||
+    typeof inner[7] !== "string" ||
+    inner[7].length > 512
+  )
+    return invalid();
+  if (a.fontPolicy === "reference-system-monospace") {
+    if (inner[5] !== REFERENCE_MONOSPACE_STACK) return invalid();
+  } else fontFamilyIdentity(inner[5]);
+  return {
+    version: 1,
+    fontPolicy: a.fontPolicy,
+    fontFamily: inner[5],
+    fontPixelSize: inner[6],
+    fontRevision: inner[7],
+  };
+}
 type CalibrationValue = GlyphCalibrationV1 | ReferenceCharacterAtlasV1;
 function isAtlas(c: CalibrationValue): c is ReferenceCharacterAtlasV1 {
   return "calibration" in c;

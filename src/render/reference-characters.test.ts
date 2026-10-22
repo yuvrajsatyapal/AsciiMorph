@@ -437,3 +437,312 @@ describe.each(["complete frame", "glyph layer"] as const)(
     });
   },
 );
+
+// Exact project binding: catches legacy parameter adaptation, stale resources and
+// matching-cell atlases rasterized at the wrong actual font pixel size.
+import {
+  prepareCharactersGeometry,
+  prepareCharactersProject,
+} from "./reference-characters";
+import {
+  REFERENCE_MONOSPACE_STACK,
+  readReferenceCalibrationIdentity,
+} from "./glyph-calibration";
+import type { RenderProjectV1 } from "./project";
+function project(): RenderProjectV1 {
+  return {
+    version: 1,
+    id: "project",
+    name: "Fixture",
+    source: { ...source },
+    crop: { x: 0, y: 0, width: 1, height: 1 },
+    rotation: 0,
+    style: {
+      id: "characters",
+      parameters: { fontSize: 3, charSet: "ab ", brightness: 0, contrast: 20 },
+    },
+    effects: [],
+    masks: [],
+    text: [],
+    seed: 12,
+    timeUs: 99,
+    export: {
+      format: "png",
+      scale: 4,
+      fps: 30,
+      durationUs: 0,
+      quality: 1,
+      audio: false,
+    },
+  };
+}
+function measuredAtlas(fontSize = 3, scale = 1, ramp = "ab ") {
+  const a = atlas(Array.from(ramp));
+  a.fontPolicy = "reference-system-monospace";
+  a.calibration.cellWidth = 0.6 * fontSize * scale;
+  a.calibration.cellHeight = fontSize * scale;
+  a.calibration.fontKey = JSON.stringify([
+    JSON.stringify([
+      "reference-characters-v1",
+      "input",
+      "top-start-ltr",
+      a.fontPolicy,
+      "intentional-system-fallback",
+      REFERENCE_MONOSPACE_STACK,
+      fontSize * scale,
+      "fixture-v1",
+    ]),
+    1,
+    1,
+    0,
+    0,
+  ]);
+  return a;
+}
+function resources(a = measuredAtlas()) {
+  return {
+    source: { ...source },
+    calibrationId: a.calibration.id,
+    fontFamily: REFERENCE_MONOSPACE_STACK,
+    fontRevision: "fixture-v1",
+    charactersProfileVersion: 1 as const,
+    charactersContextVersion: 1 as const,
+    memoryBudgetBytes: 268435456,
+  };
+}
+describe("exact complete Characters project adapter", () => {
+  it("returns detached source/settings and complete fixed context without revising the project", () => {
+    const p = project(),
+      before = structuredClone(p),
+      a = measuredAtlas();
+    const result = prepareCharactersProject(p, 1, a, resources(a));
+    expect(prepareCharactersProject.length).toBe(4);
+    expect(result).toMatchObject({
+      source: source,
+      sourceId: "source",
+      sourceRevision: 2,
+      calibrationId: "cal-1",
+      binding: { backend: "rust-cpu", dispatchId: 1 },
+      settings: {
+        version: 1,
+        frameWidth: 5,
+        frameHeight: 3,
+        fontSize: 3,
+        renderScale: 1,
+        brightness: 0,
+        contrast: 20,
+        backdrop: "blur",
+      },
+      context: { version: 1, defaultsVersion: 1, bgBlur: 8, bgOpacity: 100 },
+    });
+    expect(result).not.toHaveProperty("revision");
+    result.settings.crop.x = 0.1;
+    result.source.width = 9;
+    expect(p).toEqual(before);
+  });
+  it("derives clipped crop and rotated full-frame dimensions at S3 without quantizing F", () => {
+    const p = project();
+    p.source = { ...source, width: 11, height: 7 };
+    p.crop = { x: 0.15, y: 0.2, width: 0.6, height: 0.5 };
+    p.rotation = 90;
+    p.style.parameters.fontSize = 3.1;
+    const a = measuredAtlas(3.1, 3),
+      r = { ...resources(a), source: p.source };
+    expect(prepareCharactersGeometry(3.1, 3)).toEqual({
+      fontPixelSize: 9.3,
+      cellWidth: 5.58,
+      cellHeight: 9.3,
+    });
+    expect(prepareCharactersProject(p, 3, a, r).settings).toMatchObject({
+      fontSize: 3.1,
+      renderScale: 3,
+      frameWidth: 12,
+      frameHeight: 24,
+      rotation: 90,
+      crop: p.crop,
+    });
+  });
+  it("reads the closed measured identity and rejects wrapper/key, font and exact geometry mismatches", () => {
+    const a = measuredAtlas();
+    expect(readReferenceCalibrationIdentity(a)).toMatchObject({
+      version: 1,
+      fontFamily: REFERENCE_MONOSPACE_STACK,
+      fontPixelSize: 3,
+      fontRevision: "fixture-v1",
+      fontPolicy: "reference-system-monospace",
+    });
+    const inner = JSON.parse(JSON.parse(a.calibration.fontKey)[0]);
+    for (const fontSize of [2, 4]) {
+      inner[6] = fontSize;
+      const wrong = {
+        ...a,
+        calibration: {
+          ...a.calibration,
+          fontKey: JSON.stringify([JSON.stringify(inner), 1, 1, 0, 0]),
+        },
+      };
+      expect(() =>
+        prepareCharactersProject(project(), 1, wrong, resources(a)),
+      ).toThrow(/font/i);
+    }
+    for (const patch of [
+      { originX: 0.5 },
+      { fontPolicy: "verified-family" as const },
+      { calibration: { ...a.calibration, fontKey: "opaque" } },
+    ])
+      expect(() =>
+        prepareCharactersProject(
+          project(),
+          1,
+          { ...a, ...patch },
+          resources(a),
+        ),
+      ).toThrow();
+    const wrongCell = {
+      ...a,
+      calibration: { ...a.calibration, cellWidth: 1.8 },
+    };
+    expect(() =>
+      prepareCharactersProject(project(), 1, wrongCell, resources(a)),
+    ).toThrow(/geometry/i);
+    const wrongRamp = measuredAtlas(3, 1, "ba ");
+    expect(() =>
+      prepareCharactersProject(project(), 1, wrongRamp, resources(wrongRamp)),
+    ).toThrow(/ramp/i);
+  });
+  it("requires full context, source/atlas/font identities and enough complete-frame budget", () => {
+    const a = measuredAtlas(),
+      r = resources(a);
+    for (const patch of [
+      { charactersProfileVersion: null },
+      { charactersContextVersion: null },
+      { source: null },
+      { source: { ...source, revision: 3 } },
+      { source: { ...source, width: 6 } },
+      { calibrationId: "old" },
+      { fontFamily: null },
+      { fontRevision: "old" },
+      { memoryBudgetBytes: 100 },
+      { memoryBudgetBytes: NaN },
+    ])
+      expect(() =>
+        prepareCharactersProject(project(), 1, a, { ...r, ...patch }),
+      ).toThrow();
+  });
+  it("rejects every unsupported feature even when disabled and never adds hidden project parameters", () => {
+    const p = project(),
+      a = measuredAtlas();
+    const unsupported = [
+      { ...p, source: null },
+      { ...p, graph: undefined },
+      {
+        ...p,
+        effects: [{ id: "fx", key: "unknown", enabled: false, parameters: {} }],
+      },
+      {
+        ...p,
+        masks: [
+          {
+            id: "m",
+            targetId: "style",
+            assetId: "a",
+            invert: false,
+            opacity: 0,
+          },
+        ],
+      },
+      {
+        ...p,
+        text: [
+          {
+            id: "t",
+            text: "",
+            x: 0,
+            y: 0,
+            width: 1,
+            fontFamily: "monospace",
+            fontSize: 11,
+            color: "#ffffff",
+            align: "left",
+            rotation: 0,
+          },
+        ],
+      },
+      {
+        ...p,
+        style: {
+          ...p.style,
+          parameters: { ...p.style.parameters, density: 1 },
+        },
+      },
+      { ...p, revision: 2 },
+      { ...p, zoom: 2 },
+    ];
+    for (const value of unsupported)
+      expect(() =>
+        prepareCharactersProject(value, 1, a, resources(a)),
+      ).toThrow();
+    for (const scale of [0, 1.5, 5])
+      expect(() =>
+        prepareCharactersProject(p, scale as 1, a, resources(a)),
+      ).toThrow();
+  });
+});
+
+it("uses Rust's exact S3 operation order and rejects alternate one-ULP cell geometry", () => {
+  const p = project();
+  p.style.parameters.fontSize = 3.2;
+  const a = measuredAtlas(3.2, 3),
+    r = resources(a);
+  expect(prepareCharactersGeometry(3.2, 3)).toEqual({
+    fontPixelSize: 9.600000000000001,
+    cellWidth: 5.76,
+    cellHeight: 9.600000000000001,
+  });
+  expect(prepareCharactersProject(p, 3, a, r).settings.renderScale).toBe(3);
+  a.calibration.cellWidth = 5.760000000000001;
+  expect(() => prepareCharactersProject(p, 3, a, r)).toThrow(/geometry/i);
+});
+
+it("keeps generic readiness a partial preflight while exact adapter rejects schema-valid text and masks", async () => {
+  const { getProjectReadiness, validateRenderProject } = await import(
+    "./project"
+  );
+  const { initialCatalogRegistry } = await import("./catalog/initial-schemas");
+  const p = project(),
+    a = measuredAtlas();
+  p.text = [
+    {
+      id: "t",
+      text: "hello",
+      x: 0,
+      y: 0,
+      width: 1,
+      fontFamily: "monospace",
+      fontSize: 11,
+      color: "#ffffff",
+      align: "left",
+      rotation: 0,
+    },
+  ];
+  p.masks = [
+    { id: "m", targetId: "style", assetId: "mask", invert: false, opacity: 0 },
+  ];
+  const validated = validateRenderProject(p);
+  expect(
+    getProjectReadiness(validated, initialCatalogRegistry, {
+      source,
+      maskAssets: new Map([
+        ["mask", { width: 1, height: 1, alpha: new Uint8Array(1) }],
+      ]),
+      supportsBinding: () => true,
+    }),
+  ).toEqual({ ready: true });
+  expect(() => prepareCharactersProject(validated, 1, a, resources(a))).toThrow(
+    /unsupported masks/i,
+  );
+  p.masks = [];
+  expect(() => prepareCharactersProject(p, 1, a, resources(a))).toThrow(
+    /unsupported text/i,
+  );
+});

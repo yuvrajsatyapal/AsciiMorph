@@ -287,19 +287,19 @@ describe("initial shader schemas", () => {
 });
 
 describe("independent four-control character subset", () => {
-  it("has exact required keys/defaults, all still nonrenderable", async () => {
+  it("binds only canonical Characters to complete RGBA dispatch 1", async () => {
     const { initialCharacterSchema: s } = await import("./character-schema");
     const { initialCatalogRegistry: r, initialShaderSchemas } = await import(
       "./initial-schemas"
     );
     expect(s).toMatchObject({
       evidence: "independent-contract",
-      binding: null,
+      binding: { dispatchId: 1, backend: "rust-cpu" },
       descriptor: {
         id: "characters",
-        output: "glyph",
-        ready: false,
-        dispatchId: 0,
+        output: "rgba",
+        ready: true,
+        dispatchId: 1,
       },
     });
     expect(r.styleDefaults("characters")).toEqual({

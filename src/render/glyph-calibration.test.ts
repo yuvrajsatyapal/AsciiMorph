@@ -851,3 +851,80 @@ it("reference hard sixteen MiB result cap precedes raster even with larger injec
   expect(raster).not.toHaveBeenCalled();
   expect(c.usage.totalBytes).toBe(0);
 });
+
+it("reads measured v1 identity across both font policies and refuses key/wrapper disagreement", async () => {
+  const { readReferenceCalibrationIdentity, REFERENCE_MONOSPACE_STACK } =
+    await import("./glyph-calibration");
+  metrics();
+  const c = createGlyphCalibrator();
+  for (const policy of [
+    "verified-family",
+    "reference-system-monospace",
+  ] as const) {
+    const fontFamily =
+      policy === "verified-family" ? "Test Mono" : REFERENCE_MONOSPACE_STACK;
+    const a = await c.calibrateReferenceCharacters({
+      ...referenceInput,
+      fontFamily,
+      fontPolicy: policy,
+    });
+    expect(readReferenceCalibrationIdentity(a)).toEqual({
+      version: 1,
+      fontPolicy: policy,
+      fontFamily,
+      fontPixelSize: 14,
+      fontRevision: "1",
+    });
+    const outer = JSON.parse(a.calibration.fontKey),
+      inner = JSON.parse(outer[0]);
+    const badKeys = [
+      "not-json",
+      JSON.stringify([...outer, 0]),
+      JSON.stringify([outer[0], outer[1] + 1, outer[2], outer[3], outer[4]]),
+      JSON.stringify([JSON.stringify([...inner, 0]), ...outer.slice(1)]),
+    ];
+    for (const [i, value] of [
+      [0, "reference-characters-v2"],
+      [1, "coverage"],
+      [2, "center"],
+      [3, "other"],
+      [4, "arbitrary"],
+      [6, 0],
+      [6, null],
+      [7, 7],
+    ] as const) {
+      const changed = [...inner];
+      changed[i] = value;
+      badKeys.push(
+        JSON.stringify([JSON.stringify(changed), ...outer.slice(1)]),
+      );
+    }
+    if (policy === "verified-family") {
+      for (const family of ['"A;B"', "A".repeat(513)]) {
+        const changed = [...inner];
+        changed[5] = family;
+        badKeys.push(
+          JSON.stringify([JSON.stringify(changed), ...outer.slice(1)]),
+        );
+      }
+    }
+    if (policy === "reference-system-monospace") {
+      const changed = [...inner];
+      changed[5] = "Courier, monospace";
+      badKeys.push(
+        JSON.stringify([JSON.stringify(changed), ...outer.slice(1)]),
+      );
+    }
+    for (const fontKey of badKeys)
+      expect(() =>
+        readReferenceCalibrationIdentity({
+          ...a,
+          calibration: { ...a.calibration, fontKey },
+        }),
+      ).toThrow();
+    expect(() =>
+      readReferenceCalibrationIdentity({ ...a, originX: a.originX + 0.25 }),
+    ).toThrow();
+  }
+  c.clearGlyphCalibrationCache();
+});
