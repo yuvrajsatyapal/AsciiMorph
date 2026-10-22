@@ -2,6 +2,8 @@
 
 The rebuild targets the full reference website. The latest checkpoint (Task5) binds the exact four-control Characters project to the complete Rust context through the existing worker/service. The production Studio shell, extra controls, full reference pixel parity and broader website acceptance remain pending. The sections below retain each stage’s evidence and limits in order.
 
+Final independent integration review of commits `7488d48..61d8510` accepted spec compliance and code quality with no new actionable findings. It checked the combined calibration, adapter, capability, worker, ABI, Rust composition and admission boundaries against their recorded rulings. Production Studio acceptance, atlas changes during captured exports and the other limitations below remain open.
+
 ## Native glyph layer
 
 Rust owns source-center sampling, sampled luminance normalization, direct input-ramp selection, brightness/contrast, bilinear mask placement and row-major alpha composition. Full source-derived frame dimensions retain partial-cell margins; zero-cell frames remain transparent. Literal space has an explicit index, independent of measured coverage. Work is cooperatively bounded inside glyph rasterization, with checked source/atlas/output/job admission before output allocation.

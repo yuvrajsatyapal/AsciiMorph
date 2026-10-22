@@ -49,3 +49,9 @@ The four-control adapter now prepares the real Rust service payload with exact s
 Fresh independent review passed spec and quality with no blocking findings. Verification:501 JavaScript tests pass with1 existing skip,85 native tests pass,3 real Chromium worker fixtures pass, and the final affected identity-reader46 tests plus adapter browser fixture pass after the narrow guard. TypeScript, scoped lint and production Next build pass. A minor report wording overclaim about a font-size pixel assertion was corrected to its actual geometry assertion.
 
 Production `/app` controller/UI implementation follows this checkpoint. Full website parity, production interaction/visual acceptance, captured-export atlas independence and performance-distribution acceptance remain open.
+
+## Studio controller — 2026-10-22
+
+The pure production controller now owns validated Characters edits, separate monotonic request revisions, grouped current-source undo/redo, view-only zoom/panels/compare and captured asynchronous result guards. Source replacement preserves the old project/frame until success. Review found a failed-replacement preview recovery bug; four regressions and a scoped re-review verified the fix. Both spec and quality now pass with no open findings.
+
+All36 focused controller tests, TypeScript, scoped lint and the final production build pass. Real decoding/upload rollback, React lifetimes, actual frame painting, encoding and the `/app` route are later shell tasks; injected state tests do not establish production browser acceptance. The separate final Characters integration review also accepted the combined renderer milestone without new actionable findings.
