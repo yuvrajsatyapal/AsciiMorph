@@ -79,7 +79,7 @@ interface Raw {
   render_error(handle: number): number;
 }
 /** Forward every call to the real compiled WASM, recording only uploads. */
-function instrument() {
+function instrument(omitted: string[] = []) {
   const instantiate = WebAssembly.instantiate.bind(WebAssembly);
   const uploads: number[] = [];
   let memory: WebAssembly.Memory | undefined;
@@ -104,7 +104,11 @@ function instrument() {
       module: result.module,
       instance: {
         exports: {
-          ...result.instance.exports,
+          ...Object.fromEntries(
+            Object.entries(result.instance.exports).filter(
+              ([name]) => !omitted.includes(name),
+            ),
+          ),
           render_upload: (...args: [number, number, number, number]) => {
             uploads.push(args[1]);
             return raw.render_upload(...args);
@@ -361,5 +365,261 @@ it("staged replacement peak preserves previous real WASM calibration and job", a
   ).toThrow(expect.objectContaining({ code: "BudgetExceeded" }));
   expect(finish(e, id).calibrationId).toBe("cal");
   expect(finish(e, e.begin(settings)).calibrationId).toBe("cal");
+  e.dispose();
+});
+
+const pSettings = {
+  version: 1 as const,
+  frameWidth: 5,
+  frameHeight: 3,
+  fontSize: 3,
+  renderScale: 1 as const,
+  brightness: 0,
+  contrast: 0,
+  crop: { x: 0, y: 0, width: 1, height: 1 },
+  rotation: 0 as const,
+  backdrop: "none" as const,
+};
+const pSource = (): SourceUpload => ({
+  id: "profile",
+  revision: 1,
+  width: 5,
+  height: 3,
+  rgba: new Uint8ClampedArray(
+    Array.from({ length: 15 }, (_, i) => [
+      ...(i % 5 < 2 ? [0, 0, 0] : [255, 255, 255]),
+      255,
+    ]).flat(),
+  ),
+});
+const pAtlas = () => ({
+  version: 1 as const,
+  calibration: {
+    ...calibration(),
+    id: "profile-atlas",
+    glyphs: [".", "#"],
+    cellWidth: 0.6 * 3,
+    cellHeight: 3,
+    masks: new Uint8Array([0, 0]),
+  },
+  originX: 0,
+  originY: 0,
+  placement: "top-start-ltr" as const,
+  ordering: "input" as const,
+  fontPolicy: "reference-system-monospace" as const,
+  spaceIndexOr65535: 65535,
+});
+function finishFrame(
+  e: Awaited<ReturnType<typeof createCharacterEngine>>,
+  id: number,
+) {
+  while (e.step(id, 1) === "pending") {}
+  return e.takeFrame(id);
+}
+describe("additive Characters WASM profile", () => {
+  it("returns independent native fixture exact empty-dot vs literal space and reuses retained uploads", async () => {
+    const observed = instrument(),
+      e = await createCharacterEngine(bytes);
+    e.setSource(pSource());
+    e.setAtlas(pAtlas());
+    expect(e.charactersProfileAvailable).toBe(true);
+    for (let i = 0; i < 3; i++) {
+      const f = finishFrame(e, e.beginCharacters(pSettings));
+      expect([...f.rgba]).toEqual(Array(60).fill(0));
+      expect([...f.grid!.glyphIndices]).toEqual([65535, 0]);
+      expect([...f.grid!.foreground]).toEqual([0, 0, 0, 0, 255, 255, 255, 255]);
+      expect([...f.grid!.alpha]).toEqual([0, 1]);
+    }
+    expect(observed.uploads).toEqual([1, 2]);
+    const a = pAtlas();
+    a.calibration = {
+      ...a.calibration,
+      id: "literal-space",
+      glyphs: [" ", "#"],
+    };
+    a.spaceIndexOr65535 = 0;
+    e.setAtlas(a);
+    expect([
+      ...finishFrame(e, e.beginCharacters(pSettings)).grid!.glyphIndices,
+    ]).toEqual([65535, 65535]);
+    e.dispose();
+  });
+  it("separates legacy/profile readback without releasing wrong-kind handles", async () => {
+    const e = await createCharacterEngine(bytes);
+    e.setSource(pSource());
+    e.setAtlas(pAtlas());
+    const id = e.beginCharacters(pSettings);
+    while (e.step(id, 4096) === "pending") {}
+    expect(() => e.takeGrid(id)).toThrow();
+    expect(e.takeFrame(id).width).toBe(5);
+    const old = e.begin({ ...settings, mapping: "braille" });
+    while (e.step(old, 4096) === "pending") {}
+    expect(() => e.takeFrame(old)).toThrow();
+    expect(e.takeGrid(old).width).toBe(1);
+    e.dispose();
+  });
+  it("source/calibration replacement preserves failed jobs and invalidates successful dependent jobs", async () => {
+    const e = await createCharacterEngine(bytes, { memoryBudgetBytes: 6000 });
+    e.setSource(pSource());
+    e.setAtlas(pAtlas());
+    const a = e.beginCharacters(pSettings),
+      b = e.beginCharacters(pSettings);
+    expect(() => e.beginCharacters(pSettings)).toThrow();
+    expect(() =>
+      e.setAtlas({
+        ...pAtlas(),
+        calibration: {
+          ...pAtlas().calibration,
+          id: "huge",
+          maskWidth: 100,
+          maskHeight: 100,
+          masks: new Uint8Array(20000),
+        },
+      }),
+    ).toThrow();
+    expect(finishFrame(e, a).width).toBe(5);
+    e.cancel(b);
+    const c = e.beginCharacters(pSettings);
+    e.setSource({ ...pSource(), revision: 2 });
+    expect(() => e.step(c, 1)).toThrow();
+    const d = e.beginCharacters(pSettings);
+    e.setCalibration({ ...pAtlas().calibration, id: "legacy-new" });
+    expect(() => e.step(d, 1)).toThrow();
+    expect(() => e.beginCharacters(pSettings)).toThrow();
+    e.dispose();
+  });
+  it("rejects unsupported backdrops before enqueue and keeps legacy engine usable", async () => {
+    const e = await createCharacterEngine(bytes);
+    e.setSource(pSource());
+    e.setAtlas(pAtlas());
+    for (const backdrop of ["solid", "blur"] as const)
+      expect(() => e.beginCharacters({ ...pSettings, backdrop })).toThrow(
+        expect.objectContaining({ code: "CapabilityUnavailable" }),
+      );
+    expect(finish(e, e.begin({ ...settings, mapping: "braille" })).width).toBe(
+      1,
+    );
+    e.dispose();
+  });
+  it("returns null grid full frame and protects retained metadata from caller mutations", async () => {
+    const e = await createCharacterEngine(bytes);
+    e.setSource({ ...source(), id: "small" });
+    const a = pAtlas();
+    e.setAtlas(a);
+    a.calibration.glyphs[0] = " ";
+    a.originX = 100;
+    const f = finishFrame(
+      e,
+      e.beginCharacters({ ...pSettings, frameWidth: 1, frameHeight: 1 }),
+    );
+    expect(f.grid).toBeNull();
+    expect([...f.rgba]).toEqual([0, 0, 0, 0]);
+    e.dispose();
+  });
+});
+
+it.each([
+  "render_characters_profile_version",
+  "render_begin_characters_v1",
+  "render_frame_output_ptr",
+  "render_frame_output_len",
+])("missing optional %s leaves legacy usable", async (name) => {
+  instrument([name]);
+  const e = await createCharacterEngine(bytes);
+  expect(e.charactersProfileAvailable).toBe(false);
+  e.setSource(source());
+  e.setCalibration(calibration());
+  expect(finish(e, e.begin(settings)).width).toBe(1);
+  expect(() =>
+    e.beginCharacters({ ...pSettings, frameWidth: 1, frameHeight: 1 }),
+  ).toThrow(expect.objectContaining({ code: "CapabilityUnavailable" }));
+  e.dispose();
+});
+it("upgrading the same retained calibration to an atlas invalidates legacy numeric handles", async () => {
+  const e = await createCharacterEngine(bytes);
+  e.setSource(pSource());
+  e.setCalibration(pAtlas().calibration);
+  const old = e.begin({ ...settings, cellWidth: 0.6 * 3, cellHeight: 3 });
+  e.setAtlas(pAtlas());
+  expect(() => e.step(old, 1)).toThrow();
+  const a = e.beginCharacters(pSettings),
+    b = e.beginCharacters(pSettings);
+  e.cancel(a);
+  e.cancel(b);
+  e.dispose();
+});
+it("same atlas identity cannot silently change origins, font policy or literal-space metadata", async () => {
+  const e = await createCharacterEngine(bytes);
+  e.setSource(pSource());
+  e.setAtlas(pAtlas());
+  const id = e.beginCharacters(pSettings);
+  expect(() => e.setAtlas({ ...pAtlas(), originX: 0.5 })).toThrow(
+    expect.objectContaining({ code: "InvalidInput" }),
+  );
+  expect(finishFrame(e, id).width).toBe(5);
+  e.dispose();
+});
+it("profile ABI preserves exact independently expected fractional alpha and zero-area2x0 header", async () => {
+  const e = await createCharacterEngine(bytes);
+  e.setSource(pSource());
+  const a = pAtlas();
+  a.calibration.masks[0] = 255;
+  a.originX = -0.5;
+  a.originY = 0.5;
+  e.setAtlas(a);
+  const f = finishFrame(e, e.beginCharacters(pSettings)),
+    expected = new Uint8Array(60);
+  for (const [x, y, alpha] of [
+    [1, 0, 89],
+    [2, 0, 38],
+    [1, 1, 89],
+    [2, 1, 38],
+  ])
+    expected.set([255, 255, 255, alpha], (y * 5 + x) * 4);
+  expect(f.rgba).toEqual(expected);
+  e.setSource({
+    ...pSource(),
+    revision: 2,
+    height: 2,
+    rgba: pSource().rgba.slice(0, 40),
+  });
+  const empty = finishFrame(
+    e,
+    e.beginCharacters({ ...pSettings, frameHeight: 2 }),
+  );
+  expect(empty.grid).toBeNull();
+  expect(empty.rgba).toEqual(new Uint8Array(40));
+  e.dispose();
+});
+it("profile cropped rotated S2 frame agrees with independent flat-probe expected bytes", async () => {
+  const e = await createCharacterEngine(bytes);
+  e.setSource(pSource());
+  const a = pAtlas();
+  a.calibration = {
+    ...a.calibration,
+    id: "scale2",
+    cellWidth: 0.6 * 3 * 2,
+    cellHeight: 6,
+  };
+  e.setAtlas(a);
+  const f = finishFrame(
+    e,
+    e.beginCharacters({
+      ...pSettings,
+      frameWidth: 6,
+      frameHeight: 6,
+      renderScale: 2,
+      rotation: 90,
+      crop: { x: 0.4, y: 0, width: 0.6, height: 1 },
+    }),
+  );
+  expect(f.rgba).toEqual(new Uint8Array(144));
+  expect([...f.grid!.glyphIndices]).toEqual([65535]);
+  expect([
+    f.grid!.width,
+    f.grid!.height,
+    f.grid!.cellWidth,
+    f.grid!.cellHeight,
+  ]).toEqual([1, 1, 0.6 * 3 * 2, 6]);
   e.dispose();
 });

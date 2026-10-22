@@ -6,6 +6,11 @@ import {
 import {
   RenderError,
   calibrationIdentityKey,
+  atlasIdentityKey,
+  validateCharactersRenderRequest,
+  type CharactersRenderRequest,
+  type CharactersRenderResult,
+  type CharactersRenderType,
   validateRenderRequest,
   renderIdentity,
   sameRenderIdentity,
@@ -17,7 +22,18 @@ import {
   type WorkerResponse,
 } from "./protocol";
 
-export type { RenderRequest, RenderResult } from "./protocol";
+import {
+  validateReferenceCharactersSettings,
+  validateReferenceCharactersFrame,
+  type ReferenceCharacterAtlasV1,
+} from "./reference-characters";
+
+export type {
+  CharactersRenderRequest,
+  CharactersRenderResult,
+  RenderRequest,
+  RenderResult,
+} from "./protocol";
 export type RenderServiceState =
   | "idle"
   | "initializing"
@@ -37,6 +53,15 @@ export interface RenderService {
     request: RenderRequest,
     signal?: AbortSignal,
   ): Promise<RenderResult>;
+  setAtlas(atlas: ReferenceCharacterAtlasV1): Promise<void>;
+  renderCharactersPreview(
+    request: CharactersRenderRequest,
+    signal?: AbortSignal,
+  ): Promise<CharactersRenderResult>;
+  renderCharactersExport(
+    request: CharactersRenderRequest,
+    signal?: AbortSignal,
+  ): Promise<CharactersRenderResult>;
   dispose(): Promise<void>;
 }
 interface Waiter {
@@ -80,6 +105,7 @@ export function createRenderService(
   let inputQueue: Promise<void> = Promise.resolve();
   let retainedSource: SourceUpload | undefined;
   let retainedCalibration: GlyphCalibrationV1 | undefined;
+  let retainedAtlas: ReferenceCharacterAtlasV1 | undefined;
   let counter = 0;
   let failureEpoch = 0;
   let lastFailure: RenderError | undefined;
@@ -163,7 +189,10 @@ export function createRenderService(
       )
         return;
     } else if (response.type === "error" && "jobId" in response) return;
-    if (response.type === "error") {
+    if (
+      response.type === "error" ||
+      response.type === "charactersUnavailable"
+    ) {
       const error = new RenderError(
         response.error.code,
         response.error.message,
@@ -183,14 +212,20 @@ export function createRenderService(
     )
       settle(response.requestId, undefined, response);
     else if (
-      request.type === "setCalibration" &&
+      (request.type === "setCalibration" || request.type === "setAtlas") &&
       response.type === "accepted" &&
-      response.operation === "setCalibration" &&
-      response.calibrationId === request.calibration.id
+      response.operation === request.type &&
+      response.calibrationId ===
+        (request.type === "setAtlas"
+          ? request.atlas.calibration.id
+          : request.calibration.id)
     )
       settle(response.requestId, undefined, response);
     else if (
-      (request.type === "renderPreview" || request.type === "renderExport") &&
+      (request.type === "renderPreview" ||
+        request.type === "renderExport" ||
+        request.type === "renderCharactersPreview" ||
+        request.type === "renderCharactersExport") &&
       response.type === "cancelled"
     )
       settle(
@@ -198,6 +233,42 @@ export function createRenderService(
         new RenderError("Cancelled", "Render cancelled"),
       );
     else if (
+      (request.type === "renderCharactersPreview" ||
+        request.type === "renderCharactersExport") &&
+      response.type === "charactersResult"
+    ) {
+      try {
+        if (
+          !retainedSource ||
+          !retainedAtlas ||
+          retainedSource.id !== request.sourceId ||
+          retainedSource.revision !== request.sourceRevision ||
+          retainedAtlas.calibration.id !== request.calibrationId
+        )
+          throw new Error("Characters retained identity mismatch");
+        const source = {
+          id: retainedSource.id,
+          revision: retainedSource.revision,
+          width: retainedSource.width,
+          height: retainedSource.height,
+        };
+        validateReferenceCharactersFrame(
+          response.frame,
+          request.settings,
+          retainedAtlas,
+          source,
+        );
+      } catch {
+        fail(
+          new RenderError(
+            "WorkerFailure",
+            "Worker Characters frame does not match retained source, settings or atlas",
+          ),
+        );
+        return;
+      }
+      settle(response.requestId, undefined, response);
+    } else if (
       (request.type === "renderPreview" || request.type === "renderExport") &&
       response.type === "result"
     ) {
@@ -285,6 +356,18 @@ export function createRenderService(
       [transfer.masks.buffer, transfer.coverage.buffer, transfer.shapes.buffer],
     );
   }
+  function uploadAtlas(atlas: ReferenceCharacterAtlasV1) {
+    const transfer = {
+        ...atlas,
+        calibration: copyCalibration(atlas.calibration),
+      },
+      c = transfer.calibration;
+    return send({ ...envelope(), type: "setAtlas", atlas: transfer }, [
+      c.masks.buffer,
+      c.coverage.buffer,
+      c.shapes.buffer,
+    ]);
+  }
   async function initialize(): Promise<void> {
     alive();
     if (state === "ready") return;
@@ -316,7 +399,9 @@ export function createRenderService(
         await send({ ...envelope(), type: "initialize", memoryBudgetBytes });
         alive();
         if (retainedSource) await uploadSource(retainedSource);
-        if (retainedCalibration) await uploadCalibration(retainedCalibration);
+        if (retainedAtlas) await uploadAtlas(retainedAtlas);
+        else if (retainedCalibration)
+          await uploadCalibration(retainedCalibration);
         alive();
         state = "ready";
       } catch (cause) {
@@ -371,6 +456,69 @@ export function createRenderService(
     const { grid, backend, timings } = response;
     return { ...renderIdentity(response), grid, backend, timings };
   }
+  async function renderCharacters(
+    type: CharactersRenderType,
+    request: CharactersRenderRequest,
+    signal?: AbortSignal,
+  ): Promise<CharactersRenderResult> {
+    alive();
+    validateCharactersRenderRequest(request, type);
+    const message = {
+      ...envelope(),
+      ...request,
+      type,
+      source: { ...request.source },
+      settings: { ...request.settings, crop: { ...request.settings.crop } },
+    };
+    await initialize();
+    if (
+      !retainedSource ||
+      retainedSource.id !== message.sourceId ||
+      retainedSource.revision !== message.sourceRevision
+    )
+      throw new RenderError(
+        "MissingSource",
+        "Requested Characters source is not retained",
+      );
+    const source = {
+      id: retainedSource.id,
+      revision: retainedSource.revision,
+      width: retainedSource.width,
+      height: retainedSource.height,
+    };
+    if (
+      message.source.width !== source.width ||
+      message.source.height !== source.height
+    )
+      throw new RenderError(
+        "InvalidInput",
+        "Characters retained source geometry mismatch",
+      );
+    try {
+      validateReferenceCharactersSettings(
+        message.settings,
+        source,
+        memoryBudgetBytes,
+      );
+    } catch (cause) {
+      throw new RenderError(
+        "InvalidInput",
+        cause instanceof Error ? cause.message : "Invalid Characters settings",
+      );
+    }
+    const response = await send(message, [], signal);
+    if (response.type !== "charactersResult")
+      throw new RenderError(
+        "WorkerFailure",
+        "Worker did not return a Characters frame",
+      );
+    return {
+      ...renderIdentity(response),
+      frame: response.frame,
+      backend: response.backend,
+      timings: response.timings,
+    };
+  }
   return {
     get state() {
       return state;
@@ -421,6 +569,17 @@ export function createRenderService(
       }
       return enqueueInput(async () => {
         await initialize();
+        if (retainedAtlas?.calibration.id === snapshot.id) {
+          if (
+            calibrationIdentityKey(retainedAtlas.calibration) !==
+            calibrationIdentityKey(snapshot)
+          )
+            throw new RenderError(
+              "InvalidInput",
+              "Calibration metadata requires a new identity",
+            );
+          return;
+        }
         if (retainedCalibration?.id === snapshot.id) {
           if (
             calibrationIdentityKey(snapshot) !==
@@ -435,8 +594,50 @@ export function createRenderService(
         await uploadCalibration(snapshot);
         alive();
         retainedCalibration = snapshot;
+        retainedAtlas = undefined;
       });
     },
+    setAtlas(atlas) {
+      let snapshot: ReferenceCharacterAtlasV1;
+      try {
+        alive();
+        validateWorkerRequest({ ...envelope(), type: "setAtlas", atlas });
+        snapshot = {
+          ...atlas,
+          calibration: copyCalibration(atlas.calibration),
+        };
+      } catch (cause) {
+        return Promise.reject(cause);
+      }
+      return enqueueInput(async () => {
+        await initialize();
+        if (retainedAtlas?.calibration.id === snapshot.calibration.id) {
+          if (atlasIdentityKey(retainedAtlas) !== atlasIdentityKey(snapshot))
+            throw new RenderError(
+              "InvalidInput",
+              "Atlas metadata requires a new identity",
+            );
+          return;
+        }
+        if (
+          retainedCalibration?.id === snapshot.calibration.id &&
+          calibrationIdentityKey(retainedCalibration) !==
+            calibrationIdentityKey(snapshot.calibration)
+        )
+          throw new RenderError(
+            "InvalidInput",
+            "Atlas calibration requires a new identity",
+          );
+        await uploadAtlas(snapshot);
+        alive();
+        retainedAtlas = snapshot;
+        retainedCalibration = undefined;
+      });
+    },
+    renderCharactersPreview: (request, signal) =>
+      renderCharacters("renderCharactersPreview", request, signal),
+    renderCharactersExport: (request, signal) =>
+      renderCharacters("renderCharactersExport", request, signal),
     renderPreview: (request, signal) =>
       render("renderPreview", request, signal),
     renderExport: (request, signal) => render("renderExport", request, signal),
@@ -455,6 +656,7 @@ export function createRenderService(
       detach();
       retainedSource = undefined;
       retainedCalibration = undefined;
+      retainedAtlas = undefined;
     },
   };
 }

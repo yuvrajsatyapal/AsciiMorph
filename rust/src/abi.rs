@@ -112,3 +112,20 @@ pub extern "C" fn render_output_len(h: u32, job: u32) -> u32 {
 pub extern "C" fn render_error(h: u32) -> u32 {
     REGISTRY.with(|r| r.borrow().sessions.get(&h).map_or(7, |e| e.error))
 }
+
+#[no_mangle]
+pub extern "C" fn render_characters_profile_version() -> u32 {
+    1
+}
+#[no_mangle]
+pub extern "C" fn render_begin_characters_v1(h: u32, ptr: u32, len: u32) -> u32 {
+    with(h, |s| s.begin_characters_staged(ptr as usize, len as usize))
+}
+#[no_mangle]
+pub extern "C" fn render_frame_output_ptr(h: u32, job: u32) -> u32 {
+    with(h, |s| Ok(s.frame_output(job)?.as_ptr() as u32))
+}
+#[no_mangle]
+pub extern "C" fn render_frame_output_len(h: u32, job: u32) -> u32 {
+    with(h, |s| Ok(s.frame_output(job)?.len() as u32))
+}

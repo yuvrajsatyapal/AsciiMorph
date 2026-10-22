@@ -8,8 +8,32 @@ import {
   type GlyphCalibrationV1,
   type PackedGlyphGrid,
   type SourceUpload,
+  type SourceRef,
 } from "./character-contract";
 
+import { MAX_BACKING_PIXELS, MAX_BACKING_SIDE } from "@/core/render";
+import {
+  validateReferenceCharacterAtlas,
+  validateReferenceCharactersSettings,
+  type ReferenceCharacterAtlasV1,
+  type ReferenceCharactersSettingsV1,
+  type ReferenceCharactersFrameV1,
+} from "./reference-characters";
+export type CharactersRenderType =
+  | "renderCharactersPreview"
+  | "renderCharactersExport";
+export interface CharactersRenderRequest extends RenderIdentity {
+  source: SourceRef;
+  settings: ReferenceCharactersSettingsV1;
+  timeUs: number;
+  outputWidth?: number;
+  outputHeight?: number;
+}
+export interface CharactersRenderResult extends RenderIdentity {
+  frame: ReferenceCharactersFrameV1;
+  backend: "rust-cpu";
+  timings: RenderTimings;
+}
 export const RENDER_PROTOCOL_VERSION = 1 as const;
 export interface RenderMessageEnvelope {
   version: typeof RENDER_PROTOCOL_VERSION;
@@ -72,6 +96,8 @@ export type WorkerRequest =
   | Envelope<{ type: "initialize"; memoryBudgetBytes: number }>
   | Envelope<{ type: "setSource"; source: SourceUpload }>
   | Envelope<{ type: "setCalibration"; calibration: GlyphCalibrationV1 }>
+  | Envelope<{ type: "setAtlas"; atlas: ReferenceCharacterAtlasV1 }>
+  | Envelope<CharactersRenderRequest & { type: CharactersRenderType }>
   | Envelope<RenderRequest & { type: "renderPreview" | "renderExport" }>
   | Envelope<RenderIdentity & { type: "cancel"; targetRequestId: string }>
   | Envelope<{ type: "dispose" }>;
@@ -85,13 +111,13 @@ export type WorkerResponse =
     }>
   | Envelope<{
       type: "accepted";
-      operation: "setCalibration";
+      operation: "setCalibration" | "setAtlas";
       calibrationId: string;
     }>
   | Envelope<
       RenderIdentity & {
         type: "accepted";
-        operation: "renderPreview" | "renderExport";
+        operation: "renderPreview" | "renderExport" | CharactersRenderType;
       }
     >
   | Envelope<
@@ -103,7 +129,14 @@ export type WorkerResponse =
       }
     >
   | Envelope<RenderResult & { type: "result" }>
+  | Envelope<CharactersRenderResult & { type: "charactersResult" }>
   | Envelope<RenderIdentity & { type: "cancelled" }>
+  | Envelope<
+      RenderIdentity & {
+        type: "charactersUnavailable";
+        error: RenderErrorPayload;
+      }
+    >
   | Envelope<
       Partial<RenderIdentity> & { type: "error"; error: RenderErrorPayload }
     >;
@@ -200,11 +233,43 @@ export function validateWorkerRequest(value: unknown): WorkerRequest {
       exact(m, [...base, "source"]);
       contract(m.source, (v) => validateSource(v, DEFAULT_MEMORY_BUDGET_BYTES));
       break;
+    case "setAtlas":
+      exact(m, [...base, "atlas"]);
+      contract(m.atlas, validateReferenceCharacterAtlas);
+      break;
     case "setCalibration":
       exact(m, [...base, "calibration"]);
       version(record(m.calibration));
       contract(m.calibration, validateGlyphCalibration);
       break;
+    case "renderCharactersPreview":
+    case "renderCharactersExport": {
+      exact(m, [
+        ...base,
+        ...identityKeys,
+        "source",
+        "settings",
+        "timeUs",
+        ...(m.type === "renderCharactersExport"
+          ? ["outputWidth", "outputHeight"]
+          : []),
+      ]);
+      identity(m);
+      integer(m.timeUs);
+      text(m.calibrationId);
+      const src = record(m.source);
+      if (src.id !== m.sourceId || src.revision !== m.sourceRevision)
+        invalid("Characters source identity mismatch");
+      const s = contract(m.settings, (v) =>
+        validateReferenceCharactersSettings(v, m.source as SourceRef),
+      );
+      if (
+        m.type === "renderCharactersExport" &&
+        (m.outputWidth !== s.frameWidth || m.outputHeight !== s.frameHeight)
+      )
+        invalid("Characters export dimensions mismatch");
+      break;
+    }
     case "renderPreview":
     case "renderExport": {
       const output =
@@ -253,12 +318,17 @@ export function validateWorkerResponse(value: unknown): WorkerResponse {
         exact(m, [...base, "operation", "sourceId", "sourceRevision"]);
         text(m.sourceId);
         integer(m.sourceRevision);
-      } else if (m.operation === "setCalibration") {
+      } else if (
+        m.operation === "setCalibration" ||
+        m.operation === "setAtlas"
+      ) {
         exact(m, [...base, "operation", "calibrationId"]);
         text(m.calibrationId);
       } else if (
         m.operation === "renderPreview" ||
-        m.operation === "renderExport"
+        m.operation === "renderExport" ||
+        m.operation === "renderCharactersPreview" ||
+        m.operation === "renderCharactersExport"
       ) {
         exact(m, [...base, "operation", ...identityKeys]);
         identity(m);
@@ -275,22 +345,55 @@ export function validateWorkerResponse(value: unknown): WorkerResponse {
       exact(m, [...base, ...identityKeys]);
       identity(m);
       break;
+    case "charactersResult":
     case "result": {
-      exact(m, [...base, ...identityKeys, "grid", "backend", "timings"]);
+      exact(m, [
+        ...base,
+        ...identityKeys,
+        m.type === "result" ? "grid" : "frame",
+        "backend",
+        "timings",
+      ]);
       identity(m);
       if (m.backend !== "rust-cpu") invalid("Invalid backend");
-      contract(m.grid, (v) => validateGrid(v as PackedGlyphGrid));
+      if (m.type === "result")
+        contract(m.grid, (v) => validateGrid(v as PackedGlyphGrid));
+      else {
+        const f = record(m.frame);
+        exact(f, ["version", "width", "height", "rgba", "grid"]);
+        version(f);
+        integer(f.width, MAX_BACKING_SIDE, 1);
+        integer(f.height, MAX_BACKING_SIDE, 1);
+        const pixels = (f.width as number) * (f.height as number);
+        if (
+          pixels > MAX_BACKING_PIXELS ||
+          !(f.rgba instanceof Uint8Array) ||
+          f.rgba.length !== pixels * 4 ||
+          f.rgba.buffer.byteLength > DEFAULT_MEMORY_BUDGET_BYTES
+        )
+          invalid("Invalid Characters frame");
+        if (f.grid !== null)
+          contract(f.grid, (v) => validateGrid(v as PackedGlyphGrid));
+      }
       const timings = record(m.timings);
       exact(timings, ["queueMs", "computeMs", "readbackMs", "totalMs"]);
       Object.values(timings).forEach(duration);
       break;
     }
+    case "charactersUnavailable":
     case "error": {
-      const withIdentity = identityKeys.some((k) => Object.hasOwn(m, k));
+      const withIdentity =
+        m.type === "charactersUnavailable" ||
+        identityKeys.some((k) => Object.hasOwn(m, k));
       exact(m, [...base, "error", ...(withIdentity ? identityKeys : [])]);
       if (withIdentity) identity(m);
       const e = record(m.error);
       exact(e, ["code", "message", "recoverable"]);
+      if (
+        m.type === "charactersUnavailable" &&
+        e.code !== "CapabilityUnavailable"
+      )
+        invalid("Invalid Characters capability response");
       if (
         !errorCodes.includes(e.code as RenderErrorCode) ||
         typeof e.message !== "string" ||
@@ -353,5 +456,41 @@ export function calibrationIdentityKey(
     calibration.glyphs,
     calibration.maskWidth,
     calibration.maskHeight,
+  ]);
+}
+
+export function validateCharactersRenderRequest(
+  value: unknown,
+  type: CharactersRenderType,
+): CharactersRenderRequest {
+  const request = record(value);
+  exact(request, [
+    ...identityKeys,
+    "source",
+    "settings",
+    "timeUs",
+    ...(type === "renderCharactersExport"
+      ? ["outputWidth", "outputHeight"]
+      : []),
+  ]);
+  validateWorkerRequest({
+    ...request,
+    version: 1,
+    requestId: "request-validation",
+    type,
+  });
+  return value as CharactersRenderRequest;
+}
+/** The complete measured wrapper is one immutable identity, including placement policy. */
+export function atlasIdentityKey(atlas: ReferenceCharacterAtlasV1): string {
+  return JSON.stringify([
+    calibrationIdentityKey(atlas.calibration),
+    atlas.version,
+    atlas.originX,
+    atlas.originY,
+    atlas.spaceIndexOr65535,
+    atlas.ordering,
+    atlas.placement,
+    atlas.fontPolicy,
   ]);
 }

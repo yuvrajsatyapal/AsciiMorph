@@ -23,3 +23,13 @@ Strict project transport/schema/resource readiness passed independent review:70 
 The integration check replaces fixed-delay worker completion assertions with request-specific conditions and a controlled delayed-step regression. ESLint excludes only the ephemeral SDD task workspace. Fresh review accepted both changes. Full integration:404 JavaScript tests pass with1 skipped; lint has0 errors and3 existing prototype warnings; productionbuild includingTypeScript passes. The build preceded the test/config-only reliability fix; no production code changed in that fix. Rust remains44 passing tests at the accepted geometry checkpoint.
 
 The next native Characters-profile task has started separately; its unfinished files are excluded from this checkpoint. All work remains onmain. Full UI/feature parity remains open.
+
+## Characters worker integration — 2026-10-22
+
+Native glyph contracts and measured browser atlases were independently reviewed and pushed as2379847/a52005a. The additive112-byte profile ABI now carries full-frame RGBA and optional packed glyph data through the real retained-source worker/service. Legacy160-byte settings and grid calls remain separate. Shared immutable masks avoid per-frame atlas copies; optional profile failures preserve a working legacy connection.
+
+Fresh review found and verified fixes for caller mutation across asynchronous service initialization and recoverable worker-budget validation. Scoped re-review accepted both fixes with no open findings. Final integration:486 application tests pass with1 skipped; production Next build and TypeScript pass. Native72 tests and the rebuilt WASM passed before the TypeScript-only fixes; affected54 tests and scoped lint passed afterward.
+
+The actual Chromium module-worker diagnostic improved from2407ms to30.9ms for the same owned512×512 source/160×90 Braille job, with all475 numeric steps and byte-identical worker/direct output. This is a local diagnostic, not a distribution, full UI latency or final backend-performance acceptance. Real-worker fractional-profile and equal-scale preview/export fixtures also pass.
+
+The new profile currently renders the transparent glyph intermediate only. Rust None/Solid/Blur composition, explicit complete-context capability, project binding and the production `/app` Studio remain pending. Global atlas replacement still cancels dependent exports; that interaction must be resolved or visibly disclosed before Studio acceptance. Full-width reference screenshots at1440×900 and1920×1080 are now retained with actual JPEG dimensions/hashes; they improve reference evidence without proving our UI parity.

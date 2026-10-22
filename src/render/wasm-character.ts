@@ -8,9 +8,26 @@ import {
   type GlyphCalibrationV1,
   type PackedGlyphGrid,
   type SourceUpload,
+  type SourceRef,
 } from "./character-contract";
 
-import { RenderError, type RenderErrorCode } from "./protocol";
+import {
+  encodeCharactersSettings,
+  decodeCharactersFrame,
+} from "./characters-wire";
+import {
+  validateReferenceCharacterAtlas,
+  validateReferenceCharactersSettings,
+  type ReferenceCharacterAtlasV1,
+  type ReferenceCharactersSettingsV1,
+  type ReferenceCharactersFrameV1,
+} from "./reference-characters";
+
+import {
+  RenderError,
+  atlasIdentityKey,
+  type RenderErrorCode,
+} from "./protocol";
 
 export class CharacterEngineError extends RenderError {
   constructor(code: RenderErrorCode, message: string) {
@@ -79,6 +96,10 @@ interface CharacterWasm extends WebAssembly.Exports {
 }
 export type CharacterStepStatus = "pending" | "complete" | "cancelled";
 export interface CharacterEngine {
+  readonly charactersProfileAvailable: boolean;
+  setAtlas(atlas: ReferenceCharacterAtlasV1): void;
+  beginCharacters(settings: ReferenceCharactersSettingsV1): number;
+  takeFrame(jobId: number): ReferenceCharactersFrameV1;
   setSource(source: SourceUpload): void;
   setCalibration(calibration: GlyphCalibrationV1): void;
   begin(settings: CharacterSettingsV1): number;
@@ -136,6 +157,18 @@ export async function createCharacterEngine(
     );
   let disposed = false;
   let sourceIdentity = "";
+  let source: SourceRef | undefined;
+  let atlas: ReferenceCharacterAtlasV1 | undefined;
+  let uploadingAtlas = false;
+  const profileNames = [
+    "render_characters_profile_version",
+    "render_begin_characters_v1",
+    "render_frame_output_ptr",
+    "render_frame_output_len",
+  ];
+  const profileAvailable =
+    profileNames.every((name) => typeof wasm[name] === "function") &&
+    (wasm.render_characters_profile_version as NumericExport)() === 1;
   type CalibrationIdentity = Pick<
     GlyphCalibrationV1,
     "id" | "cellWidth" | "cellHeight" | "glyphs"
@@ -144,7 +177,17 @@ export async function createCharacterEngine(
   let calibrationIdentity = "";
   const jobs = new Map<
     number,
-    { settings: CharacterSettingsV1; calibration?: CalibrationIdentity }
+    | {
+        kind: "legacy";
+        settings: CharacterSettingsV1;
+        calibration?: CalibrationIdentity;
+      }
+    | {
+        kind: "characters";
+        settings: ReferenceCharactersSettingsV1;
+        atlas: ReferenceCharacterAtlasV1;
+        source: SourceRef;
+      }
   >();
   function alive() {
     if (disposed)
@@ -204,7 +247,110 @@ export async function createCharacterEngine(
       throw new CharacterEngineError("InvalidInput", "Unknown character job");
     return value;
   }
-  return {
+  const engine: CharacterEngine = {
+    charactersProfileAvailable: profileAvailable,
+    setAtlas(input) {
+      alive();
+      const a = validateInput(input, validateReferenceCharacterAtlas);
+      const c = a.calibration;
+      if (
+        atlas?.calibration.id === c.id &&
+        atlasIdentityKey(atlas) !== atlasIdentityKey(a)
+      )
+        throw new CharacterEngineError(
+          "InvalidInput",
+          "Atlas metadata requires a new identity",
+        );
+      if (atlas && atlasIdentityKey(atlas) === atlasIdentityKey(a)) return;
+      uploadingAtlas = true;
+      try {
+        engine.setCalibration(c);
+      } finally {
+        uploadingAtlas = false;
+      }
+      // One immutable upload-time snapshot; no per-frame source or mask clones.
+      atlas = {
+        ...a,
+        calibration: {
+          ...c,
+          glyphs: [...c.glyphs],
+          masks: c.masks.slice(),
+          coverage: c.coverage.slice(),
+          shapes: c.shapes.slice(),
+        },
+      };
+    },
+    beginCharacters(input) {
+      alive();
+      if (!profileAvailable)
+        throw new CharacterEngineError(
+          "CapabilityUnavailable",
+          "Characters profile ABI unavailable",
+        );
+      if (!source)
+        throw new CharacterEngineError(
+          "MissingSource",
+          "Missing Characters source",
+        );
+      const s = validateInput(input, (v) =>
+        validateReferenceCharactersSettings(v, source!, budget),
+      );
+      if (s.backdrop !== "none")
+        throw new CharacterEngineError(
+          "CapabilityUnavailable",
+          "Characters backdrop composition is unavailable",
+        );
+      if (
+        !atlas ||
+        atlas.calibration.id !== calibration?.id ||
+        atlas.calibration.cellWidth !== 0.6 * s.fontSize * s.renderScale ||
+        atlas.calibration.cellHeight !== s.fontSize * s.renderScale
+      )
+        throw new CharacterEngineError(
+          "MissingCalibration",
+          "Missing measured Characters atlas",
+        );
+      const block = encodeCharactersSettings(s, atlas, source);
+      const id = transfer(
+        112,
+        (_v, b) => b.set(block),
+        (ptr) =>
+          (wasm.render_begin_characters_v1 as NumericExport)(handle, ptr, 112),
+      );
+      jobs.set(id, {
+        kind: "characters",
+        settings: { ...s, crop: { ...s.crop } },
+        atlas,
+        source,
+      });
+      return id;
+    },
+    takeFrame(id) {
+      const metadata = job(id);
+      if (metadata.kind !== "characters")
+        throw new CharacterEngineError(
+          "InvalidInput",
+          "Not a Characters frame job",
+        );
+      const ptr = check(
+        (wasm.render_frame_output_ptr as NumericExport)(handle, id),
+      );
+      const length = check(
+        (wasm.render_frame_output_len as NumericExport)(handle, id),
+      );
+      try {
+        span(ptr, length);
+        return decodeCharactersFrame(
+          new Uint8Array(wasm.memory.buffer, ptr, length),
+          metadata.settings,
+          metadata.atlas,
+          metadata.source,
+        );
+      } finally {
+        check(wasm.render_release(handle, id));
+        jobs.delete(id);
+      }
+    },
     setSource(input) {
       alive();
       const s = validateInput(input, (value) =>
@@ -229,6 +375,12 @@ export async function createCharacterEngine(
         (ptr) => wasm.render_upload(handle, 1, ptr, length),
       );
       sourceIdentity = identity;
+      source = {
+        id: s.id,
+        revision: s.revision,
+        width: s.width,
+        height: s.height,
+      };
       jobs.clear();
     },
     setCalibration(input) {
@@ -243,7 +395,7 @@ export async function createCharacterEngine(
         c.maskWidth,
         c.maskHeight,
       ]);
-      if (identity === calibrationIdentity) return;
+      if (identity === calibrationIdentity && !uploadingAtlas) return;
       const directions = ["|", "/", "-", "\\"].map((g) => c.glyphs.indexOf(g));
       const directional = directions.every((i) => i >= 0);
       const coverageOffset = align4(HEADER_BYTES + c.masks.length);
@@ -285,8 +437,10 @@ export async function createCharacterEngine(
         glyphs: [...c.glyphs],
       };
       calibrationIdentity = identity;
+      atlas = undefined;
       for (const [id, j] of jobs)
-        if (j.settings.mapping === "glyph") jobs.delete(id);
+        if (j.kind === "characters" || j.settings.mapping === "glyph")
+          jobs.delete(id);
     },
     begin(input) {
       alive();
@@ -348,6 +502,7 @@ export async function createCharacterEngine(
         (ptr) => wasm.render_begin(handle, ptr, SETTINGS_BYTES),
       );
       jobs.set(id, {
+        kind: "legacy",
         settings: { ...s, crop: { ...s.crop } },
         calibration: s.mapping === "glyph" ? calibration : undefined,
       });
@@ -364,6 +519,8 @@ export async function createCharacterEngine(
     },
     takeGrid(id) {
       const metadata = job(id);
+      if (metadata.kind !== "legacy")
+        throw new CharacterEngineError("InvalidInput", "Not a legacy grid job");
       const ptr = check(wasm.render_output_ptr(handle, id));
       const length = check(wasm.render_output_len(handle, id));
       try {
@@ -449,8 +606,11 @@ export async function createCharacterEngine(
       disposed = true;
       jobs.clear();
       calibration = undefined;
+      atlas = undefined;
+      source = undefined;
       sourceIdentity = "";
       calibrationIdentity = "";
     },
   };
+  return engine;
 }

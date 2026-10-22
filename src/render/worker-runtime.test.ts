@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import type { MacrotaskScheduler } from "./worker-macrotask";
 import { createWorkerRuntime } from "./worker-runtime";
 import {
   RenderError,
@@ -101,7 +102,10 @@ async function waitForMessage(
     { timeout: 2000, interval: 1 },
   );
 }
-function harness(steps = 4) {
+function harness(
+  steps = 4,
+  options: { scheduler?: MacrotaskScheduler; now?: () => number } = {},
+) {
   const messages: unknown[] = [],
     transfers: Transferable[][] = [],
     calls: number[] = [],
@@ -109,6 +113,10 @@ function harness(steps = 4) {
     active = new Set<number>();
   let next = 0;
   const engine: CharacterEngine = {
+    charactersProfileAvailable: true,
+    setAtlas: vi.fn(),
+    beginCharacters: vi.fn(),
+    takeFrame: vi.fn(),
     setSource: vi.fn(() => active.clear()),
     setCalibration: vi.fn(() => active.clear()),
     begin: vi.fn(() => {
@@ -133,8 +141,11 @@ function harness(steps = 4) {
     }),
     dispose: vi.fn(() => active.clear()),
   };
+  let controlledTime = 0;
   const runtime = createWorkerRuntime({
+    now: () => (controlledTime += 4),
     createEngine: async () => engine,
+    ...options,
     postMessage: (m, t = []) => {
       messages.push(m);
       transfers.push(t);
@@ -634,4 +645,189 @@ describe("Task 6 review cancellation regressions", () => {
       );
     h.runtime.dispose();
   });
+});
+
+describe("bounded numeric turns", () => {
+  function scheduled() {
+    const callbacks: (() => void)[] = [];
+    const scheduler: MacrotaskScheduler = {
+      schedule: vi.fn((fn) => {
+        callbacks.push(fn);
+        return () => {
+          const at = callbacks.indexOf(fn);
+          if (at >= 0) callbacks.splice(at, 1);
+        };
+      }),
+      dispose: vi.fn(() => {
+        callbacks.length = 0;
+      }),
+    };
+    return {
+      scheduler,
+      callbacks,
+      turn() {
+        callbacks.shift()!();
+      },
+    };
+  }
+  it.each([0, 0.25])(
+    "bounds turns by64steps or4ms at numeric step cost %s and coalesces progress",
+    async (cost) => {
+      let time = 0;
+      const q = scheduled(),
+        h = harness(100000, { scheduler: q.scheduler, now: () => time });
+      await h.ready();
+      vi.mocked(h.engine.step).mockImplementation((id, work) => {
+        expect(work).toBe(4096);
+        h.calls.push(id);
+        time += cost;
+        return "pending";
+      });
+      h.send(job("preview"));
+      h.send(job("export", "renderExport"));
+      expect(q.callbacks.length).toBe(1);
+      q.turn();
+      expect(h.calls.length).toBe(cost === 0 ? 64 : 16);
+      expect(h.calls.slice(0, 8)).toEqual([1, 2, 1, 2, 1, 2, 1, 2]);
+      expect(
+        h.messages.filter((m) => (m as { type: string }).type === "progress"),
+      ).toHaveLength(2);
+      expect(q.callbacks).toHaveLength(1);
+      h.runtime.dispose();
+      expect(q.scheduler.dispose).toHaveBeenCalledOnce();
+      expect(q.callbacks).toHaveLength(0);
+    },
+  );
+  it("cancels queued turns and disposes on fatal before another numeric callback", async () => {
+    const q = scheduled(),
+      h = harness(100000, { scheduler: q.scheduler, now: () => 0 });
+    await h.ready();
+    h.send(job("preview"));
+    const stale = q.callbacks[0];
+    h.runtime.dispose();
+    stale();
+    expect(h.calls).toEqual([]);
+    const q2 = scheduled(),
+      h2 = harness(100000, { scheduler: q2.scheduler, now: () => 0 });
+    await h2.ready();
+    vi.mocked(h2.engine.step).mockImplementation(() => {
+      throw new Error("trap");
+    });
+    h2.send(job("fatal"));
+    q2.turn();
+    expect(q2.scheduler.dispose).toHaveBeenCalledOnce();
+    expect(q2.callbacks).toHaveLength(0);
+    expect(h2.engine.dispose).toHaveBeenCalledOnce();
+  });
+});
+it("reports the actual final numeric step count once in the completing turn", async () => {
+  const h = harness(3);
+  await h.ready();
+  h.send(job("counted"));
+  await waitForMessage(h.messages, "counted", "result");
+  const progress = h.messages.filter(
+    (m) => (m as { type: string }).type === "progress",
+  ) as { slices: number }[];
+  expect(progress.at(-1)?.slices).toBe(3);
+  h.runtime.dispose();
+});
+
+it("profile lanes preserve latest preview, export fairness, bounded queue and full frame ownership", async () => {
+  const callbacks: (() => void)[] = [];
+  const scheduler: MacrotaskScheduler = {
+    schedule: (fn) => {
+      callbacks.push(fn);
+      return () => {
+        const at = callbacks.indexOf(fn);
+        if (at >= 0) callbacks.splice(at, 1);
+      };
+    },
+    dispose: () => {
+      callbacks.length = 0;
+    },
+  };
+  const h = harness(4, { scheduler });
+  await h.ready();
+  vi.mocked(h.engine.beginCharacters).mockImplementation(() =>
+    h.engine.begin(settings),
+  );
+  vi.mocked(h.engine.takeFrame).mockImplementation((id) => {
+    h.active.delete(id);
+    return {
+      version: 1,
+      width: 1,
+      height: 1,
+      rgba: new Uint8Array(4),
+      grid: null,
+    };
+  });
+  h.send({
+    version: 1,
+    requestId: "atlas",
+    type: "setAtlas",
+    atlas: {
+      version: 1,
+      originX: 0,
+      originY: 0,
+      spaceIndexOr65535: 0,
+      placement: "top-start-ltr",
+      ordering: "input",
+      fontPolicy: "reference-system-monospace",
+      calibration: {
+        ...calibration(),
+        id: "profile-cal",
+        cellWidth: 0.6 * 3,
+        cellHeight: 3,
+      },
+    },
+  });
+  const profileJob = (id: string, type = "renderCharactersPreview") => ({
+    ...job(id),
+    type,
+    calibrationId: "profile-cal",
+    source: { id: "src", revision: 1, width: 1, height: 1 },
+    settings: {
+      version: 1,
+      frameWidth: 1,
+      frameHeight: 1,
+      fontSize: 3,
+      renderScale: 1,
+      brightness: 0,
+      contrast: 0,
+      crop: { x: 0, y: 0, width: 1, height: 1 },
+      rotation: 0,
+      backdrop: "none",
+    },
+    ...(type === "renderCharactersExport"
+      ? { outputWidth: 1, outputHeight: 1 }
+      : {}),
+  });
+  h.send(profileJob("stale"));
+  h.send(profileJob("latest"));
+  h.send(profileJob("e1", "renderCharactersExport"));
+  h.send(profileJob("e2", "renderCharactersExport"));
+  h.send(profileJob("busy", "renderCharactersExport"));
+  expect(h.messages).toContainEqual(
+    expect.objectContaining({ requestId: "stale", type: "cancelled" }),
+  );
+  expect(h.messages).toContainEqual(
+    expect.objectContaining({
+      requestId: "busy",
+      type: "error",
+      error: expect.objectContaining({ code: "Busy" }),
+    }),
+  );
+  while (callbacks.length) callbacks.shift()!();
+  expect(h.calls.slice(0, 8)).toEqual([1, 2, 1, 2, 1, 2, 1, 2]);
+  for (const requestId of ["latest", "e1", "e2"])
+    expect(h.messages).toContainEqual(
+      expect.objectContaining({
+        requestId,
+        type: "charactersResult",
+        frame: expect.objectContaining({ grid: null }),
+      }),
+    );
+  expect(h.active.size).toBe(0);
+  expect(h.transfers.filter((t) => t.length === 1)).toHaveLength(3);
+  h.runtime.dispose();
 });

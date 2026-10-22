@@ -86,6 +86,10 @@ class TestWorker {
   next = 0;
   counts = new Map<number, number>();
   engine: CharacterEngine = {
+    charactersProfileAvailable: false,
+    setAtlas: vi.fn(),
+    beginCharacters: vi.fn(),
+    takeFrame: vi.fn(),
     setSource: vi.fn(),
     setCalibration: vi.fn(),
     begin: vi.fn(() => {
@@ -102,7 +106,9 @@ class TestWorker {
     dispose: vi.fn(),
   };
   createEngine = vi.fn(async () => this.engine);
+  controlledTime = 0;
   runtime = createWorkerRuntime({
+    now: () => (this.controlledTime += 4),
     createEngine: this.createEngine,
     postMessage: (data, transfer = []) => {
       const transported = structuredClone(data, { transfer });

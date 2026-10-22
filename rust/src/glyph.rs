@@ -12,7 +12,9 @@ pub struct DirectionalIndices {
 #[derive(Debug, Clone)]
 pub struct GlyphCalibration {
     pub(crate) glyph_count: u16,
-    masks: Vec<u8>,
+    pub(crate) masks: std::sync::Arc<Vec<u8>>,
+    pub(crate) mask_width: u16,
+    pub(crate) mask_height: u16,
     pub(crate) coverage: Vec<f32>,
     pub(crate) shapes: Vec<f32>,
     pub(crate) directions: Option<DirectionalIndices>,
@@ -49,7 +51,9 @@ impl GlyphCalibration {
         }
         let result = Self {
             glyph_count,
-            masks,
+            masks: std::sync::Arc::new(masks),
+            mask_width,
+            mask_height,
             coverage,
             shapes,
             directions: None,

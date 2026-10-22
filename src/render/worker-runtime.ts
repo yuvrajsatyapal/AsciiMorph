@@ -1,6 +1,7 @@
 import {
   RenderError,
   calibrationIdentityKey,
+  atlasIdentityKey,
   renderIdentity,
   sameRenderIdentity,
   validateWorkerRequest,
@@ -8,11 +9,25 @@ import {
   type WorkerRequest,
   type WorkerResponse,
 } from "./protocol";
+import {
+  createTimerScheduler,
+  type MacrotaskScheduler,
+} from "./worker-macrotask";
+import {
+  validateReferenceCharactersSettings,
+  type ReferenceCharacterAtlasV1,
+} from "./reference-characters";
 import type { CharacterEngine } from "./wasm-character";
 
 type RenderMessage = Extract<
   WorkerRequest,
-  { type: "renderPreview" | "renderExport" }
+  {
+    type:
+      | "renderPreview"
+      | "renderExport"
+      | "renderCharactersPreview"
+      | "renderCharactersExport";
+  }
 >;
 interface Task {
   message: RenderMessage;
@@ -23,9 +38,11 @@ interface Task {
 }
 export interface WorkerRuntimeOptions {
   createEngine(memoryBudgetBytes: number): Promise<CharacterEngine>;
+  scheduler?: MacrotaskScheduler;
+  now?: () => number;
   postMessage(message: WorkerResponse, transfer?: Transferable[]): void;
 }
-/** A worker-local scheduler. Every numeric slice yields through a macrotask. */
+/** Worker-local bounded turns: 4ms or 64 numeric steps, then a cancellable macrotask. */
 export function createWorkerRuntime(options: WorkerRuntimeOptions) {
   let engine: CharacterEngine | undefined;
   let loading: Promise<void> | undefined;
@@ -38,12 +55,23 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
   let calibration:
     | { id: string; key: string; cellWidth: number; cellHeight: number }
     | undefined;
+  let atlas: ReferenceCharacterAtlasV1 | undefined;
+  let atlasKey: string | undefined;
   let preview: Task | undefined;
   let exporting: Task | undefined;
   let pendingExport: Task | undefined;
   let lastLane: "preview" | "export" = "export";
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const now = () => performance.now();
+  let cancelTurn: (() => void) | undefined;
+  const scheduler = options.scheduler ?? createTimerScheduler();
+  const now = options.now ?? (() => performance.now());
+  const progressed = new Set<Task>();
+  const profile = (
+    m: RenderMessage,
+  ): m is Extract<
+    RenderMessage,
+    { type: "renderCharactersPreview" | "renderCharactersExport" }
+  > =>
+    m.type === "renderCharactersPreview" || m.type === "renderCharactersExport";
   const envelope = (requestId: string) => ({ version: 1 as const, requestId });
   const tasks = () =>
     [preview, exporting, pendingExport].filter((t): t is Task => !!t);
@@ -55,12 +83,31 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
             "WorkerFailure",
             cause instanceof Error ? cause.message : "Worker operation failed",
           );
-    options.postMessage({
-      ...envelope(requestId),
-      type: "error",
-      ...(identity ? renderIdentity(identity) : {}),
-      error: { code: e.code, message: e.message, recoverable: e.recoverable },
-    });
+    const payload = {
+      code: e.code,
+      message: e.message,
+      recoverable: e.recoverable,
+    };
+    if (
+      e.code === "CapabilityUnavailable" &&
+      identity &&
+      "type" in identity &&
+      (identity.type === "renderCharactersPreview" ||
+        identity.type === "renderCharactersExport")
+    )
+      options.postMessage({
+        ...envelope(requestId),
+        type: "charactersUnavailable",
+        ...renderIdentity(identity),
+        error: payload,
+      });
+    else
+      options.postMessage({
+        ...envelope(requestId),
+        type: "error",
+        ...(identity ? renderIdentity(identity) : {}),
+        error: payload,
+      });
   }
   function remove(task: Task) {
     if (preview === task) preview = undefined;
@@ -77,8 +124,9 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
       "WorkerFailure",
       cause instanceof Error ? cause.message : "Worker engine failed",
     );
-    if (timer !== undefined) clearTimeout(timer);
-    timer = undefined;
+    cancelTurn?.();
+    cancelTurn = undefined;
+    scheduler.dispose();
     const outstanding = tasks();
     preview = undefined;
     exporting = undefined;
@@ -87,6 +135,8 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
     engine = undefined;
     source = undefined;
     calibration = undefined;
+    atlas = undefined;
+    atlasKey = undefined;
     try {
       failedEngine?.dispose();
     } catch {
@@ -100,6 +150,10 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
   /** Used after successful uploads, which already invalidate numeric handles. */
   function settleCancelled(task: Task) {
     remove(task);
+    if (!preview && !exporting) {
+      cancelTurn?.();
+      cancelTurn = undefined;
+    }
     options.postMessage({
       ...envelope(task.message.requestId),
       type: "cancelled",
@@ -118,12 +172,38 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
     settleCancelled(task);
   }
   function wake() {
-    if (!disposed && !failure && timer === undefined && (preview || exporting))
-      timer = setTimeout(runSlice, 0);
+    if (!disposed && !failure && !cancelTurn && (preview || exporting))
+      cancelTurn = scheduler.schedule(runTurn);
   }
-  function runSlice() {
-    timer = undefined;
-    if (disposed || !engine) return;
+  function runTurn() {
+    cancelTurn = undefined;
+    if (disposed || failure || !engine) return;
+    const start = now();
+    progressed.clear();
+    for (
+      let steps = 0;
+      steps < 64 && (steps === 0 || now() - start < 4);
+      steps++
+    ) {
+      if (disposed || failure || !engine || (!preview && !exporting)) break;
+      runStep();
+    }
+    for (const task of progressed) {
+      if (!failure && !disposed && tasks().includes(task))
+        options.postMessage({
+          ...envelope(task.message.requestId),
+          type: "progress",
+          ...renderIdentity(task.message),
+          phase: "compute",
+          elapsedMs: now() - task.startedAt!,
+          slices: task.slices,
+        });
+    }
+    progressed.clear();
+    wake();
+  }
+  function runStep() {
+    if (disposed || failure || !engine) return;
     const lane =
       preview && exporting
         ? lastLane === "preview"
@@ -139,42 +219,15 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
     try {
       if (task.handle === undefined) {
         task.startedAt = now();
-        task.handle = engine.begin(m.settings);
+        task.handle = profile(m)
+          ? engine.beginCharacters(m.settings)
+          : engine.begin(m.settings);
       }
       const status = engine.step(task.handle, 4096);
       task.slices++;
       if (status === "complete") {
-        const readbackAt = now();
-        const handle = task.handle;
-        // takeGrid owns release, including its failure path; don't cancel a
-        // numeric handle that its readback already dropped.
-        task.handle = undefined;
-        const grid = engine.takeGrid(handle);
-        const finishedAt = now();
-        remove(task);
-        options.postMessage(
-          {
-            ...envelope(m.requestId),
-            type: "result",
-            ...renderIdentity(m),
-            grid,
-            backend: "rust-cpu",
-            timings: {
-              queueMs: task.startedAt! - task.queuedAt,
-              computeMs: readbackAt - task.startedAt!,
-              readbackMs: finishedAt - readbackAt,
-              totalMs: finishedAt - task.queuedAt,
-            },
-          },
-          [
-            grid.glyphIndices.buffer,
-            grid.foreground.buffer,
-            grid.background.buffer,
-            grid.alpha.buffer,
-          ] as ArrayBuffer[],
-        );
-      } else if (status === "cancelled") cancel(task);
-      else
+        // The completing turn still reports its real step count once.
+        progressed.delete(task);
         options.postMessage({
           ...envelope(m.requestId),
           type: "progress",
@@ -183,12 +236,53 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
           elapsedMs: now() - task.startedAt!,
           slices: task.slices,
         });
+        const readbackAt = now();
+        const handle = task.handle;
+        // Readback owns release, including its failure path; don't cancel a
+        // numeric handle that its readback already dropped.
+        task.handle = undefined;
+        const result = profile(m)
+          ? {
+              type: "charactersResult" as const,
+              frame: engine.takeFrame(handle),
+            }
+          : { type: "result" as const, grid: engine.takeGrid(handle) };
+        const finishedAt = now();
+        remove(task);
+        const grid = "grid" in result ? result.grid : result.frame.grid;
+        const transfer = grid
+          ? [
+              grid.glyphIndices.buffer,
+              grid.foreground.buffer,
+              grid.background.buffer,
+              grid.alpha.buffer,
+            ]
+          : [];
+        if (result.type === "charactersResult")
+          transfer.push(result.frame.rgba.buffer);
+        options.postMessage(
+          {
+            ...envelope(m.requestId),
+            ...result,
+            ...renderIdentity(m),
+            backend: "rust-cpu",
+            timings: {
+              queueMs: task.startedAt! - task.queuedAt,
+              computeMs: readbackAt - task.startedAt!,
+              readbackMs: finishedAt - readbackAt,
+              totalMs: finishedAt - task.queuedAt,
+            },
+          },
+          transfer as ArrayBuffer[],
+        );
+      } else if (status === "cancelled") cancel(task);
+      else progressed.add(task);
     } catch (cause) {
       if (failure) return;
       if (
         !(cause instanceof RenderError) ||
         cause.code === "WorkerFailure" ||
-        cause.code === "CapabilityUnavailable"
+        (cause.code === "CapabilityUnavailable" && !profile(m))
       ) {
         fatal(m.requestId, cause, m);
         return;
@@ -204,13 +298,13 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
       remove(task);
       error(m.requestId, cause, m);
     }
-    wake();
   }
   function dispose() {
     if (disposed) return;
     disposed = true;
-    if (timer !== undefined) clearTimeout(timer);
-    timer = undefined;
+    cancelTurn?.();
+    cancelTurn = undefined;
+    scheduler.dispose();
     for (const task of tasks()) settleCancelled(task);
     const ownedEngine = engine;
     engine = undefined;
@@ -221,6 +315,8 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
     }
     source = undefined;
     calibration = undefined;
+    atlas = undefined;
+    atlasKey = undefined;
   }
   function receive(value: unknown) {
     let m: WorkerRequest;
@@ -323,13 +419,57 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
         });
         return;
       }
+      if (m.type === "setAtlas") {
+        const a = m.atlas,
+          c = a.calibration,
+          key = atlasIdentityKey(a);
+        if (
+          calibration?.id === c.id &&
+          (calibration.key !== calibrationIdentityKey(c) ||
+            (atlasKey !== undefined && atlasKey !== key))
+        )
+          throw new RenderError(
+            "InvalidInput",
+            "Atlas metadata requires a new identity",
+          );
+        if (!atlas || atlasKey !== key) {
+          engine.setAtlas(a);
+          // setAtlas shares the calibration upload: all dependent handles were invalidated.
+          for (const task of tasks())
+            if (
+              profile(task.message) ||
+              task.message.settings.mapping === "glyph"
+            )
+              settleCancelled(task);
+          atlas = a;
+          atlasKey = key;
+          calibration = {
+            id: c.id,
+            key: calibrationIdentityKey(c),
+            cellWidth: c.cellWidth,
+            cellHeight: c.cellHeight,
+          };
+        }
+        options.postMessage({
+          ...envelope(m.requestId),
+          type: "accepted",
+          operation: "setAtlas",
+          calibrationId: c.id,
+        });
+        return;
+      }
       if (m.type === "setCalibration") {
         const c = m.calibration;
         if (!calibration || calibration.id !== c.id) {
           engine.setCalibration(c);
           for (const task of tasks())
-            if (task.message.settings.mapping === "glyph")
+            if (
+              profile(task.message) ||
+              task.message.settings.mapping === "glyph"
+            )
               settleCancelled(task);
+          atlas = undefined;
+          atlasKey = undefined;
           calibration = {
             id: c.id,
             key: calibrationIdentityKey(c),
@@ -370,7 +510,48 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
           "MissingSource",
           "Requested source identity is not uploaded",
         );
-      if (
+      if (profile(m)) {
+        if (
+          !engine.charactersProfileAvailable ||
+          m.settings.backdrop !== "none"
+        )
+          throw new RenderError(
+            "CapabilityUnavailable",
+            "Characters profile/context is unavailable",
+          );
+        if (
+          m.source.width !== source.width ||
+          m.source.height !== source.height
+        )
+          throw new RenderError(
+            "InvalidInput",
+            "Characters retained source geometry mismatch",
+          );
+        // Closed/default-budget validation already passed at transport admission,
+        // and the retained source above matches that exact geometry. Only this
+        // session's lower budget can reject this second contract check.
+        try {
+          validateReferenceCharactersSettings(m.settings, source, budget);
+        } catch {
+          throw new RenderError(
+            "BudgetExceeded",
+            "Characters frame exceeds the worker session budget",
+          );
+        }
+        if (
+          !atlas ||
+          m.calibrationId !== atlas.calibration.id ||
+          atlasKey !== atlasIdentityKey(atlas) ||
+          atlas.calibration.cellWidth !==
+            0.6 * m.settings.fontSize * m.settings.renderScale ||
+          atlas.calibration.cellHeight !==
+            m.settings.fontSize * m.settings.renderScale
+        )
+          throw new RenderError(
+            "MissingCalibration",
+            "Requested measured Characters atlas is not uploaded",
+          );
+      } else if (
         m.settings.mapping === "glyph" &&
         (!calibration ||
           m.calibrationId !== calibration.id ||
@@ -387,7 +568,7 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
           "Duplicate active request identity",
         );
       const task: Task = { message: m, queuedAt: now(), slices: 0 };
-      if (m.type === "renderPreview") {
+      if (m.type === "renderPreview" || m.type === "renderCharactersPreview") {
         if (preview) cancel(preview);
         preview = task;
       } else {

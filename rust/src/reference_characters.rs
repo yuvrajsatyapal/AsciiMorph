@@ -96,7 +96,7 @@ pub struct ReferenceAtlas {
     count: u16,
     width: u16,
     height: u16,
-    masks: Vec<u8>,
+    masks: std::sync::Arc<Vec<u8>>,
     origin_x: f64,
     origin_y: f64,
     space_index: u16,
@@ -136,14 +136,44 @@ impl ReferenceAtlas {
             count,
             width,
             height,
-            masks,
+            masks: std::sync::Arc::new(masks),
+            origin_x,
+            origin_y,
+            space_index,
+        })
+    }
+    pub(crate) fn borrowed(
+        calibration: &crate::glyph::GlyphCalibration,
+        origin_x: f64,
+        origin_y: f64,
+        space_index: u16,
+    ) -> Result<ReferenceAtlas, RenderError> {
+        let width = calibration.mask_width;
+        let height = calibration.mask_height;
+        let count = calibration.glyph_count;
+        if !origin_x.is_finite()
+            || !origin_y.is_finite()
+            || origin_x.abs() > width as f64
+            || origin_y.abs() > height as f64
+            || (space_index != TRANSPARENT_GLYPH_INDEX && space_index >= count)
+        {
+            return Err(RenderError::InvalidInput);
+        }
+        if calibration.masks.capacity() > MAX_ATLAS_BYTES {
+            return Err(RenderError::BudgetExceeded);
+        }
+        Ok(ReferenceAtlas {
+            count,
+            width,
+            height,
+            masks: std::sync::Arc::clone(&calibration.masks),
             origin_x,
             origin_y,
             space_index,
         })
     }
     pub fn storage_bytes(&self) -> usize {
-        self.masks.capacity() + std::mem::size_of::<Self>()
+        self.masks.capacity() + std::mem::size_of::<Self>() + 2 * std::mem::size_of::<usize>()
     }
     pub fn glyph_count(&self) -> u16 {
         self.count

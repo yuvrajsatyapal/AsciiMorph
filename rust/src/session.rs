@@ -7,11 +7,37 @@ use crate::{
         RenderError, MAX_SOURCE_BYTES, MAX_SOURCE_DIMENSION,
     },
     glyph::{DirectionalIndices, GlyphCalibration},
+    reference_characters::{
+        ReferenceAtlas, ReferenceBackdrop, ReferenceCharactersJob, ReferenceCharactersSettings,
+        ReferenceGlyphLayer,
+    },
     source::SourceImage,
 };
 use std::collections::BTreeMap;
+enum NumericJob {
+    Legacy(CharacterJob),
+    Reference {
+        job: ReferenceCharactersJob,
+        origin_x: f64,
+        origin_y: f64,
+        space: u16,
+    },
+}
+impl NumericJob {
+    fn storage_bytes(&self) -> usize {
+        match self {
+            Self::Legacy(j) => j.storage_bytes(),
+            Self::Reference { job, .. } => {
+                job.storage_bytes() + std::mem::size_of::<ReferenceCharactersJob>()
+            }
+        }
+    }
+}
 struct RetainedJob {
-    numeric: Option<CharacterJob>,
+    numeric: Option<NumericJob>,
+    is_profile: bool,
+    frame_columns: u32,
+    frame_rows: u32,
     output: Vec<u8>,
     output_bytes: usize,
     uses_calibration: bool,
@@ -244,10 +270,73 @@ impl RenderSession {
         self.jobs.insert(
             id,
             RetainedJob {
-                numeric: Some(job),
+                numeric: Some(NumericJob::Legacy(job)),
+                is_profile: false,
+                frame_columns: 0,
+                frame_rows: 0,
                 output: Vec::new(),
                 output_bytes,
                 uses_calibration,
+            },
+        );
+        Ok(id)
+    }
+    pub fn begin_characters_staged(&mut self, ptr: usize, len: usize) -> Result<u32, RenderError> {
+        let (settings, count, x, y, space) = decode_reference_settings(self.staged(ptr, len)?)?;
+        if self.jobs.len() >= 2 || self.next_job == u32::MAX {
+            return Err(RenderError::InvalidInput);
+        }
+        let source = self.source.as_ref().ok_or(RenderError::MissingSource)?;
+        let calibration = self
+            .calibration
+            .as_ref()
+            .ok_or(RenderError::MissingCalibration)?;
+        if calibration.glyph_count() != count {
+            return Err(RenderError::MissingCalibration);
+        }
+        let atlas = ReferenceAtlas::borrowed(calibration, x, y, space)?;
+        // Borrowed masks are charged once through the retained calibration. All other
+        // jobs, outputs and stages are included before any frame/grid allocation.
+        let cols = (settings.frame_width as f64 / settings.cell_width()).floor() as usize;
+        let rows = (settings.frame_height as f64 / settings.cell_height()).floor() as usize;
+        let output_bytes = 32
+            + settings.frame_width as usize * settings.frame_height as usize * 4
+            + if cols * rows == 0 {
+                0
+            } else {
+                output_len(cols * rows)
+            };
+        let peak = output_bytes.max(
+            self.jobs
+                .values()
+                .map(|j| j.output_bytes)
+                .max()
+                .unwrap_or(0),
+        );
+        // Reserve the larger existing job's next serialization before allocating this
+        // frame, as well as the new job's own serialization included by its constructor.
+        let other = self.storage_bytes() - source.storage_bytes() - calibration.masks.capacity()
+            + std::mem::size_of::<GlyphCalibration>()
+            + peak.saturating_sub(output_bytes);
+        let job = ReferenceCharactersJob::new(source, settings.clone(), &atlas, other)?;
+        self.preflight(job.storage_bytes() + std::mem::size_of::<ReferenceCharactersJob>() + peak)?;
+        let id = self.next_job;
+        self.next_job += 1;
+        self.jobs.insert(
+            id,
+            RetainedJob {
+                numeric: Some(NumericJob::Reference {
+                    job,
+                    origin_x: x,
+                    origin_y: y,
+                    space,
+                }),
+                is_profile: true,
+                frame_columns: cols as u32,
+                frame_rows: rows as u32,
+                output: Vec::new(),
+                output_bytes,
+                uses_calibration: true,
             },
         );
         Ok(id)
@@ -257,25 +346,48 @@ impl RenderSession {
         let Some(job) = j.numeric.as_mut() else {
             return Ok(JobStatus::Complete);
         };
-        let status = job.step(
-            self.source.as_ref().ok_or(RenderError::MissingSource)?,
-            if j.uses_calibration {
-                self.calibration.as_ref()
-            } else {
-                None
-            },
-            work,
-        )?;
+        let source = self.source.as_ref().ok_or(RenderError::MissingSource)?;
+        let status = match job {
+            NumericJob::Legacy(job) => job.step(
+                source,
+                if j.uses_calibration {
+                    self.calibration.as_ref()
+                } else {
+                    None
+                },
+                work,
+            )?,
+            NumericJob::Reference {
+                job,
+                origin_x,
+                origin_y,
+                space,
+            } => {
+                let atlas = ReferenceAtlas::borrowed(
+                    self.calibration
+                        .as_ref()
+                        .ok_or(RenderError::MissingCalibration)?,
+                    *origin_x,
+                    *origin_y,
+                    *space,
+                )?;
+                job.step(source, &atlas, work)?
+            }
+        };
         if status == JobStatus::Complete {
-            let bytes = j.output_bytes;
-            self.preflight(bytes)?;
+            let output_bytes = j.output_bytes;
+            self.preflight(output_bytes)?;
             let j = self.jobs.get_mut(&id).ok_or(RenderError::InvalidInput)?;
-            let grid = j
-                .numeric
-                .as_mut()
-                .and_then(|j| j.take_grid())
-                .ok_or(RenderError::InvalidInput)?;
-            j.output = serialize(&grid);
+            j.output = match j.numeric.as_mut().ok_or(RenderError::InvalidInput)? {
+                NumericJob::Legacy(job) => {
+                    serialize(&job.take_grid().ok_or(RenderError::InvalidInput)?)
+                }
+                NumericJob::Reference { job, .. } => serialize_frame(
+                    &job.take_glyph_layer().ok_or(RenderError::InvalidInput)?,
+                    j.frame_columns,
+                    j.frame_rows,
+                ),
+            };
             j.numeric = None;
         }
         Ok(status)
@@ -283,12 +395,21 @@ impl RenderSession {
     pub fn output(&self, id: u32) -> Result<&[u8], RenderError> {
         self.jobs
             .get(&id)
-            .filter(|j| j.numeric.is_none())
+            .filter(|j| j.numeric.is_none() && !j.is_profile)
+            .map(|j| j.output.as_slice())
+            .ok_or(RenderError::InvalidInput)
+    }
+    pub fn frame_output(&self, id: u32) -> Result<&[u8], RenderError> {
+        self.jobs
+            .get(&id)
+            .filter(|j| j.numeric.is_none() && j.is_profile)
             .map(|j| j.output.as_slice())
             .ok_or(RenderError::InvalidInput)
     }
     pub fn release(&mut self, id: u32) -> Result<(), RenderError> {
-        self.output(id)?;
+        if self.jobs.get(&id).is_none_or(|j| j.numeric.is_some()) {
+            return Err(RenderError::InvalidInput);
+        }
         self.jobs.remove(&id);
         Ok(())
     }
@@ -311,6 +432,14 @@ fn serialize(g: &GlyphGrid) -> Vec<u8> {
     let bg = fg + n * 4;
     let alpha = bg + n * 4;
     let mut b = vec![0; alpha + n * 4];
+    write_grid(g, &mut b);
+    b
+}
+fn write_grid(g: &GlyphGrid, b: &mut [u8]) {
+    let n = g.glyph_indices.len();
+    let fg = align4(32 + n * 2);
+    let bg = fg + n * 4;
+    let alpha = bg + n * 4;
     let total = b.len() as u32;
     for (i, v) in [
         1,
@@ -335,7 +464,6 @@ fn serialize(g: &GlyphGrid) -> Vec<u8> {
     for (i, v) in g.alpha.iter().enumerate() {
         b[alpha + i * 4..alpha + i * 4 + 4].copy_from_slice(&v.to_le_bytes())
     }
-    b
 }
 fn u32_at(b: &[u8], at: usize) -> Result<u32, RenderError> {
     let v = b.get(at..at + 4).ok_or(RenderError::InvalidInput)?;
@@ -415,4 +543,78 @@ pub fn decode_settings(b: &[u8]) -> Result<CharacterSettings, RenderError> {
     };
     s.validate()?;
     Ok(s)
+}
+
+/// Profile v1 is a separate 112-byte block; no legacy flags are reinterpreted.
+pub fn decode_reference_settings(
+    b: &[u8],
+) -> Result<(ReferenceCharactersSettings, u16, f64, f64, u16), RenderError> {
+    if b.len() != 112 {
+        return Err(RenderError::InvalidInput);
+    }
+    if u32_at(b, 0)? != 1 {
+        return Err(RenderError::UnsupportedVersion);
+    }
+    let count = u32_at(b, 16)?;
+    let space = u32_at(b, 28)?;
+    if !(2..=256).contains(&count) || (space != 65535 && space >= count) || u32_at(b, 24)? != 0 {
+        return Err(RenderError::InvalidInput);
+    }
+    let f = |i: usize| f64::from_le_bytes(b[32 + i * 8..40 + i * 8].try_into().unwrap());
+    if (0..10).any(|i| !f(i).is_finite()) || f(1).fract() != 0. || !(1. ..=4.).contains(&f(1)) {
+        return Err(RenderError::InvalidInput);
+    }
+    let settings = ReferenceCharactersSettings {
+        version: 1,
+        frame_width: u32_at(b, 4)?,
+        frame_height: u32_at(b, 8)?,
+        rotation: u16::try_from(u32_at(b, 12)?).map_err(|_| RenderError::InvalidInput)?,
+        font_size: f(0),
+        render_scale: f(1) as u8,
+        brightness: f(2),
+        contrast: f(3),
+        crop: Crop {
+            x: f(4),
+            y: f(5),
+            width: f(6),
+            height: f(7),
+        },
+        backdrop: match u32_at(b, 20)? {
+            0 => ReferenceBackdrop::None,
+            1 => ReferenceBackdrop::Solid,
+            2 => ReferenceBackdrop::Blur,
+            _ => return Err(RenderError::InvalidInput),
+        },
+    };
+    settings.validate()?;
+    Ok((settings, count as u16, f(8), f(9), space as u16))
+}
+fn serialize_frame(f: &ReferenceGlyphLayer, cols: u32, rows: u32) -> Vec<u8> {
+    let grid_len = f
+        .grid
+        .as_ref()
+        .map_or(0, |g| output_len(g.glyph_indices.len()));
+    let grid_offset = if grid_len > 0 { 32 + f.rgba.len() } else { 0 };
+    let mut b = vec![0; 32 + f.rgba.len() + grid_len];
+    let total = b.len() as u32;
+    for (i, v) in [
+        1,
+        f.width,
+        f.height,
+        cols,
+        rows,
+        32,
+        grid_offset as u32,
+        total,
+    ]
+    .iter()
+    .enumerate()
+    {
+        b[i * 4..i * 4 + 4].copy_from_slice(&v.to_le_bytes());
+    }
+    b[32..32 + f.rgba.len()].copy_from_slice(&f.rgba);
+    if let Some(grid) = &f.grid {
+        write_grid(grid, &mut b[grid_offset..]);
+    }
+    b
 }

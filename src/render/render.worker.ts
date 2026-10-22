@@ -1,10 +1,12 @@
 /// <reference lib="webworker" />
 import { createCharacterEngine } from "./wasm-character";
 import { createWorkerRuntime } from "./worker-runtime";
+import { createMessageChannelScheduler } from "./worker-macrotask";
 import { RenderError } from "./protocol";
 
 const scope = self as DedicatedWorkerGlobalScope;
 const runtime = createWorkerRuntime({
+  scheduler: createMessageChannelScheduler(),
   async createEngine(memoryBudgetBytes) {
     try {
       const response = await fetch("/wasm/asciimorph_engine.wasm");
