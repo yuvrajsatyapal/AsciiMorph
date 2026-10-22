@@ -55,3 +55,11 @@ Production `/app` controller/UI implementation follows this checkpoint. Full web
 The pure production controller now owns validated Characters edits, separate monotonic request revisions, grouped current-source undo/redo, view-only zoom/panels/compare and captured asynchronous result guards. Source replacement preserves the old project/frame until success. Review found a failed-replacement preview recovery bug; four regressions and a scoped re-review verified the fix. Both spec and quality now pass with no open findings.
 
 All36 focused controller tests, TypeScript, scoped lint and the final production build pass. Real decoding/upload rollback, React lifetimes, actual frame painting, encoding and the `/app` route are later shell tasks; injected state tests do not establish production browser acceptance. The separate final Characters integration review also accepted the combined renderer milestone without new actionable findings.
+
+## Full-source loading and replacement — 2026-10-22
+
+The new still decoder preserves original image dimensions, with signature checks, explicit source/pipeline limits and cleanup on cancellation or failure. A serialized source transaction uses explicit candidate acceptance and reset-before-restore rollback, including acknowledged-but-obsolete uploads and same-identity transport caching. The controller keeps the accepted project/frame until replacement succeeds. The original botanical and26 icons are copied with audited hash provenance.
+
+Independent review found one disposal failure retaining committed pixels. The fix releases local backing even when external reset rejects, preserving the observable cleanup error; scoped re-review passed spec and quality with no open findings. Initial73 focused tests passed; after the fix,48 affected transaction/controller tests passed, with26 decoder tests unchanged. TypeScript, scoped lint and final production build pass.
+
+The actual runtime bridge still must implement service reset/recreation and atlas-generation invalidation, account held frame bytes, and connect accepted Rust frames to React. Browser decoder/production-route acceptance remains pending. Captured atlas ownership is the next integration task before the real Studio lifecycle; full website parity remains open.

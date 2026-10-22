@@ -1,5 +1,8 @@
 import { initialCatalogRegistry } from "@/render/catalog/initial-schemas";
-import type { SourceRef } from "@/render/character-contract";
+import type {
+  SourceCandidate,
+  StudioSourceAdapter,
+} from "@/render/media/source-transaction";
 import {
   validateRenderProject,
   type ParameterValue,
@@ -54,22 +57,12 @@ export type StudioSnapshot = Readonly<{
   frame: Readonly<PaintedIdentity> | null;
 }>;
 
-/** Adapters own all browser/service resources. Source results mean decode AND
- * upload have been accepted. The source adapter must serialize noncancellable
- * work and roll back obsolete uploads before resolving the next accepted commit.
- * The renderer prepares the actual atlas/binding, then renders through Rust;
- * preview must not paint before the controller accepts the returned identity.
- * No resource or pixel buffer enters this controller's snapshots/history. */
+/** Adapters own browser/service resources. An uploaded source candidate requires
+ * synchronous acceptance after controller validation; rollback must settle before
+ * any surviving-source preview. The renderer returns identities before paint.
+ * No resource or pixel buffer enters snapshots/history. */
 export interface StudioAdapters {
-  source?: {
-    loadFile(
-      file: File,
-      signal: AbortSignal,
-    ): Promise<{ source: SourceRef; projectId: string }>;
-    loadOwnedDefault(
-      signal: AbortSignal,
-    ): Promise<{ source: SourceRef; projectId: string }>;
-  };
+  source?: StudioSourceAdapter;
   renderer?: {
     prepare(
       request: StudioRequest,
@@ -249,7 +242,12 @@ export function createStudioController(
     return freeze({ project, revision, jobId: ++jobId, generation });
   }
   async function retryRenderer(): Promise<boolean> {
-    if (!alive() || loading) return false;
+    if (
+      !alive() ||
+      loading ||
+      (adapters.source && !adapters.source.isReady(project.source))
+    )
+      return false;
     previewAbort?.abort();
     const abort = new AbortController();
     previewAbort = abort;
@@ -343,12 +341,16 @@ export function createStudioController(
     publish();
     const current = () =>
       alive() && sourceAbort === abort && !abort.signal.aborted;
+    let candidate: SourceCandidate | undefined;
     try {
-      const accepted =
+      const accepted = (candidate =
         kind === "file"
           ? await adapters.source.loadFile(file!, abort.signal)
-          : await adapters.source.loadOwnedDefault(abort.signal);
-      if (!current()) return false;
+          : await adapters.source.loadOwnedDefault(abort.signal));
+      if (!current()) {
+        await accepted.rollback();
+        return false;
+      }
       if (accepted.projectId === project.id)
         throw new Error("Source replacement requires a fresh project identity");
       const next = validate({
@@ -358,6 +360,8 @@ export function createStudioController(
         crop: { x: 0, y: 0, width: 1, height: 1 },
         rotation: 0,
       });
+      if (!accepted.accept())
+        throw new Error("Source candidate is no longer current");
       project = next;
       undoStack = [];
       redoStack = [];
@@ -370,6 +374,13 @@ export function createStudioController(
       changed();
       return true;
     } catch (reason) {
+      if (candidate) {
+        try {
+          await candidate.rollback();
+        } catch (failure) {
+          reason = failure;
+        }
+      }
       if (current()) {
         loading = false;
         sourceAbort = undefined;
@@ -384,7 +395,13 @@ export function createStudioController(
     }
   }
   async function exportStill(settings: StillExportOptions): Promise<boolean> {
-    if (!alive() || loading || exportStatus === "exporting") return false;
+    if (
+      !alive() ||
+      loading ||
+      exportStatus === "exporting" ||
+      (adapters.source && !adapters.source.isReady(project.source))
+    )
+      return false;
     const abort = new AbortController();
     exportAbort = abort;
     const request = capture();

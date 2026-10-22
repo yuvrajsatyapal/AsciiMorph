@@ -10,7 +10,12 @@ import {
 
 const source = { id: "source-1", revision: 1, width: 100, height: 80 };
 const replacement = { id: "source-2", revision: 1, width: 60, height: 40 };
-const accepted = { source: replacement, projectId: "project-2" };
+const accepted = {
+  source: replacement,
+  projectId: "project-2",
+  accept: () => true,
+  rollback: async () => {},
+};
 function deferred<T>() {
   let resolve!: (value: T) => void;
   let reject!: (error: Error) => void;
@@ -231,6 +236,7 @@ describe("typed source and render adapters", () => {
     const pending = deferred<typeof accepted>();
     const c = loaded({
       source: {
+        isReady: () => true,
         loadFile: () => pending.promise,
         loadOwnedDefault: async () => accepted,
       },
@@ -262,6 +268,7 @@ describe("typed source and render adapters", () => {
     const c = loaded({
       renderer: renderer(),
       source: {
+        isReady: () => true,
         loadFile: async () => {
           throw new Error("Upload rejected");
         },
@@ -295,6 +302,7 @@ describe("typed source and render adapters", () => {
         },
       },
       source: {
+        isReady: () => true,
         loadFile: () => pendingSource.promise,
         loadOwnedDefault: async () => accepted,
       },
@@ -343,6 +351,7 @@ describe("typed source and render adapters", () => {
         },
       },
       source: {
+        isReady: () => true,
         loadFile: () => pendingSource.promise,
         loadOwnedDefault: async () => accepted,
       },
@@ -376,6 +385,7 @@ describe("typed source and render adapters", () => {
     const c = loaded({
       renderer: { ...renderer(), preview },
       source: {
+        isReady: () => true,
         loadFile: () => (++calls === 1 ? obsolete.promise : newest.promise),
         loadOwnedDefault: async () => accepted,
       },
@@ -405,6 +415,7 @@ describe("typed source and render adapters", () => {
     const c = loaded({
       renderer: { ...renderer(), preview },
       source: {
+        isReady: () => true,
         loadFile: () => pendingSource.promise,
         loadOwnedDefault: async () => accepted,
       },
@@ -473,6 +484,7 @@ describe("typed source and render adapters", () => {
     const dispose = vi.fn();
     const c = loaded({
       source: {
+        isReady: () => true,
         loadFile: () => pending.promise,
         loadOwnedDefault: () => pending.promise,
       },
@@ -566,6 +578,7 @@ describe("typed source and render adapters", () => {
     let calls = 0;
     const c = loaded({
       source: {
+        isReady: () => true,
         loadFile: () => (++calls === 1 ? first.promise : second.promise),
         loadOwnedDefault: async () => accepted,
       },
@@ -574,7 +587,7 @@ describe("typed source and render adapters", () => {
     const recent = c.loadFile(new File([], "new.png"));
     second.resolve(accepted);
     expect(await recent).toBe(true);
-    first.resolve({ source, projectId: "obsolete-project" });
+    first.resolve({ ...accepted, source, projectId: "obsolete-project" });
     expect(await old).toBe(false);
     expect(c.getSnapshot().project.id).toBe("project-2");
     expect(c.getSnapshot().project.source).toEqual(replacement);
@@ -618,6 +631,7 @@ describe("captured still-export transitions", () => {
         return pending.promise;
       },
       source: {
+        isReady: () => true,
         loadFile: async () => accepted,
         loadOwnedDefault: async () => accepted,
       },

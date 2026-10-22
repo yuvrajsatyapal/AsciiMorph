@@ -1,0 +1,143 @@
+{
+  "source": ".planning/design/screens/ascii-magic-rebuild/assets/generate-assets.py",
+  "generator_note": "Generate original reconstruction-demo assets; no external input or dependencies.",
+  "provenance": "Original approved design drawings; no competitor artwork or font assets copied.",
+  "trusted_default": "/studio/botanical.svg; arbitrary user SVG remains rejected.",
+  "assets": [
+    {
+      "path": "public/studio/icons/account.svg",
+      "bytes": 231,
+      "sha256": "c41566857050fd22558ab4baddc979822867826260eaad8bb39e6a8e3f2e675f"
+    },
+    {
+      "path": "public/studio/botanical.svg",
+      "bytes": 47982,
+      "sha256": "29e1365a0d85a81e851003db62b24a30057ef5d101bd916239c501761dd494a9"
+    },
+    {
+      "path": "public/studio/icons/close.svg",
+      "bytes": 193,
+      "sha256": "d8b749c1a31a2ecb10f1ed46ecfa72488b645f574471b970a17f65599556854e"
+    },
+    {
+      "path": "public/studio/icons/collapse.svg",
+      "bytes": 186,
+      "sha256": "378e6609120619d1d60a971e05946ab604d6a4dd9f9c2db2c7299af4a5d4d453"
+    },
+    {
+      "path": "public/studio/icons/color.svg",
+      "bytes": 217,
+      "sha256": "b0d65c054a8d84a1aa9472d9b980ba2ef95649d8027dccadb294e0f50f88dfae"
+    },
+    {
+      "path": "public/studio/icons/compare.svg",
+      "bytes": 193,
+      "sha256": "9a8dd897e6af98294d0e78918ee2e44593c017f691d72f07a47a24f312473060"
+    },
+    {
+      "path": "public/studio/icons/crop.svg",
+      "bytes": 193,
+      "sha256": "c69d8be0c145f055db57b3536cb71749bba193d61da3a0606b5a4080cfa50514"
+    },
+    {
+      "path": "public/studio/icons/expand.svg",
+      "bytes": 207,
+      "sha256": "e95652baa7e793ff0ed1b6ff53ae75d7aefdc09a4a8de75bbb39dc74caf40e40"
+    },
+    {
+      "path": "public/studio/icons/export.svg",
+      "bytes": 202,
+      "sha256": "0563ca7855e445675107332f761185687fdd0295d7897b82a50acf7001733b13"
+    },
+    {
+      "path": "public/studio/icons/help.svg",
+      "bytes": 210,
+      "sha256": "c4f50eb8ee9f63a25b1fcf0dc91c585fc3a39a8faf01601a12df6a25f7c844ba"
+    },
+    {
+      "path": "public/studio/icons/inspire.svg",
+      "bytes": 241,
+      "sha256": "d31923f272747818231850ed916d83700bcccf0a4e63a1ef504a3d8d7a707c4f"
+    },
+    {
+      "path": "public/studio/icons/layers.svg",
+      "bytes": 207,
+      "sha256": "fa5334c78a28c4f9866132b9e2b72baf5c814692c06c6d8a14240bcceea51457"
+    },
+    {
+      "path": "public/studio/icons/library.svg",
+      "bytes": 222,
+      "sha256": "e8bc2e58a72823d9f93fe93cddeb1e1b1cc8eb73d4544942c4ccd1ae38de9890"
+    },
+    {
+      "path": "public/studio/icons/lights.svg",
+      "bytes": 273,
+      "sha256": "5237e72b1658116b2ff5ef61476a5a428e844b0002063d873f5a18d8cc81b8d2"
+    },
+    {
+      "path": "public/studio/icons/mask.svg",
+      "bytes": 196,
+      "sha256": "50db7a2d53aa755b485fcaa8fc781e67a207f6a6978d0937dce819853a823e44"
+    },
+    {
+      "path": "public/studio/icons/menu.svg",
+      "bytes": 196,
+      "sha256": "75a538197c2c7ea9f18cacc9bb4e704c0b10d3e796adaf58578b8dd260729412"
+    },
+    {
+      "path": "public/studio/icons/minus.svg",
+      "bytes": 181,
+      "sha256": "56addf3be50fa9242ad9ef219cc586c8a08d2a795e0cf7922b687e618d75cc3d"
+    },
+    {
+      "path": "public/studio/icons/play.svg",
+      "bytes": 188,
+      "sha256": "25224eb5f3d8a3615b0dc8d11bba1385fc44c448369a46daf5f39f5bf1268374"
+    },
+    {
+      "path": "public/studio/icons/plus.svg",
+      "bytes": 189,
+      "sha256": "574384a5567422063bcccb362f0082f6867733faebeb97f4e0a4205637f287e4"
+    },
+    {
+      "path": "public/studio/icons/redo.svg",
+      "bytes": 208,
+      "sha256": "9f23a6242f80e8b1faf14fd857ade4d072a124871564c77b4e3bb66ad34eccfc"
+    },
+    {
+      "path": "public/studio/icons/restyle.svg",
+      "bytes": 242,
+      "sha256": "6062e8e396f4c02f26120ebaf3cc6e70a0271e3c8751aa63c8adf3b11ecfc391"
+    },
+    {
+      "path": "public/studio/icons/search.svg",
+      "bytes": 217,
+      "sha256": "63b6e2cbb8f08ede5015d8c808a348366c9f97ecaa7c4215762e9d07d15ee1d2"
+    },
+    {
+      "path": "public/studio/icons/shuffle.svg",
+      "bytes": 227,
+      "sha256": "1f69ad3f2cc0494b34f44e0ef3d93e8254bb66c38ddad52185022e870b25f160"
+    },
+    {
+      "path": "public/studio/icons/star.svg",
+      "bytes": 215,
+      "sha256": "62a44eca21b4c4075635a1832557fb93473a79078d276c6dafcc33e11b05aacb"
+    },
+    {
+      "path": "public/studio/icons/text.svg",
+      "bytes": 195,
+      "sha256": "588eaf3b143f42064d5a9fc6373266e94bfb524c158c856f964df266be79e2e1"
+    },
+    {
+      "path": "public/studio/icons/undo.svg",
+      "bytes": 209,
+      "sha256": "471c7a8075581c2671cfb9aa19b9a738a6bbbafc34edf3ca1da96042d5f68945"
+    },
+    {
+      "path": "public/studio/icons/upload.svg",
+      "bytes": 207,
+      "sha256": "611ebc39d1c89e36f07313a98bb2fb303c31bbb58e1c1dee3979248213380292"
+    }
+  ]
+}
