@@ -178,7 +178,7 @@ impl ReferenceAtlas {
     pub fn glyph_count(&self) -> u16 {
         self.count
     }
-    fn identity(&self) -> (usize, u16, u16, u16, u64, u64, u16) {
+    pub(crate) fn identity(&self) -> (usize, u16, u16, u16, u64, u64, u16) {
         (
             self.masks.as_ptr() as usize,
             self.count,
@@ -241,7 +241,7 @@ impl ReferenceGlyphLayer {
     }
 }
 #[derive(Debug, Clone, Copy)]
-struct Geometry {
+pub(crate) struct Geometry {
     x: usize,
     y: usize,
     crop_width: usize,
@@ -249,7 +249,7 @@ struct Geometry {
     width: usize,
     height: usize,
 }
-fn geometry(
+pub(crate) fn geometry(
     source: &SourceImage,
     s: &ReferenceCharactersSettings,
 ) -> Result<Geometry, RenderError> {
@@ -282,6 +282,24 @@ fn geometry(
         width,
         height,
     })
+}
+impl Geometry {
+    pub(crate) fn pixel(&self, source: &SourceImage, rotation: u16, x: usize, y: usize) -> [u8; 4] {
+        let (x, y) = (x.min(self.width - 1), y.min(self.height - 1));
+        let (sx, sy) = match rotation {
+            90 => (y, self.crop_height - 1 - x),
+            180 => (self.crop_width - 1 - x, self.crop_height - 1 - y),
+            270 => (self.crop_width - 1 - y, x),
+            _ => (x, y),
+        };
+        let offset = ((self.y + sy) * source.width() as usize + self.x + sx) * 4;
+        source.rgba()[offset..offset + 4]
+            .try_into()
+            .expect("validated source extent")
+    }
+    pub(crate) fn extent(&self) -> (usize, usize) {
+        (self.width, self.height)
+    }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Stage {
@@ -482,17 +500,9 @@ impl ReferenceCharactersJob {
             .min(self.g.width - 1);
         let y = (((row as f64 + 0.5) * self.settings.cell_height() / scale).floor() as usize)
             .min(self.g.height - 1);
-        let (sx, sy) = match self.settings.rotation {
-            90 => (y, self.g.crop_height - 1 - x),
-            180 => (self.g.crop_width - 1 - x, self.g.crop_height - 1 - y),
-            270 => (self.g.crop_width - 1 - y, x),
-            _ => (x, y),
-        };
-        let offset = ((self.g.y + sy) * source.width() as usize + self.g.x + sx) * 4;
-        source.rgba()[offset..offset + 4]
-            .try_into()
-            .expect("validated source extent")
+        self.g.pixel(source, self.settings.rotation, x, y)
     }
+
     fn probe(&mut self, source: &SourceImage) {
         let p = self.pixel(source, self.probe_x, self.probe_y);
         if p[3] > 0 {
@@ -614,7 +624,7 @@ impl ReferenceCharactersJob {
 fn luma(p: [u8; 4]) -> f64 {
     0.299 * p[0] as f64 + 0.587 * p[1] as f64 + 0.114 * p[2] as f64
 }
-fn source_identity(s: &SourceImage) -> (usize, u32, u32, usize, usize) {
+pub(crate) fn source_identity(s: &SourceImage) -> (usize, u32, u32, usize, usize) {
     (
         s.rgba().as_ptr() as usize,
         s.width(),

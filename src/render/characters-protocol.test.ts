@@ -132,3 +132,20 @@ it("profile result uses a distinct frame discriminant with structural closed val
     }),
   ).toThrow();
 });
+it("complete context readiness is closed, versioned and separate from glyph-only readiness", () => {
+  const base = { version: 1, requestId: "ready", type: "ready" };
+  for (const ready of [
+    base,
+    { ...base, charactersProfileVersion: 1, charactersContextVersion: null },
+    { ...base, charactersProfileVersion: 1, charactersContextVersion: 1 },
+  ])
+    expect(validateWorkerResponse(ready)).toBe(ready);
+  for (const bad of [
+    { ...base, charactersContextVersion: 1 },
+    { ...base, charactersProfileVersion: null, charactersContextVersion: 1 },
+    { ...base, charactersProfileVersion: 1, charactersContextVersion: 2 },
+    { ...base, charactersProfileVersion: 1, charactersContextVersion: true },
+    { ...base, charactersContextVersion: null, unknown: true },
+  ])
+    expect(() => validateWorkerResponse(bad)).toThrow();
+});

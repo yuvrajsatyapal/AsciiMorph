@@ -114,6 +114,7 @@ function harness(
   let next = 0;
   const engine: CharacterEngine = {
     charactersProfileAvailable: true,
+    charactersContextVersion: 1,
     setAtlas: vi.fn(),
     beginCharacters: vi.fn(),
     takeFrame: vi.fn(),

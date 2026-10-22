@@ -156,7 +156,17 @@ fn nullable_grid_and_actual_extents_origin_source_geometry() {
     for kind in [1u32, 2] {
         let mut b = cfg(1, 1, 65535);
         b[20..24].copy_from_slice(&kind.to_le_bytes());
-        assert!(begin(&mut s, &b).is_err());
+        let id = begin(&mut s, &b).unwrap();
+        let out = finish(&mut s, id);
+        assert_eq!(
+            &out[32..],
+            if kind == 1 {
+                &[0, 0, 0, 255]
+            } else {
+                &[0, 0, 0, 128]
+            }
+        );
+        s.release(id).unwrap();
     }
 }
 #[test]
@@ -192,15 +202,13 @@ fn retained_borrowed_atlas_aggregate_jobs_rollback_and_invalidation() {
     assert!(s.step(a, 1).is_err());
 }
 #[test]
-fn serialization_preflight_can_retry_after_stage_released() {
+fn stage_admission_cannot_consume_active_profile_serialization_headroom() {
     let mut s = RenderSession::new(4000).unwrap();
     upload(&mut s, 1, &src(5, 3)).unwrap();
     upload(&mut s, 2, &atlas(2, 1, 1)).unwrap();
     let id = begin(&mut s, &cfg(5, 3, 65535)).unwrap();
     let free = 4000 - s.storage_bytes();
-    let p = s.stage(free - 1).unwrap();
-    assert_eq!(s.step(id, 10000), Err(RenderError::BudgetExceeded));
-    s.unstage(p).unwrap();
+    assert_eq!(s.stage(free - 1), Err(RenderError::BudgetExceeded));
     let out = finish(&mut s, id);
     assert_eq!(out.len(), 152);
     s.release(id).unwrap();
@@ -278,4 +286,24 @@ fn cropped_rotated_scale_two_has_independent_flat_probe_bytes() {
     );
     assert!(out[32..176].iter().all(|v| *v == 0));
     assert_eq!(u16::from_le_bytes(out[208..210].try_into().unwrap()), 65535);
+}
+
+#[test]
+fn complete_context_reserves_all_active_future_scratch_before_begin() {
+    let mut s = RenderSession::new(18000).unwrap();
+    upload(&mut s, 1, &src(16, 16)).unwrap();
+    upload(&mut s, 2, &atlas(2, 1, 1)).unwrap();
+    let mut b = cfg(16, 16, 65535);
+    b[20..24].copy_from_slice(&2u32.to_le_bytes());
+    let base = s.storage_bytes();
+    let id = begin(&mut s, &b).unwrap();
+    let one = s.storage_bytes();
+    assert_eq!(begin(&mut s, &b), Err(RenderError::BudgetExceeded));
+    assert_eq!(s.storage_bytes(), one);
+    finish(&mut s, id);
+    s.release(id).unwrap();
+    assert_eq!(s.storage_bytes(), base);
+    let id = begin(&mut s, &b).unwrap();
+    s.cancel(id).unwrap();
+    assert_eq!(s.storage_bytes(), base);
 }

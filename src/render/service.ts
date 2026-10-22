@@ -42,6 +42,8 @@ export type RenderServiceState =
   | "disposed";
 export interface RenderService {
   readonly state: RenderServiceState;
+  readonly charactersProfileVersion: 1 | null;
+  readonly charactersContextVersion: 1 | null;
   initialize(): Promise<void>;
   setSource(source: SourceUpload): Promise<void>;
   setCalibration(calibration: GlyphCalibrationV1): Promise<void>;
@@ -100,6 +102,8 @@ export function createRenderService(
         type: "module",
       }));
   let state: RenderServiceState = "idle";
+  let charactersProfileVersion: 1 | null = null;
+  let charactersContextVersion: 1 | null = null;
   let connection: Connection | undefined;
   let initialization: Promise<void> | undefined;
   let inputQueue: Promise<void> = Promise.resolve();
@@ -375,6 +379,8 @@ export function createRenderService(
     // Assign before any asynchronous boundary; all concurrent callers share one attempt.
     const attempt = async () => {
       state = "initializing";
+      charactersProfileVersion = null;
+      charactersContextVersion = null;
       try {
         validateWorkerRequest({
           ...envelope(),
@@ -396,7 +402,15 @@ export function createRenderService(
         worker.addEventListener("message", current.message);
         worker.addEventListener("error", current.failure);
         worker.addEventListener("messageerror", current.failure);
-        await send({ ...envelope(), type: "initialize", memoryBudgetBytes });
+        const ready = await send({
+          ...envelope(),
+          type: "initialize",
+          memoryBudgetBytes,
+        });
+        if (ready.type !== "ready")
+          throw new RenderError("WorkerFailure", "Worker did not initialize");
+        charactersProfileVersion = ready.charactersProfileVersion ?? null;
+        charactersContextVersion = ready.charactersContextVersion ?? null;
         alive();
         if (retainedSource) await uploadSource(retainedSource);
         if (retainedAtlas) await uploadAtlas(retainedAtlas);
@@ -506,6 +520,11 @@ export function createRenderService(
         cause instanceof Error ? cause.message : "Invalid Characters settings",
       );
     }
+    if (message.settings.backdrop !== "none" && charactersContextVersion !== 1)
+      throw new RenderError(
+        "CapabilityUnavailable",
+        "Complete Characters context version1 is unavailable",
+      );
     const response = await send(message, [], signal);
     if (response.type !== "charactersResult")
       throw new RenderError(
@@ -520,6 +539,12 @@ export function createRenderService(
     };
   }
   return {
+    get charactersProfileVersion() {
+      return state === "ready" ? charactersProfileVersion : null;
+    },
+    get charactersContextVersion() {
+      return state === "ready" ? charactersContextVersion : null;
+    },
     get state() {
       return state;
     },

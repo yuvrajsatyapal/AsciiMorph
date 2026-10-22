@@ -184,9 +184,10 @@ fn aggregate_jobs_and_serialization_peak_are_preflighted() {
     let a = s.begin(cfg.clone()).unwrap();
     let b = s.begin(cfg).unwrap();
     assert_eq!(s.storage_bytes(), 480); // retained source + two jobs
-    let p = s.stage(300).unwrap(); // staging may consume serialization headroom
-    assert!(s.step(a, 10000).is_err());
-    assert_eq!(s.storage_bytes(), 780);
+    assert_eq!(s.stage(300), Err(RenderError::BudgetExceeded)); // future serialization stays reserved
+    let p = s.stage(224).unwrap();
+    assert_eq!(s.step(a, 10000).unwrap(), JobStatus::Complete);
+    assert_eq!(s.storage_bytes(), 514); // source + serialized a + numeric b + stage
     s.unstage(p).unwrap();
     assert_eq!(s.step(a, 1).unwrap(), JobStatus::Complete);
     assert_eq!(s.step(b, 10000).unwrap(), JobStatus::Complete);

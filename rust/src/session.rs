@@ -6,18 +6,16 @@ use crate::{
         CharacterJob, CharacterSettings, ColorMode, Crop, Dither, GlyphGrid, JobStatus, Mapping,
         RenderError, MAX_SOURCE_BYTES, MAX_SOURCE_DIMENSION,
     },
+    character_backdrop::{CompleteCharactersJob, ReferenceCharactersFrame},
     glyph::{DirectionalIndices, GlyphCalibration},
-    reference_characters::{
-        ReferenceAtlas, ReferenceBackdrop, ReferenceCharactersJob, ReferenceCharactersSettings,
-        ReferenceGlyphLayer,
-    },
+    reference_characters::{ReferenceAtlas, ReferenceBackdrop, ReferenceCharactersSettings},
     source::SourceImage,
 };
 use std::collections::BTreeMap;
 enum NumericJob {
     Legacy(CharacterJob),
     Reference {
-        job: ReferenceCharactersJob,
+        job: CompleteCharactersJob,
         origin_x: f64,
         origin_y: f64,
         space: u16,
@@ -28,7 +26,7 @@ impl NumericJob {
         match self {
             Self::Legacy(j) => j.storage_bytes(),
             Self::Reference { job, .. } => {
-                job.storage_bytes() + std::mem::size_of::<ReferenceCharactersJob>()
+                job.storage_bytes() + std::mem::size_of::<CompleteCharactersJob>()
             }
         }
     }
@@ -41,6 +39,7 @@ struct RetainedJob {
     output: Vec<u8>,
     output_bytes: usize,
     uses_calibration: bool,
+    reserved_bytes: usize,
 }
 pub struct RenderSession {
     budget: usize,
@@ -77,9 +76,23 @@ impl RenderSession {
                 .map(|j| j.numeric.as_ref().map_or(0, |v| v.storage_bytes()) + j.output.capacity())
                 .sum::<usize>()
     }
+    // Active reservations include future allocations, not just today's live scratch.
+    // A stage/upload/second job cannot borrow another job's eventual peak.
+    fn admission_bytes(&self) -> usize {
+        self.storage_bytes()
+            + self
+                .jobs
+                .values()
+                .map(|j| {
+                    let actual =
+                        j.numeric.as_ref().map_or(0, |v| v.storage_bytes()) + j.output.capacity();
+                    j.reserved_bytes.saturating_sub(actual)
+                })
+                .sum::<usize>()
+    }
     fn preflight(&self, extra: usize) -> Result<(), RenderError> {
         if self
-            .storage_bytes()
+            .admission_bytes()
             .checked_add(extra)
             .is_none_or(|n| n > self.budget)
         {
@@ -277,6 +290,7 @@ impl RenderSession {
                 output: Vec::new(),
                 output_bytes,
                 uses_calibration,
+                reserved_bytes: job_bytes + output_bytes,
             },
         );
         Ok(id)
@@ -306,20 +320,18 @@ impl RenderSession {
             } else {
                 output_len(cols * rows)
             };
-        let peak = output_bytes.max(
-            self.jobs
-                .values()
-                .map(|j| j.output_bytes)
-                .max()
-                .unwrap_or(0),
-        );
-        // Reserve the larger existing job's next serialization before allocating this
-        // frame, as well as the new job's own serialization included by its constructor.
-        let other = self.storage_bytes() - source.storage_bytes() - calibration.masks.capacity()
-            + std::mem::size_of::<GlyphCalibration>()
-            + peak.saturating_sub(output_bytes);
-        let job = ReferenceCharactersJob::new(source, settings.clone(), &atlas, other)?;
-        self.preflight(job.storage_bytes() + std::mem::size_of::<ReferenceCharactersJob>() + peak)?;
+        let other = self.admission_bytes() - source.storage_bytes() - calibration.masks.capacity()
+            + std::mem::size_of::<GlyphCalibration>();
+        let peak = CompleteCharactersJob::estimated_peak_bytes(source, &settings, &atlas, other)?;
+        if peak > self.budget {
+            return Err(RenderError::BudgetExceeded);
+        }
+        let reserved_bytes = peak - self.admission_bytes();
+        let job = CompleteCharactersJob::new(source, settings.clone(), &atlas, other)?;
+        let reserved_bytes = reserved_bytes
+            .checked_add(job.capacity_excess_bytes())
+            .ok_or(RenderError::BudgetExceeded)?;
+        self.preflight(reserved_bytes)?;
         let id = self.next_job;
         self.next_job += 1;
         self.jobs.insert(
@@ -337,6 +349,7 @@ impl RenderSession {
                 output: Vec::new(),
                 output_bytes,
                 uses_calibration: true,
+                reserved_bytes,
             },
         );
         Ok(id)
@@ -376,19 +389,31 @@ impl RenderSession {
         };
         if status == JobStatus::Complete {
             let output_bytes = j.output_bytes;
-            self.preflight(output_bytes)?;
+            let actual = j.numeric.as_ref().map_or(0, |v| v.storage_bytes());
+            let extra = actual
+                .checked_add(output_bytes)
+                .ok_or(RenderError::BudgetExceeded)?
+                .saturating_sub(j.reserved_bytes);
+            self.preflight(extra)?;
             let j = self.jobs.get_mut(&id).ok_or(RenderError::InvalidInput)?;
             j.output = match j.numeric.as_mut().ok_or(RenderError::InvalidInput)? {
                 NumericJob::Legacy(job) => {
                     serialize(&job.take_grid().ok_or(RenderError::InvalidInput)?)
                 }
                 NumericJob::Reference { job, .. } => serialize_frame(
-                    &job.take_glyph_layer().ok_or(RenderError::InvalidInput)?,
+                    &job.take_frame().ok_or(RenderError::InvalidInput)?,
                     j.frame_columns,
                     j.frame_rows,
                 ),
             };
             j.numeric = None;
+            j.reserved_bytes = j.output.capacity();
+            // Final vec capacity is checked as well; a failed result is released
+            // without borrowing another live job's reserved future peak.
+            if self.preflight(0).is_err() {
+                self.jobs.remove(&id);
+                return Err(RenderError::BudgetExceeded);
+            }
         }
         Ok(status)
     }
@@ -589,7 +614,7 @@ pub fn decode_reference_settings(
     settings.validate()?;
     Ok((settings, count as u16, f(8), f(9), space as u16))
 }
-fn serialize_frame(f: &ReferenceGlyphLayer, cols: u32, rows: u32) -> Vec<u8> {
+fn serialize_frame(f: &ReferenceCharactersFrame, cols: u32, rows: u32) -> Vec<u8> {
     let grid_len = f
         .grid
         .as_ref()

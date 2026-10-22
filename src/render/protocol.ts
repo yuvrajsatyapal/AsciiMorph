@@ -102,7 +102,12 @@ export type WorkerRequest =
   | Envelope<RenderIdentity & { type: "cancel"; targetRequestId: string }>
   | Envelope<{ type: "dispose" }>;
 export type WorkerResponse =
-  | Envelope<{ type: "ready" | "disposed" }>
+  | Envelope<{
+      type: "ready";
+      charactersProfileVersion?: 1 | null;
+      charactersContextVersion?: 1 | null;
+    }>
+  | Envelope<{ type: "disposed" }>
   | Envelope<{
       type: "accepted";
       operation: "setSource";
@@ -310,6 +315,24 @@ export function validateWorkerResponse(value: unknown): WorkerResponse {
   const base = ["version", "requestId", "type"];
   switch (m.type) {
     case "ready":
+      exact(m, [
+        ...base,
+        ...("charactersProfileVersion" in m
+          ? ["charactersProfileVersion"]
+          : []),
+        ...("charactersContextVersion" in m
+          ? ["charactersContextVersion"]
+          : []),
+      ]);
+      for (const key of [
+        "charactersProfileVersion",
+        "charactersContextVersion",
+      ])
+        if (key in m && m[key] !== null && m[key] !== 1)
+          invalid("Invalid Characters capability version");
+      if (m.charactersContextVersion === 1 && m.charactersProfileVersion !== 1)
+        invalid("Complete context requires profile version1");
+      break;
     case "disposed":
       exact(m, base);
       break;

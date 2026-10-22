@@ -359,7 +359,16 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
         void loading.then(
           () => {
             if (!disposed)
-              options.postMessage({ ...envelope(m.requestId), type: "ready" });
+              options.postMessage({
+                ...envelope(m.requestId),
+                type: "ready",
+                charactersProfileVersion: engine?.charactersProfileAvailable
+                  ? 1
+                  : null,
+                charactersContextVersion: engine?.charactersProfileAvailable
+                  ? (engine.charactersContextVersion ?? null)
+                  : null,
+              });
           },
           (cause) => {
             if (!disposed)
@@ -513,7 +522,8 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
       if (profile(m)) {
         if (
           !engine.charactersProfileAvailable ||
-          m.settings.backdrop !== "none"
+          (m.settings.backdrop !== "none" &&
+            engine.charactersContextVersion !== 1)
         )
           throw new RenderError(
             "CapabilityUnavailable",

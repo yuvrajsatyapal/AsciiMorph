@@ -97,6 +97,7 @@ interface CharacterWasm extends WebAssembly.Exports {
 export type CharacterStepStatus = "pending" | "complete" | "cancelled";
 export interface CharacterEngine {
   readonly charactersProfileAvailable: boolean;
+  readonly charactersContextVersion: 1 | null;
   setAtlas(atlas: ReferenceCharacterAtlasV1): void;
   beginCharacters(settings: ReferenceCharactersSettingsV1): number;
   takeFrame(jobId: number): ReferenceCharactersFrameV1;
@@ -169,6 +170,12 @@ export async function createCharacterEngine(
   const profileAvailable =
     profileNames.every((name) => typeof wasm[name] === "function") &&
     (wasm.render_characters_profile_version as NumericExport)() === 1;
+  const contextVersion =
+    profileAvailable &&
+    typeof wasm.render_characters_context_version === "function" &&
+    (wasm.render_characters_context_version as NumericExport)() === 1
+      ? 1
+      : null;
   type CalibrationIdentity = Pick<
     GlyphCalibrationV1,
     "id" | "cellWidth" | "cellHeight" | "glyphs"
@@ -249,6 +256,7 @@ export async function createCharacterEngine(
   }
   const engine: CharacterEngine = {
     charactersProfileAvailable: profileAvailable,
+    charactersContextVersion: contextVersion,
     setAtlas(input) {
       alive();
       const a = validateInput(input, validateReferenceCharacterAtlas);
@@ -295,7 +303,7 @@ export async function createCharacterEngine(
       const s = validateInput(input, (v) =>
         validateReferenceCharactersSettings(v, source!, budget),
       );
-      if (s.backdrop !== "none")
+      if (s.backdrop !== "none" && contextVersion !== 1)
         throw new CharacterEngineError(
           "CapabilityUnavailable",
           "Characters backdrop composition is unavailable",

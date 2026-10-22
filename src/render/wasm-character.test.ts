@@ -79,7 +79,7 @@ interface Raw {
   render_error(handle: number): number;
 }
 /** Forward every call to the real compiled WASM, recording only uploads. */
-function instrument(omitted: string[] = []) {
+function instrument(omitted: string[] = [], contextVersion?: number) {
   const instantiate = WebAssembly.instantiate.bind(WebAssembly);
   const uploads: number[] = [];
   let memory: WebAssembly.Memory | undefined;
@@ -109,6 +109,9 @@ function instrument(omitted: string[] = []) {
               ([name]) => !omitted.includes(name),
             ),
           ),
+          ...(contextVersion === undefined
+            ? {}
+            : { render_characters_context_version: () => contextVersion }),
           render_upload: (...args: [number, number, number, number]) => {
             uploads.push(args[1]);
             return raw.render_upload(...args);
@@ -488,17 +491,31 @@ describe("additive Characters WASM profile", () => {
     expect(() => e.beginCharacters(pSettings)).toThrow();
     e.dispose();
   });
-  it("rejects unsupported backdrops before enqueue and keeps legacy engine usable", async () => {
+  it("renders complete solid/blur contexts with independently specified constant pixels", async () => {
     const e = await createCharacterEngine(bytes);
-    e.setSource(pSource());
+    expect(e.charactersContextVersion).toBe(1);
+    e.setSource({
+      ...source(),
+      rgba: new Uint8ClampedArray([30, 90, 180, 128]),
+    });
     e.setAtlas(pAtlas());
-    for (const backdrop of ["solid", "blur"] as const)
-      expect(() => e.beginCharacters({ ...pSettings, backdrop })).toThrow(
-        expect.objectContaining({ code: "CapabilityUnavailable" }),
+    for (const [backdrop, expected] of [
+      ["none", [0, 0, 0, 0]],
+      ["solid", [0, 0, 0, 255]],
+      ["blur", [30, 90, 180, 128]],
+    ] as const) {
+      const f = finishFrame(
+        e,
+        e.beginCharacters({
+          ...pSettings,
+          frameWidth: 1,
+          frameHeight: 1,
+          backdrop,
+        }),
       );
-    expect(finish(e, e.begin({ ...settings, mapping: "braille" })).width).toBe(
-      1,
-    );
+      expect([...f.rgba]).toEqual(expected);
+      expect(f.grid).toBeNull();
+    }
     e.dispose();
   });
   it("returns null grid full frame and protects retained metadata from caller mutations", async () => {
@@ -527,6 +544,7 @@ it.each([
   instrument([name]);
   const e = await createCharacterEngine(bytes);
   expect(e.charactersProfileAvailable).toBe(false);
+  expect(e.charactersContextVersion).toBeNull();
   e.setSource(source());
   e.setCalibration(calibration());
   expect(finish(e, e.begin(settings)).width).toBe(1);
@@ -623,3 +641,109 @@ it("profile cropped rotated S2 frame agrees with independent flat-probe expected
   ]).toEqual([1, 1, 0.6 * 3 * 2, 6]);
   e.dispose();
 });
+
+it("old glyph-only module retains None but cannot advertise complete context", async () => {
+  instrument(["render_characters_context_version"]);
+  const e = await createCharacterEngine(bytes);
+  expect(e.charactersProfileAvailable).toBe(true);
+  expect(e.charactersContextVersion).toBeNull();
+  e.setSource(pSource());
+  e.setAtlas(pAtlas());
+  expect(finishFrame(e, e.beginCharacters(pSettings)).width).toBe(5);
+  expect(() => e.beginCharacters({ ...pSettings, backdrop: "blur" })).toThrow(
+    expect.objectContaining({ code: "CapabilityUnavailable" }),
+  );
+  e.dispose();
+});
+
+it("complete WASM contexts equal native frame bytes across crop rotation scale margins alpha and null grids", async () => {
+  const fixture = JSON.parse(
+    readFileSync(
+      "tests/fixtures/render/characters/context-v1-native.json",
+      "utf8",
+    ),
+  ) as {
+    source: { width: number; height: number; rgba: number[] };
+    masks: number[];
+    cases: Array<{
+      scale: 1 | 4;
+      fontSize: number;
+      rotation: 0 | 90;
+      crop: { x: number; y: number; width: number; height: number };
+      width: number;
+      height: number;
+      backdrop: "none" | "solid" | "blur";
+      rgba: number[];
+      grid: { indices: number[]; foreground: number[]; alpha: number[] } | null;
+    }>;
+  };
+  const e = await createCharacterEngine(bytes);
+  try {
+    e.setSource({
+      id: "native-fixture",
+      revision: 1,
+      ...fixture.source,
+      rgba: new Uint8ClampedArray(fixture.source.rgba),
+    });
+    for (const c of fixture.cases) {
+      const a = pAtlas();
+      a.originX = -0.5;
+      a.originY = 0.5;
+      a.calibration = {
+        ...a.calibration,
+        id: `native-${c.scale}-${c.fontSize}`,
+        cellWidth: 0.6 * c.fontSize * c.scale,
+        cellHeight: c.fontSize * c.scale,
+        maskWidth: 2,
+        maskHeight: 2,
+        masks: new Uint8Array(fixture.masks),
+      };
+      e.setAtlas(a);
+      const f = finishFrame(
+        e,
+        e.beginCharacters({
+          ...pSettings,
+          frameWidth: c.width,
+          frameHeight: c.height,
+          fontSize: c.fontSize,
+          renderScale: c.scale,
+          rotation: c.rotation,
+          crop: c.crop,
+          contrast: 20,
+          backdrop: c.backdrop,
+        }),
+      );
+      expect(
+        [...f.rgba],
+        JSON.stringify([c.scale, c.fontSize, c.rotation, c.backdrop]),
+      ).toEqual(c.rgba);
+      if (c.grid) {
+        expect([...f.grid!.glyphIndices]).toEqual(c.grid.indices);
+        expect([...f.grid!.foreground]).toEqual(c.grid.foreground);
+        expect([...f.grid!.alpha]).toEqual(c.grid.alpha);
+      } else expect(f.grid).toBeNull();
+    }
+  } finally {
+    e.dispose();
+  }
+});
+
+it.each([0, 2])(
+  "unknown complete-context version %s preserves glyph-only capability",
+  async (version) => {
+    instrument([], version);
+    const e = await createCharacterEngine(bytes);
+    try {
+      expect(e.charactersProfileAvailable).toBe(true);
+      expect(e.charactersContextVersion).toBeNull();
+      e.setSource(pSource());
+      e.setAtlas(pAtlas());
+      expect(finishFrame(e, e.beginCharacters(pSettings)).width).toBe(5);
+      expect(() =>
+        e.beginCharacters({ ...pSettings, backdrop: "solid" }),
+      ).toThrow(expect.objectContaining({ code: "CapabilityUnavailable" }));
+    } finally {
+      e.dispose();
+    }
+  },
+);

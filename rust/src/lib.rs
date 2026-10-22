@@ -4,6 +4,7 @@ pub mod session;
 
 pub mod character;
 pub mod reference_characters;
+pub mod character_backdrop;
 pub mod glyph;
 pub mod dither;
 pub mod color;

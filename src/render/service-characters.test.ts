@@ -74,6 +74,7 @@ class ProfileWorker {
   trap = false;
   delayCompletion = false;
   allow = true;
+  contextVersion: 1 | null = null;
   gate?: Promise<void>;
   runtime = createWorkerRuntime({
     createEngine: async () => {
@@ -82,6 +83,7 @@ class ProfileWorker {
       this.engine = {
         ...e,
         charactersProfileAvailable: this.allow,
+        charactersContextVersion: this.contextVersion,
         step: (id, work) => {
           if (this.trap) throw new Error("numeric trap");
           if (this.delayCompletion) return "pending";
@@ -444,5 +446,45 @@ it("worker admission rejection preserves existing legacy work, scheduler and eng
     expect(scheduler.dispose).not.toHaveBeenCalled();
   } finally {
     runtime.dispose();
+  }
+});
+
+it("reports complete context separately from profile through worker/service", async () => {
+  const h = setup();
+  try {
+    await h.ready();
+    expect(h.service.charactersContextVersion).toBeNull();
+    // Fixture simulates Task3-only capability.
+    expect(
+      (await h.service.renderCharactersPreview(request())).frame.width,
+    ).toBe(5);
+  } finally {
+    await h.service.dispose();
+  }
+});
+
+it("complete context service reports capability and renders equal Solid/Blur preview/export", async () => {
+  const h = setup(true, (w) => {
+    w.contextVersion = 1;
+  });
+  try {
+    await h.ready();
+    expect(h.service.charactersProfileVersion).toBe(1);
+    expect(h.service.charactersContextVersion).toBe(1);
+    for (const backdrop of ["solid", "blur"] as const) {
+      const r = { ...request(), settings: { ...settings, backdrop } };
+      const preview = await h.service.renderCharactersPreview(r);
+      const exported = await h.service.renderCharactersExport({
+        ...r,
+        jobId: `export-${backdrop}`,
+        outputWidth: 5,
+        outputHeight: 3,
+      });
+      expect(preview.frame).toEqual(exported.frame);
+      expect(preview.frame.rgba.some((v) => v !== 0)).toBe(true);
+    }
+  } finally {
+    await h.service.dispose();
+    expect(h.service.charactersContextVersion).toBeNull();
   }
 });

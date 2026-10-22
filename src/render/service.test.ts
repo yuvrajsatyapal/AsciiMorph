@@ -87,6 +87,7 @@ class TestWorker {
   counts = new Map<number, number>();
   engine: CharacterEngine = {
     charactersProfileAvailable: false,
+    charactersContextVersion: null,
     setAtlas: vi.fn(),
     beginCharacters: vi.fn(),
     takeFrame: vi.fn(),

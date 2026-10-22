@@ -33,3 +33,11 @@ Fresh review found and verified fixes for caller mutation across asynchronous se
 The actual Chromium module-worker diagnostic improved from2407ms to30.9ms for the same owned512×512 source/160×90 Braille job, with all475 numeric steps and byte-identical worker/direct output. This is a local diagnostic, not a distribution, full UI latency or final backend-performance acceptance. Real-worker fractional-profile and equal-scale preview/export fixtures also pass.
 
 The new profile currently renders the transparent glyph intermediate only. Rust None/Solid/Blur composition, explicit complete-context capability, project binding and the production `/app` Studio remain pending. Global atlas replacement still cancels dependent exports; that interaction must be resolved or visibly disclosed before Studio acceptance. Full-width reference screenshots at1440×900 and1920×1080 are now retained with actual JPEG dimensions/hashes; they improve reference evidence without proving our UI parity.
+
+## Complete Rust Characters context — 2026-10-22
+
+Rust now owns full-frame None/Solid/Blur backdrop generation and glyph composition. Alpha-weighted resizing, premultiplied three-pass blur, crop/rotation and partial margins have independent numerical fixtures. Admission reserves future scratch and serialization peaks across active jobs. A separate complete-context version distinguishes this renderer from the earlier glyph-only profile.
+
+Fresh independent review accepted spec compliance and code quality with no actionable findings. Final checks:85 native tests,493 JavaScript tests with1 existing skip, rebuilt WASM, TypeScript, scoped ESLint and production Next build pass. Two Chromium tests exercise12 native-equivalent contexts and a measured-font1000×1000 real worker render. These establish implementation equivalence and smoke behavior, not reference pixel parity or p95 performance.
+
+The exact four-control project adapter and production `/app` UI are next. Atlas replacement/export independence and all remaining website styles/features remain open; full website completion is not claimed.

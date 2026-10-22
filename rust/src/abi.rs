@@ -118,6 +118,10 @@ pub extern "C" fn render_characters_profile_version() -> u32 {
     1
 }
 #[no_mangle]
+pub extern "C" fn render_characters_context_version() -> u32 {
+    1
+}
+#[no_mangle]
 pub extern "C" fn render_begin_characters_v1(h: u32, ptr: u32, len: u32) -> u32 {
     with(h, |s| s.begin_characters_staged(ptr as usize, len as usize))
 }
