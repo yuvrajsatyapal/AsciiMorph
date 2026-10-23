@@ -37,6 +37,7 @@ export type StudioRequest = {
   generation: number;
 };
 export type PreviewRequest = StudioRequest & { atlas: AtlasIdentity };
+export type StillExportStage = "rendering" | "encoding" | "downloading";
 export type StillExportOptions = {
   format: "png" | "jpeg";
   scale: 1 | 2 | 3 | 4;
@@ -53,6 +54,9 @@ export type StudioSnapshot = Readonly<{
   loading: boolean;
   status: "idle" | "rendering" | "ready" | "error" | "disposed";
   exportStatus: "idle" | "exporting" | "complete" | "error";
+  /** Remains true after cancel until the native encoder actually settles. */
+  exportBusy: boolean;
+  exportStage: StillExportStage | null;
   error: Readonly<StudioError> | null;
   frame: Readonly<PaintedIdentity> | null;
 }>;
@@ -79,6 +83,7 @@ export interface StudioAdapters {
   exportStill?: (
     request: StudioRequest & { options: StillExportOptions },
     signal: AbortSignal,
+    progress: (stage: StillExportStage) => void,
   ) => Promise<void>;
   dispose?: () => void | Promise<void>;
 }
@@ -186,6 +191,9 @@ export function createStudioController(
   let loading = false;
   let status: StudioSnapshot["status"] = "idle";
   let exportStatus: StudioSnapshot["exportStatus"] = "idle";
+  let exportBusy = false;
+  let exportStage: StillExportStage | null = null;
+  let exportDrain: Promise<void> | undefined;
   let error: StudioError | null = null;
   let frame: PaintedIdentity | null = null;
   let sourceAbort: AbortController | undefined;
@@ -203,6 +211,8 @@ export function createStudioController(
       loading,
       status,
       exportStatus,
+      exportBusy,
+      exportStage,
       error,
       frame,
       history: {
@@ -316,6 +326,7 @@ export function createStudioController(
     if (!alive()) return;
     exportAbort?.abort();
     exportAbort = undefined;
+    exportStage = null;
     if (exportStatus !== "idle") {
       exportStatus = "idle";
       clearError("export");
@@ -398,13 +409,18 @@ export function createStudioController(
     if (
       !alive() ||
       loading ||
-      exportStatus === "exporting" ||
+      exportBusy ||
       (adapters.source && !adapters.source.isReady(project.source))
     )
       return false;
     const abort = new AbortController();
     exportAbort = abort;
     const request = capture();
+    exportBusy = true;
+    let finish!: () => void;
+    exportDrain = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
     const current = () =>
       alive() &&
       exportAbort === abort &&
@@ -420,11 +436,18 @@ export function createStudioController(
       )
         throw new Error("Unsupported still export settings");
       exportStatus = "exporting";
+      exportStage = "rendering";
       clearError("export");
       publish();
       await adapters.exportStill(
         freeze({ ...request, options: { ...settings } }),
         abort.signal,
+        (stage) => {
+          if (current()) {
+            exportStage = stage;
+            publish();
+          }
+        },
       );
       if (!current()) return false;
       exportAbort = undefined;
@@ -440,6 +463,12 @@ export function createStudioController(
         publish();
       }
       return false;
+    } finally {
+      exportBusy = false;
+      exportStage = null;
+      exportDrain = undefined;
+      finish();
+      if (alive()) publish();
     }
   }
   publish();
@@ -533,11 +562,19 @@ export function createStudioController(
     loadFile: (file: File) => load("file", file),
     loadOwnedDefault: () => load("default"),
     retryRenderer,
+    /** Resource owners notify when a retained download budget becomes available. */
+    refreshExportAvailability() {
+      if (alive()) publish();
+    },
     exportStill,
     cancelExport,
     dispose(): Promise<void> {
       if (disposal) return disposal;
-      disposal = Promise.resolve().then(() => adapters.dispose?.());
+      const draining = exportDrain;
+      disposal = Promise.all([
+        Promise.resolve().then(() => adapters.dispose?.()),
+        draining,
+      ]).then(() => {});
       generation++;
       sourceAbort?.abort();
       previewAbort?.abort();
@@ -546,6 +583,7 @@ export function createStudioController(
       loading = false;
       status = "disposed";
       exportStatus = "idle";
+      exportStage = null;
       editStart = null;
       undoStack = [];
       redoStack = [];

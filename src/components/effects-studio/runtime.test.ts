@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
+import { Blob as NodeBlob } from "node:buffer";
+import type { StudioRuntimeOptions } from "./runtime";
 import { createStudioRuntime } from "./runtime";
 import { REFERENCE_MONOSPACE_STACK } from "@/render/glyph-calibration";
 import type { ReferenceCharacterCalibrationInput } from "@/render/glyph-calibration";
@@ -39,7 +41,7 @@ function result(r: CharactersRenderRequest, value = 8): CharactersRenderResult {
     timings: { queueMs: 0, computeMs: 0, readbackMs: 0, totalMs: 0 },
   };
 }
-function harness() {
+function harness(options: Partial<StudioRuntimeOptions> = {}) {
   const services: RenderService[] = [];
   const uploads: SourceUpload[] = [];
   const renders: CharactersRenderRequest[] = [];
@@ -80,6 +82,7 @@ function harness() {
       rgba: new Uint8ClampedArray(24).fill(7),
     }),
     createId: () => `source-${++id}`,
+    ...options,
   });
   return { runtime, services, factory, uploads, renders, render, measure };
 }
@@ -408,4 +411,186 @@ it("retains captured pixels and joins their release during disposal", async () =
   capture.release();
   await disposal;
   expect(h.runtime.heldFrameBytes).toBe(0);
+});
+
+function encoderHarness() {
+  const callbacks: BlobCallback[] = [];
+  const canvases: Array<{ width: number; height: number }> = [];
+  const click = vi.fn(),
+    revokeObjectURL = vi.fn();
+  const encoder = {
+    createCanvas: vi.fn(() => {
+      const c = {
+        width: 0,
+        height: 0,
+        getContext: () => ({
+          putImageData: vi.fn(),
+          fillRect: vi.fn(),
+          drawImage: vi.fn(),
+        }),
+        toBlob: (cb: BlobCallback) => {
+          callbacks.push(cb);
+        },
+      };
+      canvases.push(c);
+      return c as unknown as HTMLCanvasElement;
+    }),
+    createImageData: (rgba: Uint8Array, w: number, h: number) =>
+      ({ data: new Uint8ClampedArray(rgba), width: w, height: h }) as ImageData,
+    createAnchor: () =>
+      ({ click, remove: vi.fn() }) as unknown as HTMLAnchorElement,
+    createObjectURL: () => "blob:test",
+    revokeObjectURL,
+    schedule: () => 1,
+    unschedule: vi.fn(),
+  };
+  const finish = () =>
+    callbacks.shift()!(
+      new NodeBlob([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])], {
+        type: "image/png",
+      }) as unknown as Blob,
+    );
+  return { encoder, callbacks, canvases, click, finish };
+}
+it("exports immutable real captured dimensions and holds encoder reservation through cancellation/retirement", async () => {
+  const e = encoderHarness(),
+    h = harness({
+      encoder: e.encoder,
+      decodeFile: async () => ({
+        width: 13,
+        height: 7,
+        rgba: new Uint8ClampedArray(364),
+      }),
+    });
+  await load(h);
+  h.runtime.controller.setView({ zoom: 4 });
+  const first = h.runtime.controller.exportStill({ format: "png", scale: 2 });
+  await tick();
+  expect(e.canvases[0]).toMatchObject({ width: 26, height: 14 });
+  const captured = (
+    h.services[0].renderCharactersExport as ReturnType<typeof vi.fn>
+  ).mock.calls[0][0];
+  expect(captured.settings).toMatchObject({
+    frameWidth: 26,
+    frameHeight: 14,
+    brightness: 0,
+  });
+  h.runtime.controller.patchParameter("charSet", " .#");
+  await tick();
+  expect(e.callbacks).toHaveLength(1);
+  h.runtime.controller.cancelExport();
+  expect(
+    await h.runtime.controller.exportStill({ format: "png", scale: 1 }),
+  ).toBe(false);
+  const held = h.runtime.heldFrameBytes;
+  expect(held).toBeGreaterThan(1_114_112);
+  let done = false;
+  const disposal = h.runtime.dispose().then(() => {
+    done = true;
+  });
+  await tick();
+  expect(done).toBe(false);
+  expect(e.canvases[0]).toMatchObject({ width: 26, height: 14 });
+  expect(h.runtime.heldFrameBytes).toBeGreaterThan(1_114_112);
+  e.finish();
+  expect(await first).toBe(false);
+  await disposal;
+  expect(e.click).not.toHaveBeenCalled();
+  expect(h.runtime.heldFrameBytes).toBe(0);
+  expect(e.canvases[0]).toMatchObject({ width: 0, height: 0 });
+});
+it("cancels a late encoder Blob on source replacement and charges its reservation to source admission", async () => {
+  const e = encoderHarness(),
+    observed: number[] = [];
+  const h = harness({
+    encoder: e.encoder,
+    decodeFile: async (_file, options) => {
+      observed.push(options.heldBytes ?? 0);
+      return { width: 13, height: 7, rgba: new Uint8ClampedArray(364) };
+    },
+  });
+  await load(h);
+  const first = h.runtime.controller.exportStill({ format: "png", scale: 1 });
+  await tick();
+  await load(h);
+  expect(observed[1]).toBeGreaterThan(1_114_112);
+  e.finish();
+  expect(await first).toBe(false);
+  expect(e.click).not.toHaveBeenCalled();
+  await h.runtime.dispose();
+});
+it("reports honest scale admission independent of zoom and rejects before encoder allocation", async () => {
+  const e = encoderHarness(),
+    h = harness({
+      encoder: e.encoder,
+      decodeFile: async () => ({
+        width: 1000,
+        height: 1000,
+        rgba: new Uint8ClampedArray(4_000_000),
+      }),
+    });
+  expect(
+    h.runtime.exportAvailability({ format: "png", scale: 1 }).available,
+  ).toBe(false);
+  await load(h);
+  const before = h.runtime.exportAvailability({ format: "png", scale: 3 });
+  expect(before).toMatchObject({ available: false });
+  expect(before.reason).toMatch(/budget/i);
+  h.runtime.controller.setView({ zoom: 0.5 });
+  expect(h.runtime.exportAvailability({ format: "png", scale: 3 })).toEqual(
+    before,
+  );
+  expect(
+    await h.runtime.controller.exportStill({ format: "png", scale: 3 }),
+  ).toBe(false);
+  expect(e.encoder.createCanvas).not.toHaveBeenCalled();
+  await h.runtime.dispose();
+});
+
+it("rejects surplus result backing capacity before canvas allocation and releases the capture", async () => {
+  const e = encoderHarness(),
+    h = harness({ encoder: e.encoder });
+  await load(h);
+  const exportRender = h.services[0].renderCharactersExport as ReturnType<
+    typeof vi.fn
+  >;
+  exportRender.mockImplementationOnce(async (request) => ({
+    ...result(request),
+    frame: {
+      ...result(request).frame,
+      rgba: new Uint8Array(new ArrayBuffer(268_435_456), 0, 24),
+    },
+  }));
+  expect(
+    await h.runtime.controller.exportStill({ format: "png", scale: 1 }),
+  ).toBe(false);
+  expect(e.encoder.createCanvas).not.toHaveBeenCalled();
+  expect(h.runtime.heldFrameBytes).toBe(24);
+  await h.runtime.dispose();
+});
+it("charges actual completed Blob ownership until URL cleanup and refreshes export availability", async () => {
+  const e = encoderHarness(),
+    timers: Array<() => void> = [],
+    h = harness({
+      encoder: {
+        ...e.encoder,
+        schedule: (cb) => {
+          timers.push(cb);
+          return 1;
+        },
+      },
+    });
+  await load(h);
+  const first = h.runtime.controller.exportStill({ format: "png", scale: 1 });
+  await tick();
+  e.finish();
+  expect(await first).toBe(true);
+  expect(h.runtime.heldFrameBytes).toBe(32);
+  const listener = vi.fn();
+  const release = h.runtime.subscribe(listener);
+  timers[0]();
+  expect(h.runtime.heldFrameBytes).toBe(24);
+  expect(listener).toHaveBeenCalledOnce();
+  release();
+  await h.runtime.dispose();
 });

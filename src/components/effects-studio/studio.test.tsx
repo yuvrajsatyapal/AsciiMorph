@@ -22,6 +22,10 @@ function setup(frameFailure = false) {
     getSnapshot: controller.getSnapshot,
     getFrame: () => (frameFailure ? accepted : null),
     getOriginal: () => null,
+    exportAvailability: () => ({
+      available: false,
+      reason: "Wait for a ready Characters source",
+    }),
     retainCanvas: () => () => {},
   } as unknown as StudioRuntime;
   function Host() {
@@ -134,7 +138,7 @@ it("releases hold compare without click reenabling and keeps a separate toggle",
   fireEvent.blur(window);
   expect(controller.getSnapshot().view.compare).toBe(false);
 });
-it("offers working help/menu and honest unavailable export", () => {
+it("offers working help/menu and source-gated export settings", () => {
   setup();
   fireEvent.click(screen.getByRole("button", { name: "Help" }));
   expect(screen.getByRole("dialog", { name: "Studio help" })).toBeVisible();
@@ -148,7 +152,7 @@ it("offers working help/menu and honest unavailable export", () => {
   fireEvent.click(screen.getByRole("button", { name: "Export" }));
   expect(
     within(screen.getByRole("dialog", { name: "Export image" })).getByText(
-      /encoding is not available/,
+      /Wait for a ready Characters source\./,
     ),
   ).toBeVisible();
 });

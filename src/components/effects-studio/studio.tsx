@@ -14,6 +14,7 @@ import {
 } from "./controller";
 import { useStudio } from "./use-studio";
 import type { StudioRuntime } from "./runtime";
+import { ExportDialogContent } from "./export-dialog";
 import { StudioViewport } from "./viewport";
 import { Catalog } from "./catalog";
 import { CATALOG } from "./catalog-data";
@@ -452,7 +453,7 @@ export function StudioShell({
           </button>
         </div>
       )}
-      {s.error && (
+      {s.error && s.error.stage !== "export" && (
         <div className="studio-error" role="alert">
           {s.error.message}
           {s.error.stage === "render" && (
@@ -576,14 +577,7 @@ export function StudioShell({
               </p>
             </>
           ) : (
-            <>
-              <p>PNG/JPEG encoding is not available in this milestone.</p>
-              <p className="studio-note">
-                Full-frame image export will follow. No download is produced
-                here.
-              </p>
-              <button disabled>Export unavailable</button>
-            </>
+            <ExportDialogContent runtime={runtime} snapshot={s} />
           )}
         </StudioDialog>
       )}

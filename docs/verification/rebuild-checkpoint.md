@@ -89,3 +89,9 @@ Parent production-browser inspection found and verified a narrow trusted-default
 Validation: implementer123 focused tests/typecheck/scoped lint passed; parent full JavaScript suite645 passed+1existing skip before the review fixes. Two review P2 issues (competing compact-sheet/dialog focus owners and coarse toolbar target specificity) were fixed with22 affected tests, typecheck/scoped lint, a fresh parent production build and4 actual production Chromium coarse-input tests passing. The scoped rereview approves spec compliance and quality with both findings addressed and no new important breakage. Full suites were not needlessly repeated after the narrow fixes.
 
 The next milestone is actual immutable PNG/JPEG export from Rust full frames, followed by remaining production-route/browser acceptance. Full website/catalog/effects/media/Flow/library/services parity remains open; no complete rebuild claim is made.
+
+## Captured PNG/JPEG export implementation — 23 October 2026
+
+The production Studio now encodes captured full Rust frames to PNG/JPEG with scale admission/reasons, black JPEG matte, cancellation, noncancellable encoder ownership, bounded charged download URLs and real download actions. Stage zoom never determines output geometry. The initial conservative256MiB policy admits default1000²1× and small-source higher scales; large-image/4K parity remains open.
+
+Validation:77focused tests/typecheck/scopedlint and parentproductionbuild passed; fresh independent spec+quality review approved with no actionable findings. Parent actualdownload verifiedPNG1000²RGBA/227224bytes. The JPEG tool action reported download initiation but did not yield a saved file, so actualJPEG bytes/decodedalpha-matte/crossbrowser/lifecycle gates remain Task6 work, not an inferred success. Details and screenshot: [Studio verification](studio-shell.md).

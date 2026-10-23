@@ -659,3 +659,42 @@ describe("captured still-export transitions", () => {
     expect(c.getSnapshot().error).toBeNull();
   });
 });
+
+it("keeps cancellation busy until the noncancellable adapter settles, including retry and disposal", async () => {
+  const pending = deferred<void>();
+  const exportStill = vi.fn<NonNullable<StudioAdapters["exportStill"]>>(
+    () => pending.promise,
+  );
+  const c = loaded({ exportStill });
+  const first = c.exportStill({ format: "png", scale: 1 });
+  c.cancelExport();
+  expect(c.getSnapshot().exportBusy).toBe(true);
+  expect(await c.exportStill({ format: "jpeg", scale: 1 })).toBe(false);
+  expect(exportStill).toHaveBeenCalledOnce();
+  pending.resolve();
+  expect(await first).toBe(false);
+  expect(c.getSnapshot().exportBusy).toBe(false);
+  expect(await c.exportStill({ format: "jpeg", scale: 1 })).toBe(true);
+});
+
+it("publishes actual export phases without completing early", async () => {
+  const pending = deferred<void>();
+  let report!: (phase: "rendering" | "encoding" | "downloading") => void;
+  const c = loaded({
+    exportStill: (_request, _signal, progress) => {
+      report = progress;
+      return pending.promise;
+    },
+  });
+  const first = c.exportStill({ format: "png", scale: 1 });
+  expect(c.getSnapshot().exportStage).toBe("rendering");
+  report("encoding");
+  expect(c.getSnapshot().exportStage).toBe("encoding");
+  report("downloading");
+  expect(c.getSnapshot().exportStatus).toBe("exporting");
+  c.cancelExport();
+  report("encoding");
+  expect(c.getSnapshot().exportStage).toBeNull();
+  pending.resolve();
+  await first;
+});

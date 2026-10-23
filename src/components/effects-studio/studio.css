@@ -949,3 +949,25 @@
     display: none;
   }
 }
+
+.effects-studio .studio-export-form {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+.effects-studio .studio-export-form select {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px;
+  background: var(--studio-panel);
+  border: 1px solid var(--studio-border);
+}
+.effects-studio .studio-export-form p {
+  margin: 4px 0;
+  overflow-wrap: anywhere;
+}
+.effects-studio .studio-export-submit {
+  min-height: 44px;
+  border: 1px solid var(--studio-border);
+}

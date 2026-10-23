@@ -1,4 +1,9 @@
 import {
+  createStillImageExporter,
+  encoderReservationBytes,
+  type StillImageBoundaries,
+} from "@/render/export/still-image";
+import {
   DEFAULT_MEMORY_BUDGET_BYTES,
   type SourceUpload,
 } from "@/render/character-contract";
@@ -19,6 +24,8 @@ import {
 } from "@/render/media/still-source";
 import {
   prepareCharactersGeometry,
+  validateReferenceCharactersSettings,
+  type ReferenceCharactersSettingsV1,
   prepareCharactersProject,
   type ReferenceCharacterAtlasV1,
   type ReferenceCharactersFrameV1,
@@ -33,6 +40,7 @@ import {
   type StudioRequest,
   type AtlasIdentity,
   type PaintedIdentity,
+  type StillExportOptions,
 } from "./controller";
 
 export type AcceptedStudioFrame = Readonly<{
@@ -41,6 +49,8 @@ export type AcceptedStudioFrame = Readonly<{
 }>;
 export type StudioRuntimeOptions = {
   project?: unknown;
+  /** Injectable browser encoder boundary; production uses native canvas/URL APIs. */
+  encoder?: Partial<Omit<StillImageBoundaries, "reserve">>;
   createService?: () => RenderService;
   calibrate?: (
     input: ReferenceCharacterCalibrationInput,
@@ -91,6 +101,10 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
   let staged:
     | (AcceptedStudioFrame & { jobId: number; release(): void })
     | null = null;
+  let encoderBytes = 0;
+  let downloadBytes = 0,
+    downloadCount = 0;
+  let captureAdmission: (() => void) | undefined;
   let captureActive = false;
   let captureRelease: Promise<void> | undefined;
   const captures = new Set<ReferenceCharactersFrameV1>();
@@ -114,6 +128,8 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
           backings.add(a.buffer);
     }
     return (
+      encoderBytes +
+      downloadBytes +
       [...backings].reduce((sum, b) => sum + b.byteLength, 0) +
       [...canvases].reduce((sum, c) => sum + c.width * c.height * 4, 0)
     );
@@ -228,6 +244,136 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
       timeUs: request.project.timeUs,
     };
   }
+  function exportSettings(
+    request: StudioRequest,
+    settings: StillExportOptions,
+  ) {
+    const p = request.project,
+      ref = p.source;
+    if (!ref) throw new Error("A committed source is required");
+    const crop = p.crop;
+    const width =
+      Math.min(ref.width, Math.ceil((crop.x + crop.width) * ref.width)) -
+      Math.floor(crop.x * ref.width);
+    const height =
+      Math.min(ref.height, Math.ceil((crop.y + crop.height) * ref.height)) -
+      Math.floor(crop.y * ref.height);
+    const swapped = p.rotation === 90 || p.rotation === 270;
+    return validateReferenceCharactersSettings(
+      {
+        version: 1,
+        frameWidth: Math.max(
+          1,
+          Math.round((swapped ? height : width) * settings.scale),
+        ),
+        frameHeight: Math.max(
+          1,
+          Math.round((swapped ? width : height) * settings.scale),
+        ),
+        fontSize: p.style.parameters.fontSize,
+        renderScale: settings.scale,
+        brightness: p.style.parameters.brightness,
+        contrast: p.style.parameters.contrast,
+        crop: { ...crop },
+        rotation: p.rotation,
+        backdrop: "blur",
+      },
+      ref,
+    );
+  }
+  function admitExport(
+    request: StudioRequest,
+    format: StillExportOptions["format"],
+    settings: ReferenceCharactersSettingsV1,
+    atlas?: ReferenceCharacterAtlasV1,
+  ) {
+    if (
+      service.charactersProfileVersion !== 1 ||
+      service.charactersContextVersion !== 1 ||
+      service.charactersAtlasRetentionVersion !== 1
+    )
+      throw new Error("Characters export capabilities are unavailable");
+    if (!source.isReady(request.project.source))
+      throw new Error("Source is not ready");
+    const backings = new Set<ArrayBufferLike>();
+    for (const a of [measured?.atlas, atlas])
+      if (a)
+        for (const view of [
+          a.calibration.masks,
+          a.calibration.coverage,
+          a.calibration.shapes,
+        ])
+          backings.add(view.buffer);
+    const geometry = prepareCharactersGeometry(
+      settings.fontSize,
+      settings.renderScale,
+    );
+    const cells =
+      Math.floor(settings.frameWidth / geometry.cellWidth) *
+      Math.floor(settings.frameHeight / geometry.cellHeight);
+    // Native complete profile (48 B/px), three retained source copies,
+    // packed output grid/serialization (28 B/cell), actual atlas backings,
+    // detached output frame (4 B/px), held previews/viewports and encoder policy.
+    const pixels = settings.frameWidth * settings.frameHeight;
+    const peak =
+      source.retainedSourceBytes * 3 +
+      [...backings].reduce((sum, b) => sum + b.byteLength, 0) +
+      pixels * 52 +
+      cells * 28 +
+      4096 +
+      heldFrameBytes() +
+      encoderReservationBytes(
+        settings.frameWidth,
+        settings.frameHeight,
+        format,
+      );
+    if (peak > DEFAULT_MEMORY_BUDGET_BYTES)
+      throw new Error(
+        "Export exceeds the 256 MiB session budget; choose a smaller scale or source",
+      );
+  }
+  const encoder = createStillImageExporter({
+    ...options.encoder,
+    retainDownload(bytes) {
+      if (
+        downloadCount >= 32 ||
+        heldFrameBytes() + source.retainedSourceBytes * 3 + bytes >
+          DEFAULT_MEMORY_BUDGET_BYTES
+      )
+        throw new Error("Wait for previous downloads to finish");
+      downloadBytes += bytes;
+      downloadCount++;
+      let released = false;
+      return () => {
+        if (!released) {
+          released = true;
+          downloadBytes -= bytes;
+          downloadCount--;
+          controller.refreshExportAvailability();
+        }
+      };
+    },
+    reserve(bytes) {
+      check();
+      captureAdmission?.();
+      if (encoderBytes) throw new Error("Still encoder busy");
+      // Actual result backing capacities are now held; preflight against them
+      // before allocating any ImageData/canvas/opaque codec buffer.
+      if (
+        heldFrameBytes() + source.retainedSourceBytes * 3 + bytes >
+        DEFAULT_MEMORY_BUDGET_BYTES
+      )
+        throw new Error("Encoder exceeds the 256 MiB session budget");
+      encoderBytes = bytes;
+      let released = false;
+      return () => {
+        if (!released) {
+          released = true;
+          encoderBytes = 0;
+        }
+      };
+    },
+  });
   const controller = createStudioController({
     project: options.project,
     adapters: {
@@ -351,6 +497,26 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
           return identity;
         },
       },
+      exportStill: async (request, signal, progress) => {
+        admitExport(
+          request,
+          request.options.format,
+          exportSettings(request, request.options),
+        );
+        const captured = await runtime.renderCaptured(
+          request,
+          request.options.scale,
+          signal,
+          request.options.format,
+        );
+        await encoder.export(
+          { frame: captured.result.frame, release: captured.release },
+          request.options.format,
+          request.project.name,
+          signal,
+          progress,
+        );
+      },
       dispose: async () => {
         await source.dispose();
       },
@@ -376,8 +542,43 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
     }
     for (const listener of listeners) listener();
   });
-  return {
+  const runtime = {
     controller,
+    exportAvailability(settings: StillExportOptions): {
+      available: boolean;
+      reason: string;
+      width?: number;
+      height?: number;
+    } {
+      try {
+        check();
+        const snapshot = controller.getSnapshot();
+        if (snapshot.loading || snapshot.status !== "ready")
+          throw new Error("Wait for a ready Characters source");
+        if (snapshot.exportBusy) throw new Error("An export is still settling");
+        if (downloadCount >= 32)
+          throw new Error("Wait for previous downloads to finish");
+        const request = {
+          project: snapshot.project,
+          revision: snapshot.revision,
+          jobId: 0,
+          generation: 0,
+        };
+        const bound = exportSettings(request, settings);
+        admitExport(request, settings.format, bound);
+        return {
+          available: true,
+          reason: "",
+          width: bound.frameWidth,
+          height: bound.frameHeight,
+        };
+      } catch (reason) {
+        return {
+          available: false,
+          reason: reason instanceof Error ? reason.message : String(reason),
+        };
+      }
+    },
     getSnapshot: controller.getSnapshot,
     subscribe(listener: () => void) {
       listeners.add(listener);
@@ -412,6 +613,7 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
       request: StudioRequest,
       scale: 1 | 2 | 3 | 4,
       signal: AbortSignal,
+      format?: StillExportOptions["format"],
     ) {
       check(signal);
       if (captureActive) throw new Error("A captured output is already owned");
@@ -426,6 +628,7 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
           throw cancelled();
         const bound = bind(request, scale, atlas, current),
           r = job(request, bound);
+        if (format) admitExport(request, format, bound.settings, atlas);
         const result = await current.renderCharactersExport(
           {
             ...r,
@@ -443,6 +646,17 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
         )
           throw cancelled();
         captures.add(result.frame);
+        if (format) {
+          captureAdmission = () =>
+            admitExport(request, format, bound.settings, atlas);
+          try {
+            captureAdmission();
+          } catch (reason) {
+            captures.delete(result.frame);
+            captureAdmission = undefined;
+            throw reason;
+          }
+        }
         let finishRelease!: () => void;
         captureRelease = new Promise<void>((resolve) => {
           finishRelease = resolve;
@@ -454,6 +668,7 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
             if (released) return;
             released = true;
             captures.delete(result.frame);
+            captureAdmission = undefined;
             captureActive = false;
             finishRelease();
             captureRelease = undefined;
@@ -467,6 +682,7 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
     dispose(): Promise<void> {
       if (disposal) return disposal;
       disposed = true;
+      encoder.dispose();
       latestPrepare++;
       latestPreview++;
       currentAtlas = null;
@@ -499,5 +715,6 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
       return disposal;
     },
   };
+  return runtime;
 }
 export type StudioRuntime = ReturnType<typeof createStudioRuntime>;

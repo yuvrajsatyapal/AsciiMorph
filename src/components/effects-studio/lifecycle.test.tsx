@@ -177,3 +177,129 @@ it("keeps retirement admission closed until a decoder settles even when service 
   expect(report).toHaveBeenCalledWith(error);
   b.unmount();
 });
+
+it("keeps StrictMode remount source admission behind retired encoding even after service cleanup fails", async () => {
+  const { measuredAtlasFixture } = await import("./runtime-fixtures");
+  const services: RenderService[] = [];
+  const createService = () => {
+    const service = {
+      state: "ready",
+      charactersProfileVersion: 1,
+      charactersContextVersion: 1,
+      charactersAtlasRetentionVersion: 1,
+      initialize: vi.fn(async () => {}),
+      setSource: vi.fn(async () => {}),
+      setAtlas: vi.fn(async () => {}),
+      dispose: vi.fn(async () => {}),
+      renderCharactersPreview: vi.fn(
+        async (request: import("@/render/service").CharactersRenderRequest) =>
+          rendered(request),
+      ),
+      renderCharactersExport: vi.fn(
+        async (request: import("@/render/service").CharactersRenderRequest) =>
+          rendered(request),
+      ),
+    } as unknown as RenderService;
+    services.push(service);
+    return service;
+  };
+  function rendered(
+    request: import("@/render/service").CharactersRenderRequest,
+  ) {
+    return {
+      jobId: request.jobId,
+      revision: request.revision,
+      sourceId: request.sourceId,
+      sourceRevision: request.sourceRevision,
+      calibrationId: request.calibrationId,
+      frame: {
+        version: 1,
+        width: 3,
+        height: 2,
+        rgba: new Uint8Array(24),
+        grid: null,
+      },
+      backend: "rust-cpu",
+      timings: { queueMs: 0, computeMs: 0, readbackMs: 0, totalMs: 0 },
+    };
+  }
+  let nativeCallback: BlobCallback | undefined;
+  const encoder = {
+    createCanvas: () =>
+      ({
+        width: 0,
+        height: 0,
+        getContext: () => ({ putImageData: vi.fn() }),
+        toBlob: (cb: BlobCallback) => {
+          nativeCallback = cb;
+        },
+      }) as unknown as HTMLCanvasElement,
+    createImageData: () =>
+      ({ data: new Uint8ClampedArray(24), width: 3, height: 2 }) as ImageData,
+  };
+  const decode = () => ({
+    width: 3,
+    height: 2,
+    rgba: new Uint8ClampedArray(24),
+  });
+  const nextDecode = vi.fn(async () => decode()),
+    report = vi.fn();
+  let runtime: StudioRuntime | null = null;
+  function Consumer({ first }: { first: boolean }) {
+    const studio = useStudio({
+      createService,
+      calibrate: async (input) => measuredAtlasFixture(input),
+      decodeDefault: first ? async () => decode() : nextDecode,
+      encoder,
+      onCleanupError: report,
+    });
+    runtime = studio.runtime;
+    return null;
+  }
+  const firstView = render(
+    <StrictMode>
+      <Consumer first />
+    </StrictMode>,
+  );
+  await waitFor(() => expect(runtime).not.toBeNull());
+  await act(async () => {
+    await runtime!.controller.loadOwnedDefault();
+  });
+  await waitFor(() => expect(runtime!.getSnapshot().status).toBe("ready"));
+  const retired = runtime!;
+  let exporting!: Promise<boolean>;
+  act(() => {
+    exporting = retired.controller.exportStill({ format: "png", scale: 1 });
+  });
+  await waitFor(() => expect(nativeCallback).toBeDefined());
+  const failure = new Error("retired service cleanup failed");
+  (services.at(-1)!.dispose as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+    failure,
+  );
+  firstView.unmount();
+  const nextView = render(
+    <StrictMode>
+      <Consumer first={false} />
+    </StrictMode>,
+  );
+  await waitFor(() => expect(runtime).not.toBeNull());
+  let next!: Promise<boolean>;
+  act(() => {
+    next = runtime!.controller.loadOwnedDefault();
+  });
+  await act(async () => {
+    for (let i = 0; i < 40; i++) await Promise.resolve();
+  });
+  expect(nextDecode).not.toHaveBeenCalled();
+  expect(retired.heldFrameBytes).toBeGreaterThan(1_114_112);
+  await act(async () => {
+    nativeCallback!(null);
+    await exporting;
+    await next;
+  });
+  expect(await exporting).toBe(false);
+  expect(nextDecode).toHaveBeenCalledOnce();
+  expect(retired.heldFrameBytes).toBe(0);
+  expect(report).toHaveBeenCalledWith(failure);
+  nextView.unmount();
+});

@@ -43,3 +43,15 @@ ASCIIMORPH_E2E_PRODUCTION=1 npx playwright test tests/e2e/studio-shell-accessibi
 **4 passed** against the built `/app`, with Chromium contexts explicitly using `hasTouch: true` and `isMobile: true`: 320×740, 375×812, 390×844 and 1180×600. Assertions cover actual target bounds, hit testing, overlap/clipping, document horizontal overflow, and Styles/Controls → Menu → Tab to the legacy link → Escape with focus/scroll restoration. The production build also passed after these changes. Runner output contains the environment warning that `FORCE_COLOR` overrides `NO_COLOR`; it does not indicate an application error.
 
 These targeted coarse-input checks close the named interaction regressions. They do not establish complete mobile or reference parity, nor replace Task6's remaining rendering/export/lifecycle browser gate.
+
+## Captured still export implementation — 23 October 2026
+
+The Export dialog now exposes real PNG/JPEG output from immutable Rust frame captures, scale availability/reasons, render/encode/download stages, cancellation and retry. PNG preserves frame alpha; JPEG composites over black. Same-source look edits may continue while the captured export finishes. Source changes and disposal cancel output; native encoding settlement retains its pixel lease and encoder reservation. Completed download URLs remain charged by actual Blob size until 30-second revocation or disposal, with a 32-URL bound.
+
+The conservative export admission policy is 256 MiB, including complete native profile work, source/atlas backings, retained frames/canvases and encoder/Blob allowances. It currently admits the default 1000×1000 source at1× and disables2×–4× with a visible reason. Small sources may admit4×. No output is downsized. This is an initial policy, not completion of reference large-image/4K support or a total-process memory guarantee.
+
+Verification: 77 focused encoder/controller/runtime/dialog/lifecycle tests, TypeScript and scoped lint passed. Parent production build passed. Independent spec and quality review approved the implementation without actionable findings.
+
+Parent actual-browser evidence: a production `/app` PNG download was saved as `Untitled.png`; `file` and `sips` confirm 1000×1000, 8-bit RGBA PNG, 227,224 bytes, SHA256 `658a892a40e0c53524d4f0f4977efdd797c75908d4a8fea636619efcc232880e`. The browser download API took611seconds to return the file path; this bridge delay is not a renderer benchmark. A JPEG action reached “Download started,” but the browser tool did not yield a saved JPEG file for inspection. JPEG bytes, decoded PNG alpha/JPEG matte and broader browser acceptance therefore remain explicit Task6 gates.
+
+[Actual export dialog](studio-shell-evidence/export-dialog-1440x900.jpg), 1440×900 JPEG, SHA256 `aefa10a91471e251095171d2c5bfc817a4f0c9a8baa9c0c91f092326326c6223`. Its status records download initiation, not independent JPEG-file verification.
