@@ -57,13 +57,19 @@ export interface RenderService {
     signal?: AbortSignal,
   ): Promise<RenderResult>;
   setAtlas(atlas: ReferenceCharacterAtlasV1): Promise<void>;
+  /** Optional immutable atlas capture selects/uploads and sends in one input
+   * admission turn. The queue releases before numerical completion. First use
+   * snapshots data; same input object+metadata reuses that owned snapshot.
+   * Byte changes require a fresh atlas identity/object, as with setAtlas. */
   renderCharactersPreview(
     request: CharactersRenderRequest,
     signal?: AbortSignal,
+    capturedAtlas?: ReferenceCharacterAtlasV1,
   ): Promise<CharactersRenderResult>;
   renderCharactersExport(
     request: CharactersRenderRequest,
     signal?: AbortSignal,
+    capturedAtlas?: ReferenceCharacterAtlasV1,
   ): Promise<CharactersRenderResult>;
   dispose(): Promise<void>;
 }
@@ -113,6 +119,25 @@ export function createRenderService(
   let retainedSource: SourceUpload | undefined;
   let retainedCalibration: GlyphCalibrationV1 | undefined;
   let retainedAtlas: ReferenceCharacterAtlasV1 | undefined;
+  // Atlas IDs denote immutable calibration data. First capture snapshots bytes;
+  // repeated calls with the same input object+metadata reuse that owned capture,
+  // never the caller's mutable arrays. Weak keys do not form an atlas registry.
+  let atlasSnapshots = new WeakMap<
+    ReferenceCharacterAtlasV1,
+    { key: string; snapshot: ReferenceCharacterAtlasV1 }
+  >();
+  function snapshotAtlas(atlas: ReferenceCharacterAtlasV1) {
+    validateWorkerRequest({ ...envelope(), type: "setAtlas", atlas });
+    const key = atlasIdentityKey(atlas),
+      prior = atlasSnapshots.get(atlas);
+    if (prior?.key === key) return prior.snapshot;
+    const snapshot = {
+      ...atlas,
+      calibration: copyCalibration(atlas.calibration),
+    };
+    atlasSnapshots.set(atlas, { key, snapshot });
+    return snapshot;
+  }
   let counter = 0;
   let failureEpoch = 0;
   let lastFailure: RenderError | undefined;
@@ -449,14 +474,17 @@ export function createRenderService(
       initialization = undefined;
     }
   }
-  function enqueueInput(operation: () => Promise<void>): Promise<void> {
+  function enqueueInput<T>(operation: () => Promise<T>): Promise<T> {
     const epoch = failureEpoch;
     const pending = inputQueue.then(() => {
       alive();
       if (epoch !== failureEpoch) throw lastFailure!;
       return operation();
     });
-    inputQueue = pending.catch(() => {});
+    inputQueue = pending.then(
+      () => {},
+      () => {},
+    );
     return pending;
   }
   async function render(
@@ -484,6 +512,7 @@ export function createRenderService(
     type: CharactersRenderType,
     request: CharactersRenderRequest,
     signal?: AbortSignal,
+    capturedAtlas?: ReferenceCharacterAtlasV1,
   ): Promise<CharactersRenderResult> {
     alive();
     validateCharactersRenderRequest(request, type);
@@ -494,48 +523,74 @@ export function createRenderService(
       source: { ...request.source },
       settings: { ...request.settings, crop: { ...request.settings.crop } },
     };
-    await initialize();
-    if (
-      !retainedSource ||
-      retainedSource.id !== message.sourceId ||
-      retainedSource.revision !== message.sourceRevision
-    )
-      throw new RenderError(
-        "MissingSource",
-        "Requested Characters source is not retained",
-      );
-    const source = {
-      id: retainedSource.id,
-      revision: retainedSource.revision,
-      width: retainedSource.width,
-      height: retainedSource.height,
-    };
-    if (
-      message.source.width !== source.width ||
-      message.source.height !== source.height
-    )
-      throw new RenderError(
-        "InvalidInput",
-        "Characters retained source geometry mismatch",
-      );
-    try {
-      validateReferenceCharactersSettings(
-        message.settings,
-        source,
-        memoryBudgetBytes,
-      );
-    } catch (cause) {
-      throw new RenderError(
-        "InvalidInput",
-        cause instanceof Error ? cause.message : "Invalid Characters settings",
-      );
-    }
-    if (message.settings.backdrop !== "none" && charactersContextVersion !== 1)
-      throw new RenderError(
-        "CapabilityUnavailable",
-        "Complete Characters context version1 is unavailable",
-      );
-    const response = await send(message, [], signal);
+    const atlasSnapshot = capturedAtlas
+      ? snapshotAtlas(capturedAtlas)
+      : undefined;
+    if (atlasSnapshot)
+      validateWorkerRequest({
+        ...envelope(),
+        type: "setAtlas",
+        atlas: atlasSnapshot,
+      });
+    const { response: pendingResponse } = await enqueueInput(async () => {
+      await initialize();
+      if (atlasSnapshot) await selectAtlas(atlasSnapshot);
+      if (
+        !retainedSource ||
+        retainedSource.id !== message.sourceId ||
+        retainedSource.revision !== message.sourceRevision
+      )
+        throw new RenderError(
+          "MissingSource",
+          "Requested Characters source is not retained",
+        );
+      const source = {
+        id: retainedSource.id,
+        revision: retainedSource.revision,
+        width: retainedSource.width,
+        height: retainedSource.height,
+      };
+      if (
+        message.source.width !== source.width ||
+        message.source.height !== source.height
+      )
+        throw new RenderError(
+          "InvalidInput",
+          "Characters retained source geometry mismatch",
+        );
+      try {
+        validateReferenceCharactersSettings(
+          message.settings,
+          source,
+          memoryBudgetBytes,
+        );
+      } catch (cause) {
+        throw new RenderError(
+          "InvalidInput",
+          cause instanceof Error
+            ? cause.message
+            : "Invalid Characters settings",
+        );
+      }
+      if (
+        message.settings.backdrop !== "none" &&
+        charactersContextVersion !== 1
+      )
+        throw new RenderError(
+          "CapabilityUnavailable",
+          "Complete Characters context version1 is unavailable",
+        );
+      if (
+        !retainedAtlas ||
+        retainedAtlas.calibration.id !== message.calibrationId
+      )
+        throw new RenderError(
+          "MissingCalibration",
+          "Requested Characters atlas is not selected",
+        );
+      return { response: send(message, [], signal) };
+    });
+    const response = await pendingResponse;
     if (response.type !== "charactersResult")
       throw new RenderError(
         "WorkerFailure",
@@ -547,6 +602,30 @@ export function createRenderService(
       backend: response.backend,
       timings: response.timings,
     };
+  }
+  async function selectAtlas(atlas: ReferenceCharacterAtlasV1): Promise<void> {
+    await initialize();
+    if (retainedAtlas?.calibration.id === atlas.calibration.id) {
+      if (atlasIdentityKey(retainedAtlas) !== atlasIdentityKey(atlas))
+        throw new RenderError(
+          "InvalidInput",
+          "Atlas metadata requires a new identity",
+        );
+      return;
+    }
+    if (
+      retainedCalibration?.id === atlas.calibration.id &&
+      calibrationIdentityKey(retainedCalibration) !==
+        calibrationIdentityKey(atlas.calibration)
+    )
+      throw new RenderError(
+        "InvalidInput",
+        "Atlas calibration requires a new identity",
+      );
+    await uploadAtlas(atlas);
+    alive();
+    retainedAtlas = atlas;
+    retainedCalibration = undefined;
   }
   return {
     get charactersProfileVersion() {
@@ -639,43 +718,16 @@ export function createRenderService(
       let snapshot: ReferenceCharacterAtlasV1;
       try {
         alive();
-        validateWorkerRequest({ ...envelope(), type: "setAtlas", atlas });
-        snapshot = {
-          ...atlas,
-          calibration: copyCalibration(atlas.calibration),
-        };
+        snapshot = snapshotAtlas(atlas);
       } catch (cause) {
         return Promise.reject(cause);
       }
-      return enqueueInput(async () => {
-        await initialize();
-        if (retainedAtlas?.calibration.id === snapshot.calibration.id) {
-          if (atlasIdentityKey(retainedAtlas) !== atlasIdentityKey(snapshot))
-            throw new RenderError(
-              "InvalidInput",
-              "Atlas metadata requires a new identity",
-            );
-          return;
-        }
-        if (
-          retainedCalibration?.id === snapshot.calibration.id &&
-          calibrationIdentityKey(retainedCalibration) !==
-            calibrationIdentityKey(snapshot.calibration)
-        )
-          throw new RenderError(
-            "InvalidInput",
-            "Atlas calibration requires a new identity",
-          );
-        await uploadAtlas(snapshot);
-        alive();
-        retainedAtlas = snapshot;
-        retainedCalibration = undefined;
-      });
+      return enqueueInput(() => selectAtlas(snapshot));
     },
-    renderCharactersPreview: (request, signal) =>
-      renderCharacters("renderCharactersPreview", request, signal),
-    renderCharactersExport: (request, signal) =>
-      renderCharacters("renderCharactersExport", request, signal),
+    renderCharactersPreview: (request, signal, atlas) =>
+      renderCharacters("renderCharactersPreview", request, signal, atlas),
+    renderCharactersExport: (request, signal, atlas) =>
+      renderCharacters("renderCharactersExport", request, signal, atlas),
     renderPreview: (request, signal) =>
       render("renderPreview", request, signal),
     renderExport: (request, signal) => render("renderExport", request, signal),
@@ -695,6 +747,7 @@ export function createRenderService(
       retainedSource = undefined;
       retainedCalibration = undefined;
       retainedAtlas = undefined;
+      atlasSnapshots = new WeakMap();
     },
   };
 }

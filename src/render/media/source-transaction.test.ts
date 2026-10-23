@@ -415,3 +415,94 @@ describe("serialized source transactions", () => {
     expect(s.upload).not.toHaveBeenCalled();
   });
 });
+
+it("explicit recovery resets and restores accepted pixels before readiness without decoding again", async () => {
+  let fail = false,
+    id = 0,
+    worker: SourceUpload | undefined;
+  const decode = vi.fn(async () => pixels(7));
+  const resets = vi.fn(async () => {
+    worker = undefined;
+    if (fail) throw new Error("reset blocked");
+  });
+  const transaction = createSourceTransaction({
+    decodeFile: decode,
+    createId: () => String(++id),
+    resetUploadedSource: resets,
+    upload: async (source) => {
+      worker = source;
+      if (fail) throw new Error("ack failed");
+    },
+  });
+  const accepted = await transaction.loadFile(
+    input("first"),
+    new AbortController().signal,
+  );
+  accepted.accept();
+  await tick();
+  fail = true;
+  await expect(
+    transaction.loadFile(input("bad"), new AbortController().signal),
+  ).rejects.toThrow("reset blocked");
+  expect(transaction.isReady(accepted.source)).toBe(false);
+  fail = false;
+  await transaction.recover();
+  expect(worker?.id).toBe(accepted.source.id);
+  expect(transaction.isReady(accepted.source)).toBe(true);
+  expect(decode).toHaveBeenCalledTimes(2);
+  await transaction.dispose();
+});
+
+it("serializes explicit recovery with the newest pending decode and joins disposal", async () => {
+  let id = 0,
+    block = false;
+  const gate = deferred<void>(),
+    trace: string[] = [];
+  const transaction = createSourceTransaction({
+    createId: () => `r-${++id}`,
+    decodeFile: async (file) => {
+      trace.push(`decode-${file.name}`);
+      return pixels(Number(file.name));
+    },
+    upload: async (value) => {
+      trace.push(`upload-${value.rgba[0]}`);
+      if (block) throw new Error("ack");
+    },
+    resetUploadedSource: async () => {
+      trace.push("reset");
+      if (block) throw new Error("reset");
+      await gate.promise;
+    },
+  });
+  const a = await transaction.loadFile(
+    input("1"),
+    new AbortController().signal,
+  );
+  a.accept();
+  await tick();
+  block = true;
+  await expect(
+    transaction.loadFile(input("2"), new AbortController().signal),
+  ).rejects.toThrow("reset");
+  block = false;
+  const first = transaction.recover(),
+    second = transaction.recover();
+  expect(first).toBe(second);
+  await tick();
+  const pending = transaction
+    .loadFile(input("3"), new AbortController().signal)
+    .catch((e) => e);
+  await tick();
+  expect(trace).not.toContain("decode-3");
+  const disposal = transaction.dispose();
+  gate.resolve();
+  await expect(first).resolves.toBeUndefined();
+  await disposal;
+  expect(await pending).toBeInstanceOf(DOMException);
+  expect(trace).not.toContain("decode-3");
+  expect(trace.filter((s) => s.startsWith("upload"))).toEqual([
+    "upload-1",
+    "upload-2",
+  ]);
+  expect(transaction.retainedSourceBytes).toBe(0);
+});

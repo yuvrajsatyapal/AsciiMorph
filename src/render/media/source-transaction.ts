@@ -59,6 +59,7 @@ export function createSourceTransaction(operations: SourceOperations) {
   let dirty = false;
   let disposed = false;
   let disposal: Promise<void> | undefined;
+  let recovery: Promise<void> | undefined;
   const createId = operations.createId ?? (() => crypto.randomUUID());
   function obsolete(job: Job) {
     job.obsolete = true;
@@ -75,7 +76,7 @@ export function createSourceTransaction(operations: SourceOperations) {
       // service still retains the old identity. Reset defeats its same-source
       // shortcut before replaying the last controller-accepted pixels.
       await operations.resetUploadedSource();
-      if (committed) await operations.upload(committed);
+      if (committed && !disposed) await operations.upload(committed);
       dirty = false;
     } catch (cause) {
       throw new RecoveryFailure(
@@ -85,7 +86,7 @@ export function createSourceTransaction(operations: SourceOperations) {
     }
   }
   function pump() {
-    if (active || !pending || disposed) return;
+    if (active || recovery || !pending || disposed) return;
     const job = pending;
     pending = undefined;
     active = job;
@@ -237,6 +238,7 @@ export function createSourceTransaction(operations: SourceOperations) {
     isReady(source: SourceRef | null) {
       return (
         !disposed &&
+        !recovery &&
         (!active || active.accepted === true) &&
         !pending &&
         !dirty &&
@@ -248,6 +250,21 @@ export function createSourceTransaction(operations: SourceOperations) {
             source.width === committed.width &&
             source.height === committed.height)
       );
+    },
+    recover(): Promise<void> {
+      if (disposed) return Promise.reject(aborted());
+      if (recovery) return recovery;
+      recovery = Promise.resolve()
+        .then(async () => {
+          await active?.settled;
+          if (disposed) throw aborted();
+          await restore();
+        })
+        .finally(() => {
+          recovery = undefined;
+          pump();
+        });
+      return recovery;
     },
     dispose(): Promise<void> {
       if (disposal) return disposal;
@@ -263,6 +280,7 @@ export function createSourceTransaction(operations: SourceOperations) {
       }
       disposal = (async () => {
         await active?.settled;
+        await recovery?.catch(() => {});
         // Release even committed pixels on route change; actual service owner
         // provides an idempotent empty-service reset/disposal operation.
         try {
@@ -276,6 +294,7 @@ export function createSourceTransaction(operations: SourceOperations) {
       return disposal;
     },
   } satisfies StudioSourceAdapter & {
+    recover(): Promise<void>;
     readonly retainedSourceBytes: number;
     dispose(): Promise<void>;
   };

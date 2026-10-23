@@ -1027,3 +1027,74 @@ it("deduplicated calibration/atlas transitions physically release legacy slots b
     runtime.dispose();
   }
 });
+
+it("atomically selects each captured atlas and sends before competing uploads without serializing compute", async () => {
+  const h = setup(true, (worker) => {
+    worker.delayCompletion = true;
+  });
+  try {
+    await h.ready();
+    const a = atlas(),
+      b = atlas();
+    b.calibration.id = "b";
+    b.calibration.glyphs = ["X", "Y"];
+    await h.service.setAtlas(b);
+    const exportA = h.service
+      .renderCharactersExport(
+        { ...request("captured-a"), outputWidth: 5, outputHeight: 3 },
+        undefined,
+        a,
+      )
+      .catch((e) => e);
+    const uploadB = h.service.setAtlas(b);
+    const previewB = h.service
+      .renderCharactersPreview(
+        { ...request("captured-b"), calibrationId: "b" },
+        undefined,
+        b,
+      )
+      .catch((e) => e);
+    await uploadB;
+    await vi.waitFor(() =>
+      expect(
+        h.workers[0].sent.filter((m) =>
+          (m as { type: string }).type.startsWith("renderCharacters"),
+        ),
+      ).toHaveLength(2),
+    );
+    const messages = h.workers[0].sent as Array<{
+      type: string;
+      atlas?: ReferenceCharacterAtlasV1;
+      calibrationId?: string;
+    }>;
+    let selected = "";
+    for (const m of messages) {
+      if (m.type === "setAtlas") selected = m.atlas!.calibration.id;
+      if (m.type.startsWith("renderCharacters"))
+        expect(m.calibrationId).toBe(selected);
+    }
+    await h.service.dispose();
+    await Promise.all([exportA, previewB]);
+  } finally {
+    await h.service.dispose();
+  }
+});
+
+it("captures one owned atlas mask backing for repeated tone-only submissions", async () => {
+  const h = setup();
+  try {
+    await h.service.setSource(src());
+    const a = atlas();
+    const copy = vi.spyOn(a.calibration.masks, "slice");
+    await h.service.setAtlas(a);
+    await h.service.renderCharactersPreview(request("tone-1"), undefined, a);
+    await h.service.renderCharactersPreview(
+      { ...request("tone-2"), settings: { ...settings, brightness: 10 } },
+      undefined,
+      a,
+    );
+    expect(copy).toHaveBeenCalledTimes(1);
+  } finally {
+    await h.service.dispose();
+  }
+});
