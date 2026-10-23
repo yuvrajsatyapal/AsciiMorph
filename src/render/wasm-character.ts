@@ -98,6 +98,7 @@ export type CharacterStepStatus = "pending" | "complete" | "cancelled";
 export interface CharacterEngine {
   readonly charactersProfileAvailable: boolean;
   readonly charactersContextVersion: 1 | null;
+  readonly charactersAtlasRetentionVersion: 1 | null;
   setAtlas(atlas: ReferenceCharacterAtlasV1): void;
   beginCharacters(settings: ReferenceCharactersSettingsV1): number;
   takeFrame(jobId: number): ReferenceCharactersFrameV1;
@@ -174,6 +175,12 @@ export async function createCharacterEngine(
     profileAvailable &&
     typeof wasm.render_characters_context_version === "function" &&
     (wasm.render_characters_context_version as NumericExport)() === 1
+      ? 1
+      : null;
+  const retentionVersion =
+    profileAvailable &&
+    typeof wasm.render_characters_atlas_retention_version === "function" &&
+    (wasm.render_characters_atlas_retention_version as NumericExport)() === 1
       ? 1
       : null;
   type CalibrationIdentity = Pick<
@@ -257,6 +264,7 @@ export async function createCharacterEngine(
   const engine: CharacterEngine = {
     charactersProfileAvailable: profileAvailable,
     charactersContextVersion: contextVersion,
+    charactersAtlasRetentionVersion: retentionVersion,
     setAtlas(input) {
       alive();
       const a = validateInput(input, validateReferenceCharacterAtlas);
@@ -446,9 +454,21 @@ export async function createCharacterEngine(
       };
       calibrationIdentity = identity;
       atlas = undefined;
-      for (const [id, j] of jobs)
-        if (j.kind === "characters" || j.settings.mapping === "glyph")
+      for (const [id, j] of jobs) {
+        if (j.kind === "characters" && retentionVersion !== 1) {
+          // Compatibility cancellation follows a successful upload, so failed
+          // admission still preserves captures. Old modules already removed the
+          // handle; an unadvertised/newer module may retain it and needs release.
+          const status = wasm.render_cancel(handle, id);
+          if (
+            status !== 3 &&
+            !(status === 0 && wasm.render_error(handle) === 1)
+          )
+            throw new Error("Invalid compatibility cancellation status");
           jobs.delete(id);
+        } else if (j.kind === "legacy" && j.settings.mapping === "glyph")
+          jobs.delete(id);
+      }
     },
     begin(input) {
       alive();

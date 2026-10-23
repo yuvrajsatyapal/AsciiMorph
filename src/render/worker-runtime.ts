@@ -17,6 +17,7 @@ import {
   validateReferenceCharactersSettings,
   type ReferenceCharacterAtlasV1,
 } from "./reference-characters";
+import type { GlyphCalibrationV1 } from "./character-contract";
 import type { CharacterEngine } from "./wasm-character";
 
 type RenderMessage = Extract<
@@ -35,6 +36,7 @@ interface Task {
   startedAt?: number;
   handle?: number;
   slices: number;
+  atlas?: ReferenceCharacterAtlasV1;
 }
 export interface WorkerRuntimeOptions {
   createEngine(memoryBudgetBytes: number): Promise<CharacterEngine>;
@@ -57,6 +59,10 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
     | undefined;
   let atlas: ReferenceCharacterAtlasV1 | undefined;
   let atlasKey: string | undefined;
+  // Logical latest input validates requests; engine selection may be an old capture.
+  let logicalCalibration: GlyphCalibrationV1 | undefined;
+  let selectedAtlasKey: string | undefined;
+  let selectedCalibrationKey: string | undefined;
   let preview: Task | undefined;
   let exporting: Task | undefined;
   let pendingExport: Task | undefined;
@@ -137,6 +143,9 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
     calibration = undefined;
     atlas = undefined;
     atlasKey = undefined;
+    logicalCalibration = undefined;
+    selectedAtlasKey = undefined;
+    selectedCalibrationKey = undefined;
     try {
       failedEngine?.dispose();
     } catch {
@@ -160,16 +169,47 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
       ...renderIdentity(task.message),
     });
   }
-  function cancel(task: Task) {
+  function cancel(task: Task, allowAlreadyInvalidated = false) {
     if (task.handle !== undefined) {
       try {
         engine!.cancel(task.handle);
       } catch (cause) {
-        fatal(task.message.requestId, cause, task.message);
-        throw failure;
+        if (
+          !(
+            allowAlreadyInvalidated &&
+            cause instanceof RenderError &&
+            cause.code === "InvalidInput"
+          )
+        ) {
+          fatal(task.message.requestId, cause, task.message);
+          throw failure;
+        }
       }
     }
     settleCancelled(task);
+  }
+  function settleUploadInvalidations(except?: Task) {
+    for (const task of tasks()) {
+      if (task === except) continue;
+      if (
+        profile(task.message)
+          ? engine!.charactersAtlasRetentionVersion !== 1
+          : task.message.settings.mapping === "glyph"
+      )
+        // Setters may deduplicate without invalidating native handles. Release a
+        // still-live handle; only an actual upload's already-absent status is safe.
+        cancel(task, true);
+    }
+  }
+  function selectAtlas(capture: ReferenceCharacterAtlasV1, except?: Task) {
+    const key = atlasIdentityKey(capture);
+    if (selectedAtlasKey === key) return;
+    engine!.setAtlas(capture);
+    selectedAtlasKey = key;
+    selectedCalibrationKey = calibrationIdentityKey(capture.calibration);
+    // Successful native upload invalidates legacy glyph handles, including those
+    // displaced by internal reselection. Settle them before another numeric step.
+    settleUploadInvalidations(except);
   }
   function wake() {
     if (!disposed && !failure && !cancelTurn && (preview || exporting))
@@ -218,6 +258,16 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
     const m = task.message;
     try {
       if (task.handle === undefined) {
+        if (profile(m)) selectAtlas(task.atlas!, task);
+        else if (
+          m.settings.mapping === "glyph" &&
+          selectedCalibrationKey !== calibrationIdentityKey(logicalCalibration!)
+        ) {
+          engine.setCalibration(logicalCalibration!);
+          selectedAtlasKey = undefined;
+          selectedCalibrationKey = calibrationIdentityKey(logicalCalibration!);
+          settleUploadInvalidations(task);
+        }
         task.startedAt = now();
         task.handle = profile(m)
           ? engine.beginCharacters(m.settings)
@@ -317,6 +367,9 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
     calibration = undefined;
     atlas = undefined;
     atlasKey = undefined;
+    logicalCalibration = undefined;
+    selectedAtlasKey = undefined;
+    selectedCalibrationKey = undefined;
   }
   function receive(value: unknown) {
     let m: WorkerRequest;
@@ -365,6 +418,10 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
                 charactersProfileVersion: engine?.charactersProfileAvailable
                   ? 1
                   : null,
+                charactersAtlasRetentionVersion:
+                  engine?.charactersProfileAvailable
+                    ? (engine.charactersAtlasRetentionVersion ?? null)
+                    : null,
                 charactersContextVersion: engine?.charactersProfileAvailable
                   ? (engine.charactersContextVersion ?? null)
                   : null,
@@ -442,14 +499,11 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
             "Atlas metadata requires a new identity",
           );
         if (!atlas || atlasKey !== key) {
-          engine.setAtlas(a);
-          // setAtlas shares the calibration upload: all dependent handles were invalidated.
-          for (const task of tasks())
-            if (
-              profile(task.message) ||
-              task.message.settings.mapping === "glyph"
-            )
-              settleCancelled(task);
+          selectAtlas(a);
+          // A logical replacement invalidates lazy legacy tasks even when this
+          // exact atlas is already selected for a captured profile export.
+          settleUploadInvalidations();
+          logicalCalibration = c;
           atlas = a;
           atlasKey = key;
           calibration = {
@@ -471,12 +525,10 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
         const c = m.calibration;
         if (!calibration || calibration.id !== c.id) {
           engine.setCalibration(c);
-          for (const task of tasks())
-            if (
-              profile(task.message) ||
-              task.message.settings.mapping === "glyph"
-            )
-              settleCancelled(task);
+          selectedAtlasKey = undefined;
+          selectedCalibrationKey = calibrationIdentityKey(c);
+          settleUploadInvalidations();
+          logicalCalibration = c;
           atlas = undefined;
           atlasKey = undefined;
           calibration = {
@@ -577,7 +629,12 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
           "InvalidInput",
           "Duplicate active request identity",
         );
-      const task: Task = { message: m, queuedAt: now(), slices: 0 };
+      const task: Task = {
+        message: m,
+        queuedAt: now(),
+        slices: 0,
+        ...(profile(m) ? { atlas } : {}),
+      };
       if (m.type === "renderPreview" || m.type === "renderCharactersPreview") {
         if (preview) cancel(preview);
         preview = task;

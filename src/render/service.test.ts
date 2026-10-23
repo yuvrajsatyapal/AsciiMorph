@@ -88,6 +88,7 @@ class TestWorker {
   engine: CharacterEngine = {
     charactersProfileAvailable: false,
     charactersContextVersion: null,
+    charactersAtlasRetentionVersion: null,
     setAtlas: vi.fn(),
     beginCharacters: vi.fn(),
     takeFrame: vi.fn(),

@@ -44,6 +44,7 @@ export interface RenderService {
   readonly state: RenderServiceState;
   readonly charactersProfileVersion: 1 | null;
   readonly charactersContextVersion: 1 | null;
+  readonly charactersAtlasRetentionVersion: 1 | null;
   initialize(): Promise<void>;
   setSource(source: SourceUpload): Promise<void>;
   setCalibration(calibration: GlyphCalibrationV1): Promise<void>;
@@ -68,6 +69,7 @@ export interface RenderService {
 }
 interface Waiter {
   message: WorkerRequest;
+  atlas?: ReferenceCharacterAtlasV1;
   resolve(response: WorkerResponse): void;
   reject(error: RenderError): void;
   cleanup(): void;
@@ -104,6 +106,7 @@ export function createRenderService(
   let state: RenderServiceState = "idle";
   let charactersProfileVersion: 1 | null = null;
   let charactersContextVersion: 1 | null = null;
+  let charactersAtlasRetentionVersion: 1 | null = null;
   let connection: Connection | undefined;
   let initialization: Promise<void> | undefined;
   let inputQueue: Promise<void> = Promise.resolve();
@@ -244,10 +247,10 @@ export function createRenderService(
       try {
         if (
           !retainedSource ||
-          !retainedAtlas ||
+          !waiter.atlas ||
           retainedSource.id !== request.sourceId ||
           retainedSource.revision !== request.sourceRevision ||
-          retainedAtlas.calibration.id !== request.calibrationId
+          waiter.atlas.calibration.id !== request.calibrationId
         )
           throw new Error("Characters retained identity mismatch");
         const source = {
@@ -259,7 +262,7 @@ export function createRenderService(
         validateReferenceCharactersFrame(
           response.frame,
           request.settings,
-          retainedAtlas,
+          waiter.atlas,
           source,
         );
       } catch {
@@ -335,6 +338,10 @@ export function createRenderService(
       };
       waiters.set(message.requestId, {
         message,
+        ...(message.type === "renderCharactersPreview" ||
+        message.type === "renderCharactersExport"
+          ? { atlas: retainedAtlas }
+          : {}),
         resolve,
         reject,
         cleanup: () => signal?.removeEventListener("abort", abort),
@@ -381,6 +388,7 @@ export function createRenderService(
       state = "initializing";
       charactersProfileVersion = null;
       charactersContextVersion = null;
+      charactersAtlasRetentionVersion = null;
       try {
         validateWorkerRequest({
           ...envelope(),
@@ -411,6 +419,8 @@ export function createRenderService(
           throw new RenderError("WorkerFailure", "Worker did not initialize");
         charactersProfileVersion = ready.charactersProfileVersion ?? null;
         charactersContextVersion = ready.charactersContextVersion ?? null;
+        charactersAtlasRetentionVersion =
+          ready.charactersAtlasRetentionVersion ?? null;
         alive();
         if (retainedSource) await uploadSource(retainedSource);
         if (retainedAtlas) await uploadAtlas(retainedAtlas);
@@ -541,6 +551,9 @@ export function createRenderService(
   return {
     get charactersProfileVersion() {
       return state === "ready" ? charactersProfileVersion : null;
+    },
+    get charactersAtlasRetentionVersion() {
+      return state === "ready" ? charactersAtlasRetentionVersion : null;
     },
     get charactersContextVersion() {
       return state === "ready" ? charactersContextVersion : null;

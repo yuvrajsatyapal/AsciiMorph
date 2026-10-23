@@ -115,6 +115,7 @@ function harness(
   const engine: CharacterEngine = {
     charactersProfileAvailable: true,
     charactersContextVersion: 1,
+    charactersAtlasRetentionVersion: null,
     setAtlas: vi.fn(),
     beginCharacters: vi.fn(),
     takeFrame: vi.fn(),
@@ -610,7 +611,7 @@ describe("Task 6 review cancellation regressions", () => {
       h.runtime.dispose();
     }
   });
-  it("successful_input_replacement_only_settles_jobs_already_invalidated_by_engine", async () => {
+  it("source replacement settles directly and calibration cleanup tolerates already-invalidated handles", async () => {
     const h = harness(1000);
     await h.ready();
     h.send(job("old-source"));
@@ -627,6 +628,13 @@ describe("Task 6 review cancellation regressions", () => {
       type: "setSource",
       source: { ...source(), revision: 2 },
     });
+    expect(h.engine.cancel).not.toHaveBeenCalled();
+    vi.mocked(h.engine.cancel).mockImplementation(() => {
+      throw new RenderError(
+        "InvalidInput",
+        "Handle already invalidated by upload",
+      );
+    });
     h.send({ ...job("old-cal"), sourceRevision: 2 });
     await vi.waitFor(() => expect(h.engine.begin).toHaveBeenCalledTimes(2), {
       timeout: 2000,
@@ -638,7 +646,7 @@ describe("Task 6 review cancellation regressions", () => {
       type: "setCalibration",
       calibration: { ...calibration(), id: "cal2" },
     });
-    expect(h.engine.cancel).not.toHaveBeenCalled();
+    expect(h.engine.cancel).toHaveBeenCalledOnce();
     expect(h.engine.dispose).not.toHaveBeenCalled();
     for (const requestId of ["old-source", "old-cal"])
       expect(h.messages).toContainEqual(
@@ -832,3 +840,56 @@ it("profile lanes preserve latest preview, export fairness, bounded queue and fu
   expect(h.transfers.filter((t) => t.length === 1)).toHaveLength(3);
   h.runtime.dispose();
 });
+
+it.each(["absent", "unexpected-error", "trap"] as const)(
+  "upload invalidation cleanup tolerates only already-absent handles: %s",
+  async (mode) => {
+    const h = harness(100000);
+    try {
+      await h.ready();
+      h.send(job("invalidated"));
+      await waitForMessage(h.messages, "invalidated", "progress");
+      vi.mocked(h.engine.cancel).mockImplementation(() => {
+        if (mode === "trap")
+          throw new WebAssembly.RuntimeError("invalidation cancel trap");
+        throw new RenderError(
+          mode === "absent" ? "InvalidInput" : "BudgetExceeded",
+          "invalidation cancel error",
+        );
+      });
+      h.send({
+        version: 1,
+        requestId: "replacement",
+        type: "setCalibration",
+        calibration: { ...calibration(), id: "new-calibration" },
+      });
+      expect(h.engine.cancel).toHaveBeenCalled();
+      if (mode === "absent") {
+        expect(h.messages).toContainEqual(
+          expect.objectContaining({
+            requestId: "invalidated",
+            type: "cancelled",
+          }),
+        );
+        expect(h.messages).toContainEqual(
+          expect.objectContaining({
+            requestId: "replacement",
+            type: "accepted",
+          }),
+        );
+        expect(h.engine.dispose).not.toHaveBeenCalled();
+      } else {
+        expect(h.messages).toContainEqual(
+          expect.objectContaining({
+            requestId: "invalidated",
+            type: "error",
+            error: expect.objectContaining({ code: "WorkerFailure" }),
+          }),
+        );
+        expect(h.engine.dispose).toHaveBeenCalledOnce();
+      }
+    } finally {
+      h.runtime.dispose();
+    }
+  },
+);

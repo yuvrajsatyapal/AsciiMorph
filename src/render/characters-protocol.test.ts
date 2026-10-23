@@ -149,3 +149,22 @@ it("complete context readiness is closed, versioned and separate from glyph-only
   ])
     expect(() => validateWorkerResponse(bad)).toThrow();
 });
+
+it("atlas-retention readiness is separately closed and requires profile support", () => {
+  const base = { version: 1, requestId: "ready", type: "ready" };
+  const ready = {
+    ...base,
+    charactersProfileVersion: 1,
+    charactersAtlasRetentionVersion: 1,
+  };
+  expect(validateWorkerResponse(ready)).toBe(ready);
+  expect(
+    validateWorkerResponse({ ...base, charactersAtlasRetentionVersion: null }),
+  ).toBeTruthy();
+  for (const bad of [
+    { ...base, charactersAtlasRetentionVersion: 1 },
+    { ...ready, charactersAtlasRetentionVersion: 2 },
+    { ...ready, charactersAtlasRetentionVersion: true },
+  ])
+    expect(() => validateWorkerResponse(bad)).toThrow();
+});

@@ -106,6 +106,7 @@ export type WorkerResponse =
       type: "ready";
       charactersProfileVersion?: 1 | null;
       charactersContextVersion?: 1 | null;
+      charactersAtlasRetentionVersion?: 1 | null;
     }>
   | Envelope<{ type: "disposed" }>
   | Envelope<{
@@ -320,6 +321,9 @@ export function validateWorkerResponse(value: unknown): WorkerResponse {
         ...("charactersProfileVersion" in m
           ? ["charactersProfileVersion"]
           : []),
+        ...("charactersAtlasRetentionVersion" in m
+          ? ["charactersAtlasRetentionVersion"]
+          : []),
         ...("charactersContextVersion" in m
           ? ["charactersContextVersion"]
           : []),
@@ -327,9 +331,15 @@ export function validateWorkerResponse(value: unknown): WorkerResponse {
       for (const key of [
         "charactersProfileVersion",
         "charactersContextVersion",
+        "charactersAtlasRetentionVersion",
       ])
         if (key in m && m[key] !== null && m[key] !== 1)
           invalid("Invalid Characters capability version");
+      if (
+        m.charactersAtlasRetentionVersion === 1 &&
+        m.charactersProfileVersion !== 1
+      )
+        invalid("Atlas retention requires profile version1");
       if (m.charactersContextVersion === 1 && m.charactersProfileVersion !== 1)
         invalid("Complete context requires profile version1");
       break;

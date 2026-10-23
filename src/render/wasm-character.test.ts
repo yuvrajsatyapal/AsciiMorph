@@ -79,7 +79,12 @@ interface Raw {
   render_error(handle: number): number;
 }
 /** Forward every call to the real compiled WASM, recording only uploads. */
-function instrument(omitted: string[] = [], contextVersion?: number) {
+function instrument(
+  omitted: string[] = [],
+  contextVersion?: number,
+  retentionVersion?: number,
+  cancellation?: { status: number; error: number },
+) {
   const instantiate = WebAssembly.instantiate.bind(WebAssembly);
   const uploads: number[] = [];
   let memory: WebAssembly.Memory | undefined;
@@ -112,6 +117,18 @@ function instrument(omitted: string[] = [], contextVersion?: number) {
           ...(contextVersion === undefined
             ? {}
             : { render_characters_context_version: () => contextVersion }),
+          ...(retentionVersion === undefined
+            ? {}
+            : {
+                render_characters_atlas_retention_version: () =>
+                  retentionVersion,
+              }),
+          ...(cancellation
+            ? {
+                render_cancel: () => cancellation.status,
+                render_error: () => cancellation.error,
+              }
+            : {}),
           render_upload: (...args: [number, number, number, number]) => {
             uploads.push(args[1]);
             return raw.render_upload(...args);
@@ -487,7 +504,8 @@ describe("additive Characters WASM profile", () => {
     expect(() => e.step(c, 1)).toThrow();
     const d = e.beginCharacters(pSettings);
     e.setCalibration({ ...pAtlas().calibration, id: "legacy-new" });
-    expect(() => e.step(d, 1)).toThrow();
+    expect(e.step(d, 1)).toBe("pending");
+    expect(finishFrame(e, d).grid!.calibrationId).toBe("profile-atlas");
     expect(() => e.beginCharacters(pSettings)).toThrow();
     e.dispose();
   });
@@ -745,5 +763,87 @@ it.each([0, 2])(
     } finally {
       e.dispose();
     }
+  },
+);
+
+it("captures Unicode/space dictionary and pixels across successful atlas replacement", async () => {
+  const e = await createCharacterEngine(bytes);
+  expect(e.charactersAtlasRetentionVersion).toBe(1);
+  e.setSource(pSource());
+  const a = pAtlas();
+  a.calibration.glyphs = ["é", " "];
+  a.spaceIndexOr65535 = 1;
+  e.setAtlas(a);
+  const expected = finishFrame(e, e.beginCharacters(pSettings));
+  const old = e.beginCharacters(pSettings);
+  e.step(old, 1);
+  const b = pAtlas();
+  b.calibration.id = "replacement";
+  b.calibration.glyphs = [" ", "█"];
+  b.spaceIndexOr65535 = 0;
+  b.calibration.masks[1] = 255;
+  e.setAtlas(b);
+  const current = e.beginCharacters(pSettings);
+  expect(finishFrame(e, old)).toEqual(expected);
+  expect(finishFrame(e, current).grid!.calibrationId).toBe("replacement");
+  e.dispose();
+});
+it.each([undefined, 0, 2])(
+  "absent/unknown retention capability %s does not claim independence",
+  async (version) => {
+    instrument(
+      ["render_characters_atlas_retention_version"],
+      undefined,
+      version,
+    );
+    const e = await createCharacterEngine(bytes);
+    expect(e.charactersProfileAvailable).toBe(true);
+    expect(e.charactersAtlasRetentionVersion).toBeNull();
+    e.setSource(pSource());
+    e.setAtlas(pAtlas());
+    for (let index = 0; index < 3; index++) {
+      const id = e.beginCharacters(pSettings);
+      e.setAtlas({
+        ...pAtlas(),
+        calibration: { ...pAtlas().calibration, id: `new-${index}` },
+      });
+      expect(() => e.step(id, 1)).toThrow();
+      expect(finishFrame(e, e.beginCharacters(pSettings)).width).toBe(5);
+    }
+    e.dispose();
+  },
+);
+it("partial profile exports cannot claim atlas retention", async () => {
+  instrument(["render_frame_output_len"], undefined, 1);
+  const e = await createCharacterEngine(bytes);
+  expect(e.charactersAtlasRetentionVersion).toBeNull();
+  e.dispose();
+});
+
+it.each([
+  [0, 1, false],
+  [0, 3, true],
+  [7, 0, true],
+] as const)(
+  "fallback cleanup accepts only native cancelled/already-absent status (%s,error%s)",
+  async (status, error, fails) => {
+    instrument(
+      ["render_characters_atlas_retention_version"],
+      undefined,
+      undefined,
+      { status, error },
+    );
+    const e = await createCharacterEngine(bytes);
+    e.setSource(pSource());
+    e.setAtlas(pAtlas());
+    e.beginCharacters(pSettings);
+    const replace = () =>
+      e.setAtlas({
+        ...pAtlas(),
+        calibration: { ...pAtlas().calibration, id: "fallback-new" },
+      });
+    if (fails) expect(replace).toThrow(/compatibility cancellation/);
+    else expect(replace).not.toThrow();
+    e.dispose();
   },
 );

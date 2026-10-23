@@ -11,11 +11,12 @@ use crate::{
     reference_characters::{ReferenceAtlas, ReferenceBackdrop, ReferenceCharactersSettings},
     source::SourceImage,
 };
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, sync::Arc};
 enum NumericJob {
     Legacy(CharacterJob),
     Reference {
         job: CompleteCharactersJob,
+        calibration: Arc<GlyphCalibration>,
         origin_x: f64,
         origin_y: f64,
         space: u16,
@@ -44,7 +45,7 @@ struct RetainedJob {
 pub struct RenderSession {
     budget: usize,
     source: Option<SourceImage>,
-    calibration: Option<GlyphCalibration>,
+    calibration: Option<Arc<GlyphCalibration>>,
     stages: BTreeMap<usize, Vec<u8>>,
     jobs: BTreeMap<u32, RetainedJob>,
     next_job: u32,
@@ -68,13 +69,49 @@ impl RenderSession {
     }
     pub fn storage_bytes(&self) -> usize {
         self.source.as_ref().map_or(0, |s| s.storage_bytes())
-            + self.calibration.as_ref().map_or(0, |c| c.storage_bytes())
+            + self.calibration_bytes()
             + self.stages.values().map(|v| v.capacity()).sum::<usize>()
             + self
                 .jobs
                 .values()
                 .map(|j| j.numeric.as_ref().map_or(0, |v| v.storage_bytes()) + j.output.capacity())
                 .sum::<usize>()
+    }
+    // At most current plus two active captures. Count actual allocations once, never
+    // Arc references; completed jobs no longer need a numeric dictionary.
+    fn calibration_bytes(&self) -> usize {
+        let mut seen = [0usize; 3];
+        let mut count = 0;
+        let mut masks_seen = [0usize; 3];
+        let mut mask_count = 0;
+        let mut bytes = 0;
+        for c in self
+            .calibration
+            .iter()
+            .chain(self.jobs.values().filter_map(|j| match j.numeric.as_ref() {
+                Some(NumericJob::Reference { calibration, .. }) => Some(calibration),
+                _ => None,
+            }))
+        {
+            let identity = Arc::as_ptr(c) as usize;
+            if !seen[..count].contains(&identity) {
+                seen[count] = identity;
+                count += 1;
+                bytes += c.coverage.capacity() * 4
+                    + c.shapes.capacity() * 4
+                    + std::mem::size_of::<GlyphCalibration>()
+                    + 2 * std::mem::size_of::<usize>();
+                let mask_identity = Arc::as_ptr(&c.masks) as usize;
+                if !masks_seen[..mask_count].contains(&mask_identity) {
+                    masks_seen[mask_count] = mask_identity;
+                    mask_count += 1;
+                    bytes += c.masks.capacity()
+                        + std::mem::size_of::<Vec<u8>>()
+                        + 2 * std::mem::size_of::<usize>();
+                }
+            }
+        }
+        bytes
     }
     // Active reservations include future allocations, not just today's live scratch.
     // A stage/upload/second job cannot borrow another job's eventual peak.
@@ -203,7 +240,13 @@ impl RenderSession {
                 if b.len() != end + if flags == 1 { 16 } else { 0 } {
                     return Err(RenderError::InvalidInput);
                 }
-                self.preflight(masks + count as usize * 40)?;
+                self.preflight(
+                    masks
+                        + count as usize * 40
+                        + std::mem::size_of::<GlyphCalibration>()
+                        + 4 * std::mem::size_of::<usize>()
+                        + std::mem::size_of::<Vec<u8>>(),
+                )?;
                 let read_floats = |offset: usize, n: usize| -> Result<Vec<f32>, RenderError> {
                     let mut values = Vec::with_capacity(n);
                     for i in 0..n {
@@ -231,9 +274,14 @@ impl RenderSession {
                         backslash: index(3)?,
                     })?;
                 }
-                self.preflight(replacement.storage_bytes())?;
-                self.calibration = Some(replacement);
-                self.jobs.retain(|_, j| !j.uses_calibration);
+                self.preflight(
+                    replacement.storage_bytes()
+                        + std::mem::size_of::<GlyphCalibration>()
+                        + 4 * std::mem::size_of::<usize>()
+                        + std::mem::size_of::<Vec<u8>>(),
+                )?;
+                self.calibration = Some(Arc::new(replacement));
+                self.jobs.retain(|_, j| j.is_profile || !j.uses_calibration);
             }
             _ => return Err(RenderError::InvalidInput),
         }
@@ -268,7 +316,7 @@ impl RenderSession {
             source,
             s,
             if uses_calibration {
-                self.calibration.as_ref()
+                self.calibration.as_deref()
             } else {
                 None
             },
@@ -320,8 +368,7 @@ impl RenderSession {
             } else {
                 output_len(cols * rows)
             };
-        let other = self.admission_bytes() - source.storage_bytes() - calibration.masks.capacity()
-            + std::mem::size_of::<GlyphCalibration>();
+        let other = self.admission_bytes() - source.storage_bytes() - calibration.masks.capacity();
         let peak = CompleteCharactersJob::estimated_peak_bytes(source, &settings, &atlas, other)?;
         if peak > self.budget {
             return Err(RenderError::BudgetExceeded);
@@ -339,6 +386,7 @@ impl RenderSession {
             RetainedJob {
                 numeric: Some(NumericJob::Reference {
                     job,
+                    calibration: Arc::clone(calibration),
                     origin_x: x,
                     origin_y: y,
                     space,
@@ -364,7 +412,7 @@ impl RenderSession {
             NumericJob::Legacy(job) => job.step(
                 source,
                 if j.uses_calibration {
-                    self.calibration.as_ref()
+                    self.calibration.as_deref()
                 } else {
                     None
                 },
@@ -372,18 +420,12 @@ impl RenderSession {
             )?,
             NumericJob::Reference {
                 job,
+                calibration,
                 origin_x,
                 origin_y,
                 space,
             } => {
-                let atlas = ReferenceAtlas::borrowed(
-                    self.calibration
-                        .as_ref()
-                        .ok_or(RenderError::MissingCalibration)?,
-                    *origin_x,
-                    *origin_y,
-                    *space,
-                )?;
+                let atlas = ReferenceAtlas::borrowed(calibration, *origin_x, *origin_y, *space)?;
                 job.step(source, &atlas, work)?
             }
         };
@@ -642,4 +684,123 @@ fn serialize_frame(f: &ReferenceCharactersFrame, cols: u32, rows: u32) -> Vec<u8
         write_grid(grid, &mut b[grid_offset..]);
     }
     b
+}
+
+#[cfg(test)]
+mod retention_tests {
+    use super::*;
+    fn calibration() -> Arc<GlyphCalibration> {
+        let mut masks = Vec::with_capacity(67);
+        masks.extend([0, 255]);
+        let mut coverage = Vec::with_capacity(7);
+        coverage.extend([0., 1.]);
+        let mut shapes = Vec::with_capacity(31);
+        shapes.extend([0.; 18]);
+        Arc::new(GlyphCalibration::new(2, 1, 1, masks, coverage, shapes).unwrap())
+    }
+    fn begin(s: &mut RenderSession) -> u32 {
+        let mut b = Vec::new();
+        for value in [1u32, 5, 3, 0, 2, 0, 0, 65535] {
+            b.extend(value.to_le_bytes());
+        }
+        for value in [3f64, 1., 0., 0., 0., 0., 1., 1., 0., 0.] {
+            b.extend(value.to_le_bytes());
+        }
+        let p = s.stage(112).unwrap();
+        s.stage_mut(p).unwrap().copy_from_slice(&b);
+        let job = s.begin_characters_staged(p, 112).unwrap();
+        s.unstage(p).unwrap();
+        job
+    }
+    #[test]
+    fn counts_unique_capacities_and_ownership_metadata_without_arc_multiplication() {
+        let mut s = RenderSession::new(100000).unwrap();
+        s.source = Some(SourceImage::new(5, 3, vec![255; 60], 100000).unwrap());
+        let original = calibration();
+        let metadata = std::mem::size_of::<GlyphCalibration>()
+            + 4 * std::mem::size_of::<usize>()
+            + std::mem::size_of::<Vec<u8>>();
+        s.calibration = Some(Arc::clone(&original));
+        let base = 67 + 7 * 4 + 31 * 4 + metadata;
+        assert_eq!(s.calibration_bytes(), base);
+        let first = begin(&mut s);
+        let second = begin(&mut s);
+        assert_eq!(s.calibration_bytes(), base);
+        // A distinct calibration owns cloned vectors but shares the same mask Arc.
+        let cloned = Arc::new(original.as_ref().clone());
+        let cloned_vectors = cloned.coverage.capacity() * 4 + cloned.shapes.capacity() * 4;
+        s.calibration = Some(cloned);
+        let calibration_metadata =
+            std::mem::size_of::<GlyphCalibration>() + 2 * std::mem::size_of::<usize>();
+        assert_eq!(
+            s.calibration_bytes(),
+            base + cloned_vectors + calibration_metadata
+        );
+        s.cancel(first).unwrap();
+        s.cancel(second).unwrap();
+        assert_eq!(s.calibration_bytes(), 67 + cloned_vectors + metadata);
+        // Equal values in a genuinely separate mask allocation must be charged again.
+        let old = begin(&mut s);
+        let distinct = calibration();
+        s.calibration = Some(distinct);
+        assert_eq!(s.calibration_bytes(), 67 + cloned_vectors + metadata + base);
+        s.cancel(old).unwrap();
+        assert_eq!(s.calibration_bytes(), base);
+    }
+    #[test]
+    fn replacement_and_second_profile_preserve_all_old_future_reservations() {
+        let mut s = RenderSession::new(100000).unwrap();
+        s.source = Some(SourceImage::new(5, 3, vec![255; 60], 100000).unwrap());
+        let old = calibration();
+        s.calibration = Some(Arc::clone(&old));
+        let id = begin(&mut s);
+        // Wire replacement has two independent 8x8 masks plus coverage/shapes.
+        let mut b = Vec::new();
+        for v in [1u32, 2, 0, 0, 2, 8, 8, 0] {
+            b.extend(v.to_le_bytes());
+        }
+        b.extend([0; 128]);
+        for _ in 0..20 {
+            b.extend(0f32.to_le_bytes());
+        }
+        let replacement_bytes = 128
+            + 80
+            + std::mem::size_of::<GlyphCalibration>()
+            + 4 * std::mem::size_of::<usize>()
+            + std::mem::size_of::<Vec<u8>>();
+        s.budget = s.admission_bytes() + b.len() + replacement_bytes - 1;
+        let p = s.stage(b.len()).unwrap();
+        s.stage_mut(p).unwrap().copy_from_slice(&b);
+        assert_eq!(s.upload(2, p, b.len()), Err(RenderError::BudgetExceeded));
+        s.unstage(p).unwrap();
+        assert!(Arc::ptr_eq(s.calibration.as_ref().unwrap(), &old));
+        // A stage cannot consume even one byte of this active job's future peak.
+        let free_actual = s.budget - s.storage_bytes();
+        assert_eq!(s.stage(free_actual), Err(RenderError::BudgetExceeded));
+        // Replacement can now be admitted, retaining the original job's dictionary.
+        s.budget = 100000;
+        let p = s.stage(b.len()).unwrap();
+        s.stage_mut(p).unwrap().copy_from_slice(&b);
+        s.upload(2, p, b.len()).unwrap();
+        s.unstage(p).unwrap();
+        let second_peak = s.admission_bytes();
+        s.budget = second_peak + 112;
+        let mut config = Vec::new();
+        for v in [1u32, 5, 3, 0, 2, 0, 0, 65535] {
+            config.extend(v.to_le_bytes());
+        }
+        for v in [3f64, 1., 0., 0., 0., 0., 1., 1., 0., 0.] {
+            config.extend(v.to_le_bytes());
+        }
+        let p = s.stage(112).unwrap();
+        s.stage_mut(p).unwrap().copy_from_slice(&config);
+        assert_eq!(
+            s.begin_characters_staged(p, 112),
+            Err(RenderError::BudgetExceeded)
+        );
+        s.unstage(p).unwrap();
+        while s.step(id, 1).unwrap() != JobStatus::Complete {}
+        s.release(id).unwrap();
+        assert_eq!(s.jobs.len(), 0);
+    }
 }

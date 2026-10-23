@@ -585,3 +585,266 @@ test("exact project adapter drives four controls and normalized S1/S3/S4 geometr
   expect(evidence.margin[0]).toBeCloseTo(1);
   expect(evidence.margin[1]).toBeCloseTo(3);
 });
+
+test("captured active and pending exports survive real measured font/ramp edits through the production module worker", async ({
+  page,
+  browser,
+}, testInfo) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await page.goto(base);
+  const result = await page.evaluate(async () => {
+    const serviceUrl = "/src/render/service.ts",
+      calibrationUrl = "/src/render/glyph-calibration.ts";
+    const { createRenderService } = (await import(
+      /* @vite-ignore */ serviceUrl
+    )) as typeof import("../../../src/render/service");
+    const { createGlyphCalibrator } = (await import(
+      /* @vite-ignore */ calibrationUrl
+    )) as typeof import("../../../src/render/glyph-calibration");
+    type Response = import("../../../src/render/protocol").WorkerResponse;
+    type Frame =
+      import("../../../src/render/reference-characters").ReferenceCharactersFrameV1;
+    const face = new FontFace(
+      "Captured Atlas Fixture",
+      'url("/node_modules/@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-400-italic.woff2")',
+    );
+    await face.load();
+    document.fonts.add(face);
+    const calibrator = createGlyphCalibrator();
+    const measure = (fontSize: number, ramp: string) =>
+      calibrator.calibrateReferenceCharacters({
+        fontFamily: '"Captured Atlas Fixture"',
+        fontRevision: "ibm-plex-mono-latin-400-italic-task2.5",
+        fontPolicy: "verified-family",
+        fontSize,
+        cellWidth: 0.6 * fontSize,
+        cellHeight: fontSize,
+        ramp,
+      });
+    // Finish both font measurements before the scheduling barriers start.
+    const a = await measure(9.25, "█é. "),
+      b = await measure(13.5, "MW#: ");
+    const width = 1000,
+      height = 1000,
+      rgba = new Uint8ClampedArray(width * height * 4);
+    for (let y = 0; y < height; y++)
+      for (let x = 0; x < width; x++)
+        rgba.set(
+          [
+            Math.round((x * 255) / (width - 1)),
+            Math.round((y * 255) / (height - 1)),
+            Math.round(((x + y) * 255) / (width + height - 2)),
+            x < 10 ? 0 : x < 20 ? 128 : 255,
+          ],
+          (y * width + x) * 4,
+        );
+    const source = {
+      id: "owned-captured-atlas-gradient",
+      revision: 1,
+      width,
+      height,
+      rgba,
+    };
+    const request = (
+      jobId: string,
+      atlas: typeof a,
+      fontSize: number,
+      brightness = 0,
+    ) => ({
+      jobId,
+      revision: 1,
+      sourceId: source.id,
+      sourceRevision: 1,
+      calibrationId: atlas.calibration.id,
+      source: { id: source.id, revision: 1, width, height },
+      timeUs: 0,
+      settings: {
+        version: 1 as const,
+        frameWidth: width,
+        frameHeight: height,
+        fontSize,
+        renderScale: 1 as const,
+        brightness,
+        contrast: 20,
+        crop: { x: 0, y: 0, width: 1, height: 1 },
+        rotation: 0 as const,
+        backdrop: "blur" as const,
+      },
+      outputWidth: width,
+      outputHeight: height,
+    });
+    const activeRequest = request("active-a", a, 9.25, -10),
+      pendingRequest = request("pending-a", a, 9.25, 15);
+    const previewRequest = request("preview-b", b, 13.5);
+    // Independent serialized sessions use only their fixed atlas/settings; no outputs from
+    // concurrent scheduling serve as the expected value for another concurrent job.
+    const oracle = createRenderService();
+    let expectedActive: Frame, expectedPending: Frame, expectedPreview: Frame;
+    try {
+      await oracle.setSource(source);
+      await oracle.setAtlas(a);
+      expectedActive = (await oracle.renderCharactersExport(activeRequest))
+        .frame;
+      expectedPending = (await oracle.renderCharactersExport(pendingRequest))
+        .frame;
+      await oracle.setAtlas(b);
+      expectedPreview = (await oracle.renderCharactersExport(previewRequest))
+        .frame;
+    } finally {
+      await oracle.dispose();
+    }
+    const messages: Response[] = [];
+    const watchers: {
+      match(m: Response): boolean;
+      resolve(m: Response): void;
+    }[] = [];
+    const barrier = (jobId: string, type: Response["type"]) => {
+      const match = (m: Response) =>
+        m.type === type && "jobId" in m && m.jobId === jobId;
+      const found = messages.find(match);
+      return found
+        ? Promise.resolve(found)
+        : new Promise<Response>((resolve) => watchers.push({ match, resolve }));
+    };
+    const workerUrl = "/src/render/render.worker.ts?worker";
+    const { default: ProductionWorker } = (await import(
+      /* @vite-ignore */ workerUrl
+    )) as { default: new () => Worker };
+    const service = createRenderService({
+      workerFactory: () => {
+        const worker = new ProductionWorker();
+        worker.addEventListener("message", (event: MessageEvent<Response>) => {
+          messages.push(event.data);
+          for (const watcher of [...watchers])
+            if (watcher.match(event.data)) {
+              watchers.splice(watchers.indexOf(watcher), 1);
+              watcher.resolve(event.data);
+            }
+        });
+        return worker;
+      },
+    });
+    const same = (x: ArrayLike<number>, y: ArrayLike<number>) =>
+      x.length === y.length && Array.from(x).every((v, i) => v === y[i]);
+    const equalFrame = (x: Frame, y: Frame) =>
+      x.width === y.width &&
+      x.height === y.height &&
+      same(x.rgba, y.rgba) &&
+      (x.grid === null || y.grid === null
+        ? x.grid === y.grid
+        : x.grid.calibrationId === y.grid.calibrationId &&
+          same(x.grid.glyphIndices, y.grid.glyphIndices) &&
+          same(x.grid.foreground, y.grid.foreground) &&
+          same(x.grid.background, y.grid.background) &&
+          same(x.grid.alpha, y.grid.alpha));
+    try {
+      await service.setSource(source);
+      await service.setAtlas(a);
+      let activeSettled = false,
+        pendingSettled = false;
+      const active = service.renderCharactersExport(activeRequest);
+      const pending = service.renderCharactersExport(pendingRequest);
+      const outcomes = Promise.all([active, pending]);
+      void active
+        .finally(() => {
+          activeSettled = true;
+        })
+        .catch(() => {});
+      void pending
+        .finally(() => {
+          pendingSettled = true;
+        })
+        .catch(() => {});
+      await barrier("active-a", "accepted");
+      await barrier("pending-a", "accepted");
+      const progress = await barrier("active-a", "progress");
+      const beforeAtlasEdit = { activeSettled, pendingSettled };
+      await service.setAtlas(b);
+      const afterAtlasAccepted = { activeSettled, pendingSettled };
+      const previewInput = {
+        jobId: previewRequest.jobId,
+        revision: previewRequest.revision,
+        sourceId: previewRequest.sourceId,
+        sourceRevision: previewRequest.sourceRevision,
+        calibrationId: previewRequest.calibrationId,
+        source: previewRequest.source,
+        timeUs: previewRequest.timeUs,
+        settings: previewRequest.settings,
+      };
+      const preview = await service.renderCharactersPreview(previewInput);
+      const [activeResult, pendingResult] = await outcomes;
+      // Source revision replacement remains explicitly canceling for captured exports.
+      const cancelRequest = request("source-cancel", b, 13.5);
+      const cancelOutcome = service.renderCharactersExport(cancelRequest).then(
+        () => "completed",
+        (e) => e.code as string,
+      );
+      await barrier("source-cancel", "accepted");
+      await barrier("source-cancel", "progress");
+      await service.setSource({ ...source, revision: 2 });
+      return {
+        retentionVersion: service.charactersAtlasRetentionVersion,
+        beforeAtlasEdit,
+        afterAtlasAccepted,
+        startedSlices: progress.type === "progress" ? progress.slices : 0,
+        activeEqualsFixed: equalFrame(activeResult.frame, expectedActive!),
+        pendingEqualsFixed: equalFrame(pendingResult.frame, expectedPending!),
+        previewEqualsFixed: equalFrame(preview.frame, expectedPreview!),
+        previewIdentity: preview.calibrationId,
+        atlasB: b.calibration.id,
+        changedFrame: !same(expectedActive!.rgba, expectedPreview!.rgba),
+        oldResultIds: messages
+          .filter(
+            (m) =>
+              m.type === "charactersResult" &&
+              (m.jobId === "active-a" || m.jobId === "pending-a"),
+          )
+          .map((m) => ("jobId" in m ? m.jobId : "")),
+        sourceReplacement: await cancelOutcome,
+        atlasA: {
+          width: a.calibration.maskWidth,
+          height: a.calibration.maskHeight,
+          glyphs: a.calibration.glyphs,
+        },
+        atlasBMeasured: {
+          width: b.calibration.maskWidth,
+          height: b.calibration.maskHeight,
+          glyphs: b.calibration.glyphs,
+        },
+      };
+    } finally {
+      await service.dispose();
+      calibrator.clearGlyphCalibrationCache();
+      document.fonts.delete(face);
+    }
+  });
+  const evidence = {
+    browser: browser.version(),
+    platform: process.platform,
+    ...result,
+  };
+  await testInfo.attach("captured-atlas.json", {
+    body: JSON.stringify(evidence, null, 2),
+    contentType: "application/json",
+  });
+  console.log(JSON.stringify(evidence));
+  expect(errors).toEqual([]);
+  expect(result.retentionVersion).toBe(1);
+  expect(result.startedSlices).toBeGreaterThan(0);
+  expect(result.beforeAtlasEdit).toEqual({
+    activeSettled: false,
+    pendingSettled: false,
+  });
+  expect(result.afterAtlasAccepted).toEqual({
+    activeSettled: false,
+    pendingSettled: false,
+  });
+  expect(result.activeEqualsFixed).toBe(true);
+  expect(result.pendingEqualsFixed).toBe(true);
+  expect(result.previewEqualsFixed).toBe(true);
+  expect(result.previewIdentity).toBe(result.atlasB);
+  expect(result.changedFrame).toBe(true);
+  expect(result.oldResultIds).toEqual(["active-a", "pending-a"]);
+  expect(result.sourceReplacement).toBe("Cancelled");
+});

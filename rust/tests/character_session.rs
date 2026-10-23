@@ -337,7 +337,12 @@ fn existing_f64_offsets_preserve_expanded_geometry() {
 }
 #[test]
 fn actual_mask_extents_and_staged_replacement_peak_keep_previous_job() {
-    let mut s = RenderSession::new(1200).unwrap();
+    // Keep the original vector peak boundary, adding the now-accounted current
+    // and replacement calibration ownership metadata.
+    let ownership = std::mem::size_of::<asciimorph_engine::glyph::GlyphCalibration>()
+        + 4 * std::mem::size_of::<usize>()
+        + std::mem::size_of::<Vec<u8>>();
+    let mut s = RenderSession::new(1200 + 2 * ownership).unwrap();
     upload(&mut s, &source(1, 255)).unwrap();
     let old = calibration(0, [0; 4]);
     let p = s.stage(old.len()).unwrap();
@@ -372,5 +377,5 @@ fn actual_mask_extents_and_staged_replacement_peak_keep_previous_job() {
     s.stage_mut(p).unwrap().copy_from_slice(&replacement);
     s.upload(2, p, replacement.len()).unwrap();
     s.unstage(p).unwrap();
-    assert_eq!(s.storage_bytes(), 4 + 320 + 160);
+    assert_eq!(s.storage_bytes(), 4 + 320 + 160 + ownership);
 }

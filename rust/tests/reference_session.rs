@@ -196,7 +196,8 @@ fn retained_borrowed_atlas_aggregate_jobs_rollback_and_invalidation() {
     assert_eq!(s.storage_bytes(), base);
     let a = begin(&mut s, &cfg(5, 3, 65535)).unwrap();
     upload(&mut s, 2, &atlas(2, 1, 1)).unwrap();
-    assert!(s.step(a, 1).is_err());
+    assert_eq!(s.step(a, 1).unwrap(), JobStatus::Pending);
+    s.cancel(a).unwrap();
     let a = begin(&mut s, &cfg(5, 3, 65535)).unwrap();
     upload(&mut s, 1, &src(5, 3)).unwrap();
     assert!(s.step(a, 1).is_err());
@@ -306,4 +307,68 @@ fn complete_context_reserves_all_active_future_scratch_before_begin() {
     let id = begin(&mut s, &b).unwrap();
     s.cancel(id).unwrap();
     assert_eq!(s.storage_bytes(), base);
+}
+
+#[test]
+fn captured_atlases_survive_replacement_and_release_unique_storage() {
+    for (w, h, backdrop, work) in [
+        (5, 3, 0u32, 1),
+        (16, 16, 2, 350),
+        (1, 1, 2, 1),
+        (5, 2, 0, 1),
+    ] {
+        let mut config = cfg(w, h, 65535);
+        config[20..24].copy_from_slice(&backdrop.to_le_bytes());
+        let a = atlas(2, 1, 1);
+        let mut b = atlas(2, 3, 2);
+        b[32..44].fill(255);
+        let oracle = |data: &[u8]| {
+            let mut fixed = RenderSession::new(100000).unwrap();
+            upload(&mut fixed, 1, &src(w, h)).unwrap();
+            upload(&mut fixed, 2, data).unwrap();
+            let id = begin(&mut fixed, &config).unwrap();
+            finish(&mut fixed, id)
+        };
+        let expected_a = oracle(&a);
+        let expected_b = oracle(&b);
+        let mut s = RenderSession::new(100000).unwrap();
+        upload(&mut s, 1, &src(w, h)).unwrap();
+        upload(&mut s, 2, &a).unwrap();
+        let base_a = s.storage_bytes();
+        let old = begin(&mut s, &config).unwrap();
+        s.step(old, work).unwrap();
+        upload(&mut s, 2, &b).unwrap();
+        let new = begin(&mut s, &config).unwrap();
+        assert_eq!(finish(&mut s, old), expected_a);
+        s.release(old).unwrap();
+        assert_eq!(finish(&mut s, new), expected_b);
+        s.release(new).unwrap();
+        let base_b = s.storage_bytes();
+        // Distinct actual mask capacity is charged even if both contain identical bytes.
+        assert_eq!(base_b - base_a, 10);
+        let old = begin(&mut s, &config).unwrap();
+        upload(&mut s, 2, &a).unwrap();
+        let retained = s.storage_bytes();
+        s.cancel(old).unwrap();
+        assert!(retained - s.storage_bytes() >= 12 + 80);
+        assert_eq!(s.storage_bytes(), base_a);
+    }
+}
+
+#[test]
+fn replacement_keeps_profile_but_invalidates_legacy_and_source_cancels_both() {
+    let mut s = RenderSession::new(100000).unwrap();
+    upload(&mut s, 1, &src(5, 3)).unwrap();
+    upload(&mut s, 2, &atlas(2, 1, 1)).unwrap();
+    let profile = begin(&mut s, &cfg(5, 3, 65535)).unwrap();
+    let mut legacy = CharacterSettings::new(1, 1).unwrap();
+    legacy.mapping = Mapping::Glyph;
+    let legacy = s.begin(legacy).unwrap();
+    upload(&mut s, 2, &atlas(2, 1, 1)).unwrap();
+    assert!(s.step(legacy, 1).is_err());
+    assert_eq!(s.step(profile, 0).unwrap(), JobStatus::Pending);
+    let second = begin(&mut s, &cfg(5, 3, 65535)).unwrap();
+    upload(&mut s, 1, &src(5, 3)).unwrap();
+    assert!(s.step(profile, 1).is_err());
+    assert!(s.step(second, 1).is_err());
 }

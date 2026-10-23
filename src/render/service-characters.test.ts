@@ -488,3 +488,542 @@ it("complete context service reports capability and renders equal Solid/Blur pre
     expect(h.service.charactersContextVersion).toBeNull();
   }
 });
+
+it("service validates active and pending captures independently of latest recovery atlas", async () => {
+  const h = setup(true, (w) => {
+    w.contextVersion = 1;
+  });
+  try {
+    await h.ready();
+    expect(h.service.charactersAtlasRetentionVersion).toBe(1);
+    const expected = (
+      await h.service.renderCharactersPreview(request("oracle-a"))
+    ).frame;
+    const w = h.workers[0];
+    w.delayCompletion = true;
+    const active = h.service.renderCharactersExport({
+      ...request("active-a"),
+      outputWidth: 5,
+      outputHeight: 3,
+    });
+    const pending = h.service.renderCharactersExport({
+      ...request("pending-a"),
+      outputWidth: 5,
+      outputHeight: 3,
+    });
+    // Catch now so a broken cancellation path is an assertion failure, not unhandled rejection.
+    const results = Promise.allSettled([active, pending]);
+    await vi.waitFor(() =>
+      expect(
+        w.responses.filter(
+          (m) =>
+            m.type === "accepted" && "jobId" in m && m.jobId?.endsWith("-a"),
+        ),
+      ).toHaveLength(3),
+    );
+    const b = atlas();
+    b.calibration.id = "b";
+    b.calibration.masks[0] = 255;
+    await h.service.setAtlas(b);
+    w.delayCompletion = false;
+    const preview = await h.service.renderCharactersPreview({
+      ...request("preview-b"),
+      calibrationId: "b",
+    });
+    const settled = await results;
+    expect(settled.every((r) => r.status === "fulfilled")).toBe(true);
+    for (const r of settled)
+      if (r.status === "fulfilled") expect(r.value.frame).toEqual(expected);
+    expect(preview.calibrationId).toBe("b");
+    expect(h.service.state).toBe("ready");
+  } finally {
+    await h.service.dispose();
+  }
+});
+
+it.each(["lazy", "active"] as const)(
+  "worker reselects %s and pending atlas captures without corrupting logical latest identity",
+  async (mode) => {
+    const messages: WorkerResponse[] = [],
+      callbacks: (() => void)[] = [];
+    const selected: string[] = [];
+    let clock = 0;
+    const runtime = createWorkerRuntime({
+      now: () => (clock += 4),
+      scheduler: {
+        schedule: (fn) => {
+          callbacks.push(fn);
+          return () => {
+            const at = callbacks.indexOf(fn);
+            if (at >= 0) callbacks.splice(at, 1);
+          };
+        },
+        dispose: () => {
+          callbacks.length = 0;
+        },
+      },
+      createEngine: async (budget) => {
+        const e = await createCharacterEngine(bytes, {
+          memoryBudgetBytes: budget,
+        });
+        return {
+          ...e,
+          step: (id) => e.step(id, 1),
+          setAtlas: (a) => {
+            e.setAtlas(a);
+            selected.push(a.calibration.id);
+          },
+        };
+      },
+      postMessage: (m) => messages.push(m),
+    });
+    const send = (value: object) => runtime.receive({ version: 1, ...value });
+    const submit = (
+      id: string,
+      calibrationId: string,
+      type = "renderCharactersExport",
+    ) =>
+      send({
+        ...request(id),
+        requestId: id,
+        type,
+        calibrationId,
+        ...(type === "renderCharactersExport"
+          ? { outputWidth: 5, outputHeight: 3 }
+          : {}),
+      });
+    try {
+      send({
+        type: "initialize",
+        requestId: "init",
+        memoryBudgetBytes: 100000,
+      });
+      await vi.waitFor(() =>
+        expect(messages.some((m) => m.type === "ready")).toBe(true),
+      );
+      send({ type: "setSource", requestId: "source", source: src() });
+      send({ type: "setAtlas", requestId: "a", atlas: atlas() });
+      submit("active-a", "a");
+      if (mode === "active") callbacks.shift()!();
+      submit("pending-a", "a");
+      submit("third-rejected", "a");
+      const b = atlas();
+      b.calibration.id = "b";
+      b.calibration.masks[0] = 255;
+      send({ type: "setAtlas", requestId: "b", atlas: b });
+      // Execute one export slice: native selection is A, logical uploaded atlas is B.
+      expect(callbacks).toHaveLength(1);
+      callbacks.shift()!();
+      submit("preview-b", "b", "renderCharactersPreview");
+      while (callbacks.length) callbacks.shift()!();
+      expect(
+        messages.find((m) => m.requestId === "third-rejected"),
+      ).toMatchObject({ type: "error", error: { code: "Busy" } });
+      for (const [id, calibrationId] of [
+        ["active-a", "a"],
+        ["pending-a", "a"],
+        ["preview-b", "b"],
+      ]) {
+        const result = messages.find(
+          (m) => m.requestId === id && m.type === "charactersResult",
+        );
+        expect(result).toMatchObject({
+          type: "charactersResult",
+          calibrationId,
+        });
+        if (result?.type === "charactersResult")
+          expect(result.frame.grid?.calibrationId).toBe(calibrationId);
+      }
+      expect(selected).toContain("a");
+      expect(
+        messages.filter(
+          (m) => m.type === "error" && m.error.code === "WorkerFailure",
+        ),
+      ).toEqual([]);
+    } finally {
+      runtime.dispose();
+    }
+  },
+);
+
+it("internal captured-atlas selection cancels existing legacy glyph handles and restores latest logical calibration for new ones", async () => {
+  const callbacks: (() => void)[] = [],
+    messages: WorkerResponse[] = [];
+  let clock = 0;
+  const runtime = createWorkerRuntime({
+    now: () => (clock += 4),
+    scheduler: {
+      schedule: (fn) => {
+        callbacks.push(fn);
+        return () => {
+          const at = callbacks.indexOf(fn);
+          if (at >= 0) callbacks.splice(at, 1);
+        };
+      },
+      dispose: () => {
+        callbacks.length = 0;
+      },
+    },
+    createEngine: async (budget) => {
+      const e = await createCharacterEngine(bytes, {
+        memoryBudgetBytes: budget,
+      });
+      return { ...e, step: (id) => e.step(id, 1) };
+    },
+    postMessage: (m) => messages.push(m),
+  });
+  const send = (value: object) => runtime.receive({ version: 1, ...value });
+  const legacy = (id: string) => ({
+    type: "renderPreview",
+    requestId: id,
+    jobId: id,
+    revision: 1,
+    sourceId: "s",
+    sourceRevision: 1,
+    calibrationId: "legacy-c",
+    timeUs: 0,
+    settings: {
+      version: 1,
+      width: 1,
+      height: 1,
+      cellWidth: 0.6 * 3,
+      cellHeight: 3,
+      crop: { x: 0, y: 0, width: 1, height: 1 },
+      rotation: 0,
+      brightness: 0,
+      contrast: 0,
+      gamma: 1,
+      saturation: 100,
+      density: 1,
+      sharpness: 0,
+      edge: 0,
+      shapeAware: false,
+      smartEdges: false,
+      mappingInvert: false,
+      outputInvert: false,
+      mode: "color",
+      fg: 0xffffff,
+      bg: null,
+      mapping: "glyph",
+      dither: "none",
+      seed: 0,
+    },
+  });
+  try {
+    send({ type: "initialize", requestId: "init", memoryBudgetBytes: 100000 });
+    await vi.waitFor(() =>
+      expect(messages.some((m) => m.type === "ready")).toBe(true),
+    );
+    send({ type: "setSource", requestId: "source", source: src() });
+    send({ type: "setAtlas", requestId: "a", atlas: atlas() });
+    send({
+      ...request("captured-a"),
+      type: "renderCharactersExport",
+      requestId: "captured-a",
+      outputWidth: 5,
+      outputHeight: 3,
+    });
+    const c = {
+      ...atlas().calibration,
+      id: "legacy-c",
+      glyphs: ["█", "."],
+      masks: new Uint8Array([255, 0]),
+      coverage: new Float32Array([1, 0]),
+    };
+    send({ type: "setCalibration", requestId: "c", calibration: c });
+    send(legacy("legacy-cancelled"));
+    // Preview starts under C; export then reselects captured A and invalidates it.
+    callbacks.shift()!();
+    callbacks.shift()!();
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        requestId: "legacy-cancelled",
+        type: "cancelled",
+      }),
+    );
+    send(legacy("legacy-logical-only"));
+    // Engine already selected A, so this logical change needs no native upload.
+    // It must still invalidate the just-admitted lazy legacy-C task.
+    send({ type: "setAtlas", requestId: "logical-a", atlas: atlas() });
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        requestId: "legacy-logical-only",
+        type: "cancelled",
+      }),
+    );
+    send({ type: "setCalibration", requestId: "logical-c", calibration: c });
+    send(legacy("legacy-restored"));
+    while (callbacks.length) callbacks.shift()!();
+    const result = messages.find(
+      (m) => m.requestId === "legacy-restored" && m.type === "result",
+    );
+    expect(result).toMatchObject({
+      type: "result",
+      calibrationId: "legacy-c",
+      grid: { calibrationId: "legacy-c" },
+    });
+    if (result?.type === "result")
+      expect([...result.grid.glyphIndices]).toEqual([0]);
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        requestId: "captured-a",
+        type: "charactersResult",
+        calibrationId: "a",
+      }),
+    );
+    expect(messages.filter((m) => m.type === "error")).toEqual([]);
+  } finally {
+    runtime.dispose();
+  }
+});
+
+it("aborting a pending capture frees its queue slot while the active capture survives newer atlas work", async () => {
+  const h = setup();
+  try {
+    await h.ready();
+    const w = h.workers[0];
+    w.delayCompletion = true;
+    const active = h.service.renderCharactersExport({
+      ...request("active"),
+      outputWidth: 5,
+      outputHeight: 3,
+    });
+    const abort = new AbortController();
+    const pending = h.service.renderCharactersExport(
+      { ...request("abort-pending"), outputWidth: 5, outputHeight: 3 },
+      abort.signal,
+    );
+    const cancelled = expect(pending).rejects.toMatchObject({
+      code: "Cancelled",
+    });
+    await vi.waitFor(() =>
+      expect(
+        w.responses.some(
+          (m) =>
+            m.type === "accepted" &&
+            "jobId" in m &&
+            m.jobId === "abort-pending",
+        ),
+      ).toBe(true),
+    );
+    abort.abort();
+    await cancelled;
+    const b = atlas();
+    b.calibration.id = "b";
+    b.calibration.masks[0] = 255;
+    await h.service.setAtlas(b);
+    const replacement = h.service.renderCharactersExport({
+      ...request("replacement"),
+      calibrationId: "b",
+      outputWidth: 5,
+      outputHeight: 3,
+    });
+    w.delayCompletion = false;
+    const results = await Promise.all([active, replacement]);
+    expect(results.map((r) => r.frame.grid?.calibrationId)).toEqual(["a", "b"]);
+    expect(
+      w.responses.some(
+        (m) => m.type === "charactersResult" && m.jobId === "abort-pending",
+      ),
+    ).toBe(false);
+  } finally {
+    await h.service.dispose();
+  }
+});
+
+it("fatal failure rejects old captures and recovery uploads only the latest logical atlas", async () => {
+  const h = setup();
+  try {
+    await h.ready();
+    const w = h.workers[0];
+    w.delayCompletion = true;
+    const active = h.service.renderCharactersExport({
+      ...request("crash-active-a"),
+      outputWidth: 5,
+      outputHeight: 3,
+    });
+    const pending = h.service.renderCharactersExport({
+      ...request("crash-pending-a"),
+      outputWidth: 5,
+      outputHeight: 3,
+    });
+    const outcomes = Promise.allSettled([active, pending]);
+    await vi.waitFor(() =>
+      expect(
+        w.responses.some(
+          (m) =>
+            m.type === "accepted" &&
+            "jobId" in m &&
+            m.jobId === "crash-pending-a",
+        ),
+      ).toBe(true),
+    );
+    const b = atlas();
+    b.calibration.id = "recovery-b";
+    await h.service.setAtlas(b);
+    w.trap = true;
+    w.delayCompletion = false;
+    for (const outcome of await outcomes)
+      expect(outcome).toMatchObject({
+        status: "rejected",
+        reason: { code: "WorkerFailure" },
+      });
+    expect(h.service.charactersAtlasRetentionVersion).toBeNull();
+    await h.service.initialize();
+    expect(h.service.charactersAtlasRetentionVersion).toBe(1);
+    const recovered = await h.service.renderCharactersPreview({
+      ...request("recovered"),
+      calibrationId: "recovery-b",
+    });
+    expect(recovered.frame.grid?.calibrationId).toBe("recovery-b");
+    const restored = h.workers[1].sent.filter(
+      (m) => (m as { type: string }).type === "setAtlas",
+    );
+    expect(restored).toHaveLength(1);
+    expect(restored[0]).toMatchObject({
+      atlas: { calibration: { id: "recovery-b" } },
+    });
+  } finally {
+    await h.service.dispose();
+  }
+});
+
+it("deduplicated calibration/atlas transitions physically release legacy slots before reporting cancellation", async () => {
+  const callbacks: (() => void)[] = [],
+    messages: WorkerResponse[] = [];
+  let clock = 0,
+    hold = true;
+  const runtime = createWorkerRuntime({
+    now: () => (clock += 4),
+    scheduler: {
+      schedule: (fn) => {
+        callbacks.push(fn);
+        return () => {
+          const at = callbacks.indexOf(fn);
+          if (at >= 0) callbacks.splice(at, 1);
+        };
+      },
+      dispose: () => {
+        callbacks.length = 0;
+      },
+    },
+    createEngine: async () => {
+      const e = await createCharacterEngine(bytes);
+      return { ...e, step: (id) => e.step(id, hold ? 0 : 4096) };
+    },
+    postMessage: (m) => messages.push(m),
+  });
+  const send = (value: object) => runtime.receive({ version: 1, ...value });
+  const tick = () => {
+    expect(callbacks.length).toBeGreaterThan(0);
+    callbacks.shift()!();
+  };
+  const legacy = (id: string) => ({
+    type: "renderPreview",
+    requestId: id,
+    jobId: id,
+    revision: 1,
+    sourceId: "s",
+    sourceRevision: 1,
+    calibrationId: "a",
+    timeUs: 0,
+    settings: {
+      version: 1,
+      width: 1,
+      height: 1,
+      cellWidth: 0.6 * 3,
+      cellHeight: 3,
+      crop: { x: 0, y: 0, width: 1, height: 1 },
+      rotation: 0,
+      brightness: 0,
+      contrast: 0,
+      gamma: 1,
+      saturation: 100,
+      density: 1,
+      sharpness: 0,
+      edge: 0,
+      shapeAware: false,
+      smartEdges: false,
+      mappingInvert: false,
+      outputInvert: false,
+      mode: "color",
+      fg: 0xffffff,
+      bg: null,
+      mapping: "glyph",
+      dither: "none",
+      seed: 0,
+    },
+  });
+  try {
+    send({ type: "initialize", requestId: "init", memoryBudgetBytes: 100000 });
+    await vi.waitFor(() =>
+      expect(messages.some((m) => m.type === "ready")).toBe(true),
+    );
+    send({ type: "setSource", requestId: "source", source: src() });
+    send({ type: "setAtlas", requestId: "a", atlas: atlas() });
+    for (let index = 0; index < 3; index++) {
+      hold = true;
+      const exportId = `export-a-${index}`,
+        legacyId = `legacy-a-${index}`,
+        profileId = `profile-a-${index}`,
+        usableId = `usable-legacy-${index}`;
+      send({
+        ...request(exportId),
+        type: "renderCharactersExport",
+        requestId: exportId,
+        outputWidth: 5,
+        outputHeight: 3,
+      });
+      const b = atlas();
+      b.calibration.id = `b-${index}`;
+      send({ type: "setAtlas", requestId: `logical-b-${index}`, atlas: b });
+      tick(); // Real profile handle selected captured A while logical latest is B.
+      send({
+        type: "setCalibration",
+        requestId: `logical-a-${index}`,
+        calibration: atlas().calibration,
+      });
+      send(legacy(legacyId));
+      tick();
+      tick(); // Real second native handle is a legacy glyph job.
+      send({ type: "setAtlas", requestId: `atlas-a-${index}`, atlas: atlas() });
+      expect(messages).toContainEqual(
+        expect.objectContaining({ requestId: legacyId, type: "cancelled" }),
+      );
+      send({
+        ...request(profileId),
+        type: "renderCharactersPreview",
+        requestId: profileId,
+      });
+      tick();
+      tick();
+      expect(messages.filter((m) => m.type === "error")).toEqual([]);
+      expect(messages).toContainEqual(
+        expect.objectContaining({ requestId: profileId, type: "progress" }),
+      );
+      // Ordinary preview supersession must also release that new profile handle;
+      // both the captured export and another legacy job can then finish normally.
+      send(legacy(usableId));
+      hold = false;
+      while (callbacks.length) tick();
+      expect(messages).toContainEqual(
+        expect.objectContaining({
+          requestId: exportId,
+          type: "charactersResult",
+          calibrationId: "a",
+        }),
+      );
+      expect(messages).toContainEqual(
+        expect.objectContaining({
+          requestId: usableId,
+          type: "result",
+          calibrationId: "a",
+          grid: expect.objectContaining({ calibrationId: "a" }),
+        }),
+      );
+      expect(messages.filter((m) => m.type === "error")).toEqual([]);
+    }
+  } finally {
+    runtime.dispose();
+  }
+});

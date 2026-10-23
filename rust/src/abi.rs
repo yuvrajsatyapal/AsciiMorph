@@ -133,3 +133,9 @@ pub extern "C" fn render_frame_output_ptr(h: u32, job: u32) -> u32 {
 pub extern "C" fn render_frame_output_len(h: u32, job: u32) -> u32 {
     with(h, |s| Ok(s.frame_output(job)?.len() as u32))
 }
+
+/// Independent immutable atlas ownership; does not change context or wire versions.
+#[no_mangle]
+pub extern "C" fn render_characters_atlas_retention_version() -> u32 {
+    1
+}

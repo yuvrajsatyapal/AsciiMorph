@@ -63,3 +63,11 @@ The new still decoder preserves original image dimensions, with signature checks
 Independent review found one disposal failure retaining committed pixels. The fix releases local backing even when external reset rejects, preserving the observable cleanup error; scoped re-review passed spec and quality with no open findings. Initial73 focused tests passed; after the fix,48 affected transaction/controller tests passed, with26 decoder tests unchanged. TypeScript, scoped lint and final production build pass.
 
 The actual runtime bridge still must implement service reset/recreation and atlas-generation invalidation, account held frame bytes, and connect accepted Rust frames to React. Browser decoder/production-route acceptance remains pending. Captured atlas ownership is the next integration task before the real Studio lifecycle; full website parity remains open.
+
+## Captured atlas ownership — 2026-10-23
+
+Rust profile jobs now retain their own immutable calibration. Active and pending exports keep captured atlases while preview font/ramp edits use another; native capacity accounting deduplicates shared allocations and protects active future peaks. An optional retention capability distinguishes compatible modules. Legacy replacement and source cancellation remain explicit.
+
+Independent review found a deduplicated mixed-path cancellation that reported cancellation without releasing a native handle. Physical cleanup and repeated real-WASM slot-reuse regressions fixed it; scoped re-review passed spec and quality with no open findings. Final validation:594 JavaScript tests pass with1 existing skip,89 native tests pass,4 Chromium fixtures pass, TypeScript/scoped lint pass and production build passes. The final compatibility fix additionally passes97 affected tests; native/WASM output is unchanged by that runtime-only fix.
+
+The browser fixture uses a measured font and owned1000×1000 source. Active/pending captured exports and a changed-atlas preview match independent serialized runs exactly. This establishes renderer/service behavior, not production Studio painting, encoding, full reference pixels, GPU selection or p95 performance. The actual React runtime/Studio integration is next; full website parity remains open.
