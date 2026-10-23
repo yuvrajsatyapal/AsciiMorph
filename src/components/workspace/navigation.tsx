@@ -27,6 +27,7 @@ export function WorkspaceNavigation() {
   const [introduced, setIntroduced] = usePersistentState("introduced", false);
   const visible = WORKSPACE_TOOLS.some(([url]) => path === url);
   useEffect(() => {
+    if (path === "/app") return;
     const key = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
@@ -41,7 +42,14 @@ export function WorkspaceNavigation() {
       window.removeEventListener("keydown", key);
       window.removeEventListener("asciimorph-storage-error", storageError);
     };
-  }, []);
+  }, [path]);
+  useEffect(() => {
+    if (path === "/app") {
+      setCommands(false);
+      setWalkthrough(-1);
+      setError("");
+    }
+  }, [path]);
   async function go(url: string) {
     if (busy) return;
     setBusy(true);
@@ -73,11 +81,12 @@ export function WorkspaceNavigation() {
       "Projects contains your local artwork, animations and recovery snapshots. Download a library backup regularly; browser storage can be cleared by your device.",
     ],
   ];
-  return (
+  return path === "/app" ? null : (
     <>
       {visible && (
         <div className="workspace-bar">
-          <Link prefetch={false}
+          <Link
+            prefetch={false}
             href="/"
             className="workspace-brand"
             onClick={(event) => {
@@ -90,7 +99,8 @@ export function WorkspaceNavigation() {
           </Link>
           <nav aria-label="Workspace tools">
             {WORKSPACE_TOOLS.map(([url, label, description]) => (
-              <Link prefetch={false}
+              <Link
+                prefetch={false}
                 key={url}
                 href={url}
                 aria-current={path === url ? "page" : undefined}

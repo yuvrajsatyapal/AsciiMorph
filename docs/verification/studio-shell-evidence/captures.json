@@ -1,0 +1,13 @@
+{
+  "capturedAt": "2026-10-23",
+  "surface": "Codex in-app browser via CUA",
+  "browserVersion": null,
+  "route": "http://127.0.0.1:3112/app",
+  "source": "Owned public/studio/botanical.svg, 1000x1000",
+  "look": "Characters, fontSize11, default ramp, brightness0, contrast20",
+  "limitations": "Principal desktop shell bounds and real rendering inspected. No full website/artwork/font/mobile parity claim. Browser version not exposed in this capture record.",
+  "captures": [
+    { "file": "studio-1440x900.jpg", "width": 1440, "height": 900, "sha256": "6228eb0c43b05d177c39e50e26e335da651a6e264dcce538ca93e39e9c511367" },
+    { "file": "studio-1920x1080.jpg", "width": 1920, "height": 1080, "sha256": "38028c7833ef752923ab01a52ef92cb4a9f4a6c5d4a327e2fe59ef7fe7c737cf" }
+  ]
+}

@@ -62,6 +62,30 @@ function browser(width = 2001, height = 2) {
   const createCanvas = vi.fn(() => canvas);
   return { api: { decodeBitmap, createCanvas }, bitmap, canvas, context, data };
 }
+
+function ownedBrowser() {
+  const b = browser(1000, 1000);
+  const image = new Image();
+  const decode = vi.fn(async () => {});
+  Object.defineProperties(image, {
+    naturalWidth: { value: 1000 },
+    naturalHeight: { value: 1000 },
+    decode: { value: decode },
+  });
+  const fetchAsset = vi.fn(async () => ({
+    ok: true,
+    arrayBuffer: async () => new ArrayBuffer(47982),
+  }));
+  const api = {
+    ...b.api,
+    createImage: vi.fn(() => image),
+    createURL: vi.fn<(blob: Blob) => string>(() => "blob:botanical"),
+    revokeURL: vi.fn(),
+    fetchAsset,
+  };
+  return { ...b, image, decode, api };
+}
+
 afterEach(() => vi.restoreAllMocks());
 
 describe("full-source local still decoding", () => {
@@ -272,7 +296,7 @@ describe("full-source local still decoding", () => {
     },
   );
   it("loads only the fixed audited owned default through its separate trusted path", async () => {
-    const b = browser(1000, 1000);
+    const b = ownedBrowser();
     const fetchAsset = vi.fn(async () => ({
       ok: true,
       arrayBuffer: async () => new ArrayBuffer(47982),
@@ -282,6 +306,71 @@ describe("full-source local still decoding", () => {
     expect(fetchAsset).toHaveBeenCalledWith("/studio/botanical.svg", {
       signal: undefined,
     });
-    expect(b.api.decodeBitmap.mock.calls[0][0].type).toBe("image/svg+xml");
+    expect(b.api.createURL.mock.calls[0][0].type).toBe("image/svg+xml");
+    expect(b.api.decodeBitmap).not.toHaveBeenCalled();
+  });
+});
+
+describe("owned SVG browser codec integration", () => {
+  it("decodes the audited default with Image when a present bitmap codec rejects SVG", async () => {
+    const b = ownedBrowser();
+    b.api.decodeBitmap.mockRejectedValue(
+      new DOMException(
+        "The source image could not be decoded.",
+        "InvalidStateError",
+      ),
+    );
+    const result = await decodeOwnedDefault({}, b.api);
+    expect(result.width).toBe(1000);
+    expect(result.height).toBe(1000);
+    expect(result.rgba).toBe(b.data);
+    expect(b.api.decodeBitmap).not.toHaveBeenCalled();
+    expect(b.decode).toHaveBeenCalledOnce();
+    expect(b.context.drawImage).toHaveBeenCalledWith(b.image, 0, 0, 1000, 1000);
+    expect(b.api.revokeURL).toHaveBeenCalledWith("blob:botanical");
+    expect(b.image.getAttribute("src")).toBe("");
+    expect(b.canvas.width).toBe(0);
+  });
+  it("cleans up failed Image decoding without falling back to another allocator", async () => {
+    const b = ownedBrowser();
+    b.decode.mockRejectedValue(new Error("image decode failed"));
+    await expect(decodeOwnedDefault({}, b.api)).rejects.toThrow(
+      "image decode failed",
+    );
+    expect(b.api.decodeBitmap).not.toHaveBeenCalled();
+    expect(b.api.createCanvas).not.toHaveBeenCalled();
+    expect(b.api.revokeURL).toHaveBeenCalledOnce();
+    expect(b.image.getAttribute("src")).toBe("");
+  });
+  it("waits for obsolete Image decode, then aborts before canvas allocation and releases URL", async () => {
+    const b = ownedBrowser(),
+      pending = deferred<void>(),
+      abort = new AbortController();
+    b.decode.mockImplementation(() => pending.promise);
+    const result = decodeOwnedDefault({ signal: abort.signal }, b.api);
+    await vi.waitFor(() => expect(b.decode).toHaveBeenCalledOnce());
+    abort.abort();
+    pending.resolve();
+    await expect(result).rejects.toThrow(/abort/i);
+    expect(b.api.createCanvas).not.toHaveBeenCalled();
+    expect(b.api.revokeURL).toHaveBeenCalledOnce();
+    expect(b.image.getAttribute("src")).toBe("");
+  });
+  it("retains preflight and rejects arbitrary user SVG before either codec allocates", async () => {
+    const b = ownedBrowser();
+    await expect(
+      decodeOwnedDefault({ heldBytes: 192 * 1024 * 1024 }, b.api),
+    ).rejects.toThrow(/192 MiB/);
+    expect(b.api.fetchAsset).not.toHaveBeenCalled();
+    expect(b.api.createURL).not.toHaveBeenCalled();
+    await expect(
+      decodeStillFile(
+        file(new TextEncoder().encode("<svg/>"), "image/svg+xml").value,
+        {},
+        b.api,
+      ),
+    ).rejects.toThrow(/Unsupported/);
+    expect(b.api.decodeBitmap).not.toHaveBeenCalled();
+    expect(b.api.createImage).not.toHaveBeenCalled();
   });
 });

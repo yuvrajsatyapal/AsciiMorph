@@ -79,3 +79,13 @@ The runtime now connects source transactions, the measured Characters adapter an
 Fresh independent review passed spec and quality with no actionable findings. All138 focused tests and the full619-test suite pass with1 existing skip; TypeScript, scoped lint and production build pass. Runtime-service tests use actual WASM and the service/protocol/source stack with transport/decoder/font boundaries replaced; they do not establish browser acceptance. SSR, StrictMode, accepted pixels, stale/export isolation and full-frame viewport painting have focused tests.
 
 The production `/app` shell, PNG/JPEG encoding and real production-route browser/visual gate remain next. Those tasks complete the first functioning Studio milestone; all other required modes, effects, media, Flow, library and broader website services remain open beyond it.
+
+## Production Studio shell — 23 October 2026
+
+Actual `/app` now composes the accepted retained-source Rust/WASM runtime with the measured Studio interface, canonical 105-tile/96-mode catalog, real four-control Characters editing, upload/drop/clipboard files, history, comparison, view zoom/pan and accessible panels. Other renderers/services and export encoding remain explicitly unavailable at this checkpoint. Existing routes remain available; legacy global shortcuts/dialogs are suppressed only on `/app`.
+
+Parent production-browser inspection found and verified a narrow trusted-default SVG decoding repair, then exercised real 1000×1000 Rust output and all four controls/undo. Desktop measurements at1440×900 and1920×1080 match the principal approved shell bounds. Captures, hashes, limitations and commands are recorded in [Studio verification](studio-shell.md).
+
+Validation: implementer123 focused tests/typecheck/scoped lint passed; parent full JavaScript suite645 passed+1existing skip before the review fixes. Two review P2 issues (competing compact-sheet/dialog focus owners and coarse toolbar target specificity) were fixed with22 affected tests, typecheck/scoped lint, a fresh parent production build and4 actual production Chromium coarse-input tests passing. The scoped rereview approves spec compliance and quality with both findings addressed and no new important breakage. Full suites were not needlessly repeated after the narrow fixes.
+
+The next milestone is actual immutable PNG/JPEG export from Rust full frames, followed by remaining production-route/browser acceptance. Full website/catalog/effects/media/Flow/library/services parity remains open; no complete rebuild claim is made.

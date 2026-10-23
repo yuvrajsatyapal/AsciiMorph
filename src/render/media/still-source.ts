@@ -90,6 +90,7 @@ async function readPixels(
   height: number,
   options: DecodeOptions,
   api: StillBrowser,
+  trustedSvgImage = false,
 ): Promise<DecodedStill> {
   preflight(width, height, bytes.byteLength, options.heldBytes);
   checkStillAbort(options.signal);
@@ -101,7 +102,7 @@ async function readPixels(
   try {
     let source: CanvasImageSource;
     let w: number, h: number;
-    if (api.decodeBitmap) {
+    if (api.decodeBitmap && !trustedSvgImage) {
       bitmap = await api.decodeBitmap(blob, { imageOrientation: "from-image" });
       source = bitmap;
       w = bitmap.width;
@@ -199,5 +200,8 @@ export async function decodeOwnedDefault(
   checkStillAbort(options.signal);
   if (bytes.byteLength !== 47982)
     throw new Error("Owned default asset differs from the audited source.");
-  return readPixels(bytes, "image/svg+xml", 1000, 1000, options, api);
+  // Chromium may expose createImageBitmap while rejecting SVG blobs. Use the
+  // existing Image path directly for this fixed audited asset only; do not
+  // retry allocation/abort errors or change signature-selected user codecs.
+  return readPixels(bytes, "image/svg+xml", 1000, 1000, options, api, true);
 }
