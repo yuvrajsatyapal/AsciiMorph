@@ -1,0 +1,58 @@
+[
+  {
+    "path": "docs/verification/studio-shell-evidence/task6-chromium-coarse-phone-390x844.png",
+    "format": "PNG",
+    "width": 390,
+    "height": 844,
+    "bytes": 68988,
+    "sha256": "b6879e8ebb681daed9e51fec0e9c68da0b536c75f4a268c0ff544f917f3e3907"
+  },
+  {
+    "path": "docs/verification/studio-shell-evidence/task6-chromium-coarse-tablet-768x1024.png",
+    "format": "PNG",
+    "width": 768,
+    "height": 1024,
+    "bytes": 167731,
+    "sha256": "0c6204339e4ccc88a722e85d5bc7f89fac9348f59d84bb33dcca74e399267b60"
+  },
+  {
+    "path": "docs/verification/studio-shell-evidence/task6-chromium-fine-1440x900.png",
+    "format": "PNG",
+    "width": 1440,
+    "height": 900,
+    "bytes": 186653,
+    "sha256": "eeacf8017fe7b9b75f58a4eb19ec5aa2f17bc96fcdc5daecde0fd57d99ac59f2"
+  },
+  {
+    "path": "docs/verification/studio-shell-evidence/task6-chromium-fine-1920x1080.png",
+    "format": "PNG",
+    "width": 1920,
+    "height": 1080,
+    "bytes": 247582,
+    "sha256": "e961f67404db7d2e4956a617045b11fc94b43a2f98be31d278e01ff4f241b1b0"
+  },
+  {
+    "path": "docs/verification/studio-shell-evidence/task6-chromium-fine-390x844.png",
+    "format": "PNG",
+    "width": 390,
+    "height": 844,
+    "bytes": 44000,
+    "sha256": "c7d9f7dc15797b83019937061ccf1c2a03f41752916766119c491263f71a62eb"
+  },
+  {
+    "path": "docs/verification/studio-shell-evidence/task6-chromium-fine-768x1024.png",
+    "format": "PNG",
+    "width": 768,
+    "height": 1024,
+    "bytes": 115235,
+    "sha256": "7301ecf790579272327a0dc6564b01870dc49be28eb9fd84ae438b51db910521"
+  },
+  {
+    "path": "docs/verification/studio-shell-evidence/task6-chromium-fine-narrow-390x844.png",
+    "format": "PNG",
+    "width": 390,
+    "height": 844,
+    "bytes": 68989,
+    "sha256": "e63c74accafe071f6a7848d692ad259912bd53ff659383248afb9dbc1f618b67"
+  }
+]

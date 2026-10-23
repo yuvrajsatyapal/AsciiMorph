@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import {
   useCallback,
   useEffect,
@@ -459,6 +460,11 @@ export function StudioShell({
           {s.error.stage === "render" && (
             <button onClick={() => void runtime.retry()}>Retry renderer</button>
           )}
+          {s.error.stage === "source" && !s.project.source && (
+            <button onClick={() => void c.loadOwnedDefault()}>
+              Retry sample image
+            </button>
+          )}
         </div>
       )}
       {compact && (
@@ -571,7 +577,7 @@ export function StudioShell({
                 Leaving this page loses the current image and edits. Only
                 favorites and panel preferences are saved on this device.
               </p>
-              <a href="/studio">Open legacy Studio</a>
+              <Link href="/studio">Open legacy Studio</Link>
               <p className="studio-note">
                 The legacy editor has a separate project workflow.
               </p>

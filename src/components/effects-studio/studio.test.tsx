@@ -10,9 +10,10 @@ import {
 } from "./studio";
 import { CATALOG, CATEGORIES } from "./catalog-data";
 import type { StudioRuntime } from "./runtime";
+import type { RenderProjectV1 } from "@/render/project";
 
-function setup(frameFailure = false) {
-  const controller = createStudioController();
+function setup(frameFailure = false, project?: RenderProjectV1) {
+  const controller = createStudioController({ project });
   const accepted = {
     identity: {},
     frame: { width: 1, height: 1, rgba: new Uint8Array(4) },
@@ -380,3 +381,34 @@ it.each(["Styles", "Controls"])(
     expect(document.body.style.overflow).toBe("auto");
   },
 );
+
+it("offers retry of the owned original after an initial source failure", async () => {
+  const { controller } = setup();
+  await act(async () => {
+    await controller.loadOwnedDefault();
+  });
+  expect(controller.getSnapshot().project.source).toBeNull();
+  const retry = screen.getByRole("button", { name: "Retry sample image" });
+  const load = vi
+    .spyOn(controller, "loadOwnedDefault")
+    .mockResolvedValue(false);
+  fireEvent.click(retry);
+  expect(load).toHaveBeenCalledOnce();
+});
+
+it("does not offer the sample retry over a committed source after upload failure", async () => {
+  const project = {
+    ...createStudioController().getSnapshot().project,
+    source: { id: "retained", revision: 1, width: 67, height: 53 },
+  };
+  const { controller } = setup(false, project);
+  const load = vi.spyOn(controller, "loadOwnedDefault");
+  await act(async () => {
+    await controller.loadFile(new File(["bad"], "bad.png"));
+  });
+  expect(controller.getSnapshot().project.source).toEqual(project.source);
+  expect(
+    screen.queryByRole("button", { name: "Retry sample image" }),
+  ).not.toBeInTheDocument();
+  expect(load).not.toHaveBeenCalled();
+});
