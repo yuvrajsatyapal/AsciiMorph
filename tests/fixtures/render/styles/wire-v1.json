@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "name": "pixel",
+      "source": {"id": "source", "revision": 7, "width": 17, "height": 13},
+      "settings": {"version": 1, "styleId": "pixel", "frameWidth": 17, "frameHeight": 13, "renderScale": 1, "crop": {"x": 0, "y": 0, "width": 1, "height": 1}, "rotation": 0, "seed": 4294967295, "timeUs": 12345, "parameters": {"fontSize": 11, "brightness": -12.5, "contrast": 20, "invert": true, "charOpacity": 75}},
+      "expected": [10, 17, 13, 1, 0, 4294967295, 0, 12345, 0, 0, 1, 1, 0, 0, 65535, 11, -12.5, 20, 1, 75],
+      "hex": "53545931010000000a00000001000000110000000d0000000100000000000000ffffffff0000000000000000801cc84000000000000000000000000000000000000000000000f03f000000000000f03f200000000000000000000000000000000000000000000000ffff0000000000000b00000000000000000029c00000000000003440010000000000000000c05240"
+    },
+    {
+      "name": "mosaic",
+      "source": {"id": "source", "revision": 7, "width": 17, "height": 13},
+      "settings": {"version": 1, "styleId": "mosaic", "frameWidth": 17, "frameHeight": 13, "renderScale": 1, "crop": {"x": 0, "y": 0, "width": 1, "height": 1}, "rotation": 0, "seed": 4294967295, "timeUs": 12345, "parameters": {"fontSize": 11, "brightness": -12.5, "contrast": 20, "invert": true, "charOpacity": 75, "mosaicShape": "tall"}},
+      "expected": [11, 17, 13, 1, 0, 4294967295, 0, 12345, 0, 0, 1, 1, 0, 0, 65535, 11, -12.5, 20, 1, 75, 2],
+      "hex": "53545931010000000b00000001000000110000000d0000000100000000000000ffffffff0000000000000000801cc84000000000000000000000000000000000000000000000f03f000000000000f03f240000000000000000000000000000000000000000000000ffff0000000000000b00000000000000000029c00000000000003440010000000000000000c0524002000000"
+    },
+    {
+      "name": "braille",
+      "source": {"id": "source", "revision": 7, "width": 17, "height": 13},
+      "settings": {"version": 1, "styleId": "braille", "frameWidth": 17, "frameHeight": 13, "renderScale": 1, "crop": {"x": 0, "y": 0, "width": 1, "height": 1}, "rotation": 0, "seed": 4294967295, "timeUs": 12345, "parameters": {"fontSize": 11, "brightness": -12.5, "contrast": 20, "invert": true, "charOpacity": 75, "brailleThreshold": 55.5}},
+      "expected": [4, 17, 13, 1, 0, 4294967295, 256, 12345, 0, 0, 1, 1, -1.5, 2.25, 65535, 11, -12.5, 20, 1, 75, 55.5],
+      "hex": "53545931010000000400000001000000110000000d0000000100000000000000ffffffff0001000000000000801cc84000000000000000000000000000000000000000000000f03f000000000000f03f2800000000000000000000000000f8bf0000000000000240ffff0000000000000b00000000000000000029c00000000000003440010000000000000000c052400000000000c04b40"
+    }
+  ],
+  "malformed": [
+    {"name": "magic", "patch": [0, 0, 0]},
+    {"name": "version", "patch": [0, 4, 2]},
+    {"name": "unknown-mode", "patch": [0, 8, 99]},
+    {"name": "reserved-mode", "patch": [0, 8, 13]},
+    {"name": "payload-version", "patch": [0, 12, 2]},
+    {"name": "zero-width", "patch": [0, 16, 0]},
+    {"name": "overflow-width", "patch": [0, 16, 255, 255, 255, 255]},
+    {"name": "scale", "patch": [0, 24, 5]},
+    {"name": "rotation", "patch": [0, 28, 1]},
+    {"name": "atlas-count", "patch": [0, 36, 1]},
+    {"name": "nan-time", "patch": [0, 40, 0, 0, 0, 0, 0, 0, 248, 127]},
+    {"name": "infinity-crop", "patch": [0, 48, 0, 0, 0, 0, 0, 0, 240, 127]},
+    {"name": "crop-extent", "patch": [0, 64, 0, 0, 0, 0, 0, 0, 0, 64]},
+    {"name": "payload-length", "patch": [0, 80, 33]},
+    {"name": "reserved1", "patch": [0, 84, 1]},
+    {"name": "atlas-origin", "patch": [0, 88, 0, 0, 0, 0, 0, 0, 240, 63]},
+    {"name": "literal-space", "patch": [0, 104, 0, 0, 0, 0]},
+    {"name": "reserved2", "patch": [0, 108, 1]},
+    {"name": "font-size", "patch": [0, 112, 2]},
+    {"name": "nan-brightness", "patch": [0, 116, 0, 0, 0, 0, 0, 0, 248, 127]},
+    {"name": "contrast-range", "patch": [0, 124, 0, 0, 0, 0, 0, 64, 89, 64]},
+    {"name": "boolean-enum", "patch": [0, 132, 2]},
+    {"name": "opacity-range", "patch": [0, 136, 0, 0, 0, 0, 0, 64, 89, 64]},
+    {"name": "mosaic-enum", "patch": [1, 144, 3]},
+    {"name": "braille-count", "patch": [2, 36, 255]},
+    {"name": "braille-space", "patch": [2, 104, 0, 0, 0, 0]},
+    {"name": "braille-threshold", "patch": [2, 144, 0, 0, 0, 0, 0, 64, 89, 64]}
+  ]
+}

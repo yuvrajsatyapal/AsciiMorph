@@ -1,3 +1,4 @@
+import { initialFamilySchemas } from "./family-schemas";
 import { initialCharacterSchema } from "./character-schema";
 import { createCatalogRegistry } from "./registry";
 import type { ParameterRule, StyleSchema } from "./types";
@@ -134,7 +135,7 @@ const shaders: StyleSchema[] = declarations.map(([id, name, controls]) => ({
 }));
 // Publish only the checked immutable snapshots, not mutable registration inputs.
 export const initialCatalogRegistry = createCatalogRegistry(
-  [...shaders, initialCharacterSchema],
+  [...shaders, initialCharacterSchema, ...initialFamilySchemas],
   [],
 );
 export const initialShaderSchemas = Object.freeze(
