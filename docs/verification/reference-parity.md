@@ -5,9 +5,9 @@ Scope: the complete approved rebuild. A catalog label, prototype treatment or pa
 ## Evidence and current status
 
 - Canonical static inventory:105 tiles /96 selectable modes /10 categories in `docs/research/ascii-magic/2026-10-20/catalog-inventory.json`. Mode parameters/defaults remain unknown where that artifact says so.
-- Desktop prototype: design gate ACCEPT for Studio/Flow shell. Screenshots and design artifacts live in `.planning/design/screens/ascii-magic-rebuild/`. Production route is pending.
+- Desktop prototype: design gate ACCEPT for Studio/Flow shell. Screenshots and design artifacts live in `.planning/design/screens/ascii-magic-rebuild/`. Accepted `/app` Studio shell and four-control Characters workflow exist; see [Studio acceptance](studio-shell.md), checkpoint `ad52bb9`. Complete-mode/reference pixel parity remains open.
 - Phone sheets: proposed adaptation verified locally; reference pointer-coarse mobile layout has not been captured.
-- Rust core: contracts, calibration, source/tone, matching, retained session/ABI, persistent worker/service, packed painting, expanded geometry and complete Characters backdrop passed task review. Actual module-worker numerical/font fixtures pass; production Studio interaction/visual acceptance and end-to-end performance remain pending.
+- Rust core: contracts, calibration, source/tone, matching, retained session/ABI, persistent worker/service, packed painting, expanded geometry and complete Characters backdrop passed task review. Actual module-worker numerical/font fixtures pass; the accepted `/app` four-control Characters path includes real PNG/JPEG exports, strict source admission, source transactions and lifecycle/browser regressions ([Studio acceptance](studio-shell.md), `ad52bb9`). Complete controls, reference pixel acceptance and end-to-end performance remain pending.
 - Project data contract: strict detached transport, exact schemas, source/mask identity and readiness tests pass (original contract checkpoint:70 tests). Evidence: [project cases](../../src/render/project.test.ts), [bounded JSON cases](../../src/render/project-json.test.ts), [registry cases](../../src/render/catalog/registry.test.ts). Five static shader schemas (38 fields) remain `binding:null`, `ready:false`. The independent four-control Characters context now has a Rust CPU/RGBA binding and exact adapter with measured font/source/context/budget checks; generic project readiness remains partial preflight. This closes no full mode, effect, export, recipe or Flow row. Static provenance: [parameter declarations](../research/ascii-magic/2026-10-20/parameter-evidence.md) and [character semantics](../research/ascii-magic/2026-10-20/character-parameter-semantics.md). Current renderer evidence: [Characters profile](characters-profile.md).
 - Supplied GitHub library is a separate animated-piece library. Its audit and exact commit/license exceptions are in `github-library-audit.md`; no general editor parity follows from its availability.
 
@@ -17,24 +17,24 @@ Every row requires exact parameter capture, owned fixtures, real renderer output
 
 | Mode | Label | Tile IDs | Reference evidence | Implementation / tests / visual fixtures | Acceptance |
 | --- | --- | --- | --- | --- | --- |
-| `characters` | Characters | characters | Four-control sampling/tone/placement evidence captured; full controls remain incomplete | Rust fixed-context full RGBA, measured atlas, exact adapter and actual worker fixtures pass; production UI, full controls and reference pixel acceptance pending | Open |
+| `characters` | Characters | characters | Four-control sampling/tone/placement evidence captured; full controls remain incomplete | Rust fixed-context full RGBA, measured atlas, exact adapter and actual worker fixtures pass; accepted `/app` four-control UI with real PNG/JPEG and strict source/lifecycle checks (`ad52bb9`); full controls and reference pixel acceptance pending | Open |
 | `asciiStudio` | ASCII Studio | asciiStudio | Static catalog; runtime pending; parameters unknown | Pending | Open |
-| `dither` | Dither | dither | Static catalog; runtime pending; parameters unknown | Pending | Open |
-| `block-chars` | Block | block-chars | Static catalog; runtime pending; parameters unknown | Pending | Open |
-| `dots` | Dots | dots | Static catalog; runtime pending; parameters unknown | Pending | Open |
+| `dither` | Dither | dither | Static descriptor/branch evidence recorded in [family contracts](../research/ascii-magic/2026-10-20/initial-family-contracts.md); required algorithm/default gates open | Payload unfrozen; unavailable; no runtime parity claim | Open |
+| `block-chars` | Block | block-chars | Static descriptor/branch evidence recorded in [family contracts](../research/ascii-magic/2026-10-20/initial-family-contracts.md); required algorithm/default gates open | Payload unfrozen; unavailable; no runtime parity claim | Open |
+| `dots` | Dots | dots | Static descriptor/branch evidence recorded in [family contracts](../research/ascii-magic/2026-10-20/initial-family-contracts.md); required algorithm/default gates open | Payload unfrozen; unavailable; no runtime parity claim | Open |
 | `frostedglass` | Frosted Glass | frostedglass | Static catalog; runtime pending; parameters unknown | Pending | Open |
 | `motionblur` | Motion Blur | motionblur | Static catalog; runtime pending; parameters unknown | Pending | Open |
-| `mixed` | Mixed | mixed | Static catalog; runtime pending; parameters unknown | Pending | Open |
-| `pixel` | Pixel Art | pixel | Static catalog; runtime pending; parameters unknown | Pending | Open |
-| `mosaic` | Mosaic | mosaic | Static catalog; runtime pending; parameters unknown | Pending | Open |
-| `lego` | LEGO | lego | Static catalog; runtime pending; parameters unknown | Pending | Open |
-| `cross` | Cross | cross | Static catalog; runtime pending; parameters unknown | Pending | Open |
-| `diamond` | Diamond | diamond | Static catalog; runtime pending; parameters unknown | Pending | Open |
-| `lines` | Lines | lines | Static catalog; runtime pending; parameters unknown | Pending | Open |
-| `diagonal` | Diagonal | diagonal | Static catalog; runtime pending; parameters unknown | Pending | Open |
-| `braille` | Braille | braille | Static catalog; runtime pending; parameters unknown | Pending | Open |
-| `3d` | Voxel | 3d | Static catalog; runtime pending; parameters unknown | Pending | Open |
-| `disco` | Disco | disco | Static catalog; runtime pending; parameters unknown | Pending | Open |
+| `mixed` | Mixed | mixed | Static descriptor/branch evidence recorded in [family contracts](../research/ascii-magic/2026-10-20/initial-family-contracts.md); required algorithm/default gates open | Payload unfrozen; unavailable; no runtime parity claim | Open |
+| `pixel` | Pixel Art | pixel | Static bounded branch/UI evidence; [independent version1 contract](../research/ascii-magic/2026-10-20/initial-family-contracts.md) frozen, reference output unverified | Payload/math design only; fixed baseline blur composition and native/browser acceptance pending; readiness false | Open |
+| `mosaic` | Mosaic | mosaic | Static bounded branch/UI evidence; [independent version1 contract](../research/ascii-magic/2026-10-20/initial-family-contracts.md) frozen, reference output unverified | Payload/math design only; fixed baseline blur composition and native/browser acceptance pending; readiness false | Open |
+| `lego` | LEGO | lego | Static descriptor/branch evidence recorded in [family contracts](../research/ascii-magic/2026-10-20/initial-family-contracts.md); required algorithm/default gates open | Payload unfrozen; unavailable; no runtime parity claim | Open |
+| `cross` | Cross | cross | Static descriptor/branch evidence recorded in [family contracts](../research/ascii-magic/2026-10-20/initial-family-contracts.md); required algorithm/default gates open | Payload unfrozen; unavailable; no runtime parity claim | Open |
+| `diamond` | Diamond | diamond | Static descriptor/branch evidence recorded in [family contracts](../research/ascii-magic/2026-10-20/initial-family-contracts.md); required algorithm/default gates open | Payload unfrozen; unavailable; no runtime parity claim | Open |
+| `lines` | Lines | lines | Static descriptor/branch evidence recorded in [family contracts](../research/ascii-magic/2026-10-20/initial-family-contracts.md); required algorithm/default gates open | Payload unfrozen; unavailable; no runtime parity claim | Open |
+| `diagonal` | Diagonal | diagonal | Static descriptor/branch evidence recorded in [family contracts](../research/ascii-magic/2026-10-20/initial-family-contracts.md); required algorithm/default gates open | Payload unfrozen; unavailable; no runtime parity claim | Open |
+| `braille` | Braille | braille | Static bounded branch/UI evidence; [independent version1 contract](../research/ascii-magic/2026-10-20/initial-family-contracts.md) frozen, reference output unverified | Payload/math design only; fixed baseline blur composition and native/browser acceptance pending; readiness false | Open |
+| `3d` | Voxel | 3d | Static descriptor/branch evidence recorded in [family contracts](../research/ascii-magic/2026-10-20/initial-family-contracts.md); required algorithm/default gates open | Payload unfrozen; unavailable; no runtime parity claim | Open |
+| `disco` | Disco | disco | Static descriptor/branch evidence recorded in [family contracts](../research/ascii-magic/2026-10-20/initial-family-contracts.md); required algorithm/default gates open | Payload unfrozen; unavailable; no runtime parity claim | Open |
 | `stippling` | Stippling | stippling | Static catalog; runtime pending; parameters unknown | Pending | Open |
 | `waves` | Waves | waves | Static catalog; runtime pending; parameters unknown | Pending | Open |
 | `risograph` | Risograph | risograph | Static catalog; runtime pending; parameters unknown | Pending | Open |

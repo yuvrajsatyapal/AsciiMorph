@@ -1,0 +1,1877 @@
+{
+  "capturedOn": "2026-10-24",
+  "url": "https://www.ascii-magic.com/app",
+  "method": "CUA UI clicks plus rendered DOM attribute reads; inherited existing browser state; not fresh defaults or numeric output equivalence",
+  "observations": {
+    "mixed": {
+      "controls": [
+        {
+          "checked": false,
+          "id": "",
+          "max": null,
+          "min": null,
+          "step": null,
+          "type": "text",
+          "value": ""
+        },
+        {
+          "checked": false,
+          "id": "",
+          "max": null,
+          "min": null,
+          "options": [
+            {
+              "label": "Characters",
+              "value": "characters"
+            },
+            {
+              "label": "ASCII Studio · Pro",
+              "value": "asciiStudio"
+            },
+            {
+              "label": "Dither",
+              "value": "dither"
+            },
+            {
+              "label": "Block",
+              "value": "block-chars"
+            },
+            {
+              "label": "Dots",
+              "value": "dots"
+            },
+            {
+              "label": "Frosted Glass · Pro",
+              "value": "frostedglass"
+            },
+            {
+              "label": "Motion Blur · Pro",
+              "value": "motionblur"
+            },
+            {
+              "label": "Mixed",
+              "value": "mixed"
+            },
+            {
+              "label": "Pixel Art",
+              "value": "pixel"
+            },
+            {
+              "label": "Mosaic",
+              "value": "mosaic"
+            },
+            {
+              "label": "LEGO",
+              "value": "lego"
+            },
+            {
+              "label": "Cross",
+              "value": "cross"
+            },
+            {
+              "label": "Diamond",
+              "value": "diamond"
+            },
+            {
+              "label": "Lines",
+              "value": "lines"
+            },
+            {
+              "label": "Diagonal",
+              "value": "diagonal"
+            },
+            {
+              "label": "Braille",
+              "value": "braille"
+            },
+            {
+              "label": "Voxel",
+              "value": "3d"
+            },
+            {
+              "label": "Disco",
+              "value": "disco"
+            },
+            {
+              "label": "Stippling · Pro",
+              "value": "stippling"
+            },
+            {
+              "label": "Waves · Pro",
+              "value": "waves"
+            },
+            {
+              "label": "Risograph · Pro",
+              "value": "risograph"
+            },
+            {
+              "label": "CRT Screen · Pro",
+              "value": "crt"
+            },
+            {
+              "label": "Specimen · Pro",
+              "value": "specimen"
+            },
+            {
+              "label": "Smudge · Pro",
+              "value": "smudge"
+            },
+            {
+              "label": "Pinch · Pro",
+              "value": "pinch"
+            },
+            {
+              "label": "Spherize · Pro",
+              "value": "spherize"
+            },
+            {
+              "label": "Twirl · Pro",
+              "value": "twirl"
+            },
+            {
+              "label": "ZigZag · Pro",
+              "value": "ripple"
+            },
+            {
+              "label": "Ripple · Pro",
+              "value": "zigzag"
+            },
+            {
+              "label": "Polar · Pro",
+              "value": "polar"
+            },
+            {
+              "label": "Shear · Pro",
+              "value": "shear"
+            },
+            {
+              "label": "Pixel Sort · Pro",
+              "value": "pixelsort"
+            },
+            {
+              "label": "Oil Paint · Pro",
+              "value": "oilpaint"
+            },
+            {
+              "label": "Low Poly · Pro",
+              "value": "lowpoly"
+            },
+            {
+              "label": "Comic · Pro",
+              "value": "comic"
+            },
+            {
+              "label": "Sketch · Pro",
+              "value": "sketch"
+            },
+            {
+              "label": "Watercolor · Pro",
+              "value": "watercolor"
+            },
+            {
+              "label": "Chrome · Pro",
+              "value": "chrome"
+            },
+            {
+              "label": "Hex Mosaic · Pro",
+              "value": "hexmosaic"
+            },
+            {
+              "label": "Tinted Glass · Pro",
+              "value": "stainedglass"
+            },
+            {
+              "label": "Anaglyph 3D · Pro",
+              "value": "anaglyph"
+            },
+            {
+              "label": "Droste · Pro",
+              "value": "droste"
+            },
+            {
+              "label": "Tilt-Shift · Pro",
+              "value": "tiltshift"
+            },
+            {
+              "label": "Gaussian Blur · Pro",
+              "value": "gaussianblur"
+            },
+            {
+              "label": "Radial Blur · Pro",
+              "value": "radialblur"
+            },
+            {
+              "label": "Thin-Film · Pro",
+              "value": "thinfilm"
+            },
+            {
+              "label": "Truchet · Pro",
+              "value": "truchet"
+            },
+            {
+              "label": "Iso Extrude · Pro",
+              "value": "isoextrude"
+            },
+            {
+              "label": "Flow Field · Pro",
+              "value": "flowfield"
+            },
+            {
+              "label": "Engraving · Pro",
+              "value": "engraving"
+            },
+            {
+              "label": "Gradient Map · Pro",
+              "value": "gradientmap"
+            },
+            {
+              "label": "Warhol · Pro",
+              "value": "warhol"
+            },
+            {
+              "label": "Shatter · Pro",
+              "value": "shatter"
+            },
+            {
+              "label": "Lattice · Pro",
+              "value": "lattice"
+            },
+            {
+              "label": "Blueprint · Pro",
+              "value": "blueprint"
+            },
+            {
+              "label": "Topography · Pro",
+              "value": "topography"
+            },
+            {
+              "label": "Prism · Pro",
+              "value": "prism"
+            },
+            {
+              "label": "Marble · Pro",
+              "value": "marble"
+            },
+            {
+              "label": "Dreamdust · Pro",
+              "value": "dreamdust"
+            },
+            {
+              "label": "Forms · Pro",
+              "value": "forms"
+            },
+            {
+              "label": "Halftone · Pro",
+              "value": "halftone"
+            },
+            {
+              "label": "Schematic · Pro",
+              "value": "schematic"
+            },
+            {
+              "label": "Forensics · Pro",
+              "value": "forensics"
+            },
+            {
+              "label": "Digital Distortion · Pro",
+              "value": "glitch"
+            },
+            {
+              "label": "Datamosh · Pro",
+              "value": "datamosh"
+            },
+            {
+              "label": "Woodblock · Pro",
+              "value": "ukiyoe"
+            },
+            {
+              "label": "Molten Metal · Pro",
+              "value": "molten"
+            },
+            {
+              "label": "Vitrine · Pro",
+              "value": "vitrine"
+            },
+            {
+              "label": "Light Wind · Pro",
+              "value": "lightwind"
+            },
+            {
+              "label": "Kaleidoscope · Pro",
+              "value": "starburst"
+            },
+            {
+              "label": "Warpbloom · Pro",
+              "value": "warpbloom"
+            },
+            {
+              "label": "Lofi · Pro",
+              "value": "lofi"
+            },
+            {
+              "label": "RGB Split · Pro",
+              "value": "rgbsplit"
+            },
+            {
+              "label": "Duotone · Pro",
+              "value": "duotone"
+            },
+            {
+              "label": "Edge Glow · Pro",
+              "value": "edgeglow"
+            },
+            {
+              "label": "Posterize · Pro",
+              "value": "posterize"
+            },
+            {
+              "label": "Crystallize · Pro",
+              "value": "crystallize"
+            },
+            {
+              "label": "Mezzotint · Pro",
+              "value": "mezzotint"
+            },
+            {
+              "label": "Pointillize · Pro",
+              "value": "pointillize"
+            },
+            {
+              "label": "Scanline · Pro",
+              "value": "scanline"
+            },
+            {
+              "label": "Crosshatch · Pro",
+              "value": "crosshatch"
+            },
+            {
+              "label": "Neon Grid · Pro",
+              "value": "neongrid"
+            },
+            {
+              "label": "LED Matrix · Pro",
+              "value": "ledmatrix"
+            },
+            {
+              "label": "Thermal · Pro",
+              "value": "thermal"
+            },
+            {
+              "label": "Beacon · Pro",
+              "value": "beacon"
+            },
+            {
+              "label": "Emboss · Pro",
+              "value": "emboss"
+            },
+            {
+              "label": "CMYK Drops · Pro",
+              "value": "halftonecmyk"
+            },
+            {
+              "label": "Aberration · Pro",
+              "value": "lens"
+            },
+            {
+              "label": "Glass Orb · Pro",
+              "value": "glassorb"
+            },
+            {
+              "label": "Fluted Glass · Pro",
+              "value": "flutedglass"
+            },
+            {
+              "label": "Glass · Pro",
+              "value": "liquidglass"
+            },
+            {
+              "label": "Cyanotype · Pro",
+              "value": "cyanotype"
+            },
+            {
+              "label": "Honeycomb Screen · Pro",
+              "value": "hexhalftone"
+            },
+            {
+              "label": "Crumpled Print · Pro",
+              "value": "paperstock"
+            },
+            {
+              "label": "Petrol Sheen · Pro",
+              "value": "oilpool"
+            },
+            {
+              "label": "Heat Tint · Pro",
+              "value": "anodized"
+            }
+          ],
+          "step": null,
+          "type": null,
+          "value": "mixed"
+        },
+        {
+          "checked": false,
+          "id": "bgMode",
+          "max": null,
+          "min": null,
+          "options": [
+            {
+              "label": "Blurred Image",
+              "value": "blur"
+            },
+            {
+              "label": "Solid Black",
+              "value": "solid"
+            },
+            {
+              "label": "Original Image",
+              "value": "original"
+            },
+            {
+              "label": "None (Transparent)",
+              "value": "none"
+            }
+          ],
+          "step": null,
+          "type": null,
+          "value": "blur"
+        },
+        {
+          "checked": false,
+          "id": "bgBlur",
+          "max": "60",
+          "min": "0",
+          "step": null,
+          "type": "range",
+          "value": "0"
+        },
+        {
+          "checked": false,
+          "id": "bgOpacity",
+          "max": "100",
+          "min": "0",
+          "step": null,
+          "type": "range",
+          "value": "100"
+        },
+        {
+          "checked": false,
+          "id": "fontSize",
+          "max": "80",
+          "min": "3",
+          "step": "1",
+          "type": "range",
+          "value": "11"
+        },
+        {
+          "checked": false,
+          "id": "blendMode",
+          "max": null,
+          "min": null,
+          "options": [
+            {
+              "label": "Normal",
+              "value": "source-over"
+            },
+            {
+              "label": "Overlay",
+              "value": "overlay"
+            },
+            {
+              "label": "Color Dodge",
+              "value": "color-dodge"
+            },
+            {
+              "label": "Screen",
+              "value": "screen"
+            },
+            {
+              "label": "Lighter",
+              "value": "lighter"
+            }
+          ],
+          "step": null,
+          "type": null,
+          "value": "source-over"
+        },
+        {
+          "checked": false,
+          "id": "charOpacity",
+          "max": "100",
+          "min": "0",
+          "step": null,
+          "type": "range",
+          "value": "100"
+        },
+        {
+          "checked": false,
+          "id": "coverage",
+          "max": "100",
+          "min": "0",
+          "step": null,
+          "type": "range",
+          "value": "100"
+        },
+        {
+          "checked": false,
+          "id": "brightness",
+          "max": "100",
+          "min": "-100",
+          "step": null,
+          "type": "range",
+          "value": "0"
+        },
+        {
+          "checked": false,
+          "id": "contrast",
+          "max": "100",
+          "min": "-100",
+          "step": null,
+          "type": "range",
+          "value": "70"
+        },
+        {
+          "checked": false,
+          "id": "advBlur-type",
+          "max": null,
+          "min": null,
+          "options": [
+            {
+              "label": "Off",
+              "value": "off"
+            },
+            {
+              "label": "Gaussian",
+              "value": "gaussian"
+            },
+            {
+              "label": "Lens",
+              "value": "lens"
+            },
+            {
+              "label": "Tilt-Shift",
+              "value": "tilt"
+            },
+            {
+              "label": "Directional",
+              "value": "directional"
+            },
+            {
+              "label": "Radial",
+              "value": "radial"
+            },
+            {
+              "label": "Zoom",
+              "value": "zoom"
+            },
+            {
+              "label": "Glassy",
+              "value": "glassy"
+            },
+            {
+              "label": "Perspective",
+              "value": "perspective"
+            },
+            {
+              "label": "Progressive",
+              "value": "progressive"
+            }
+          ],
+          "step": null,
+          "type": null,
+          "value": "off"
+        },
+        {
+          "checked": false,
+          "id": "crop-aspect",
+          "max": null,
+          "min": null,
+          "options": [
+            {
+              "label": "Free",
+              "value": "free"
+            },
+            {
+              "label": "1:1 (Square)",
+              "value": "1:1"
+            },
+            {
+              "label": "4:5 (Portrait)",
+              "value": "4:5"
+            },
+            {
+              "label": "3:4",
+              "value": "3:4"
+            },
+            {
+              "label": "9:16 (Story)",
+              "value": "9:16"
+            },
+            {
+              "label": "16:9 (Wide)",
+              "value": "16:9"
+            },
+            {
+              "label": "4:3",
+              "value": "4:3"
+            },
+            {
+              "label": "3:2",
+              "value": "3:2"
+            }
+          ],
+          "step": null,
+          "type": null,
+          "value": "free"
+        }
+      ],
+      "heading": "CharactersCharactersASCII Studio · ProDitherBlockDotsFrosted Glass · ProMotion Blur · ProMixedPixel ArtMosaicLEGOCrossDiamondLinesDiagonalBrailleVoxelDiscoStippling · ProWaves · ProRisograph · ProCRT Screen · ProSpecimen · ProSmudge · ProPinch · ProSpherize · ProTwirl · ProZigZag · ProRipple · ProPolar · ProShear · ProPixel Sort · ProOil Paint · ProLow Poly · ProComic · ProSketch · ProWatercolor · ProChrome · ProHex Mosaic · ProTinted Glass · ProAnaglyph 3D · ProDroste · ProTilt-Shift · ProGaussian Blur · ProRadial Blur · ProThin-Film · ProTruchet · ProIso Extrude · ProFlow Field · ProEngraving · ProGradient Map · ProWarhol · ProShatter · ProLattice · ProBlueprint · ProTopography · ProPrism · ProMarble · ProDreamdust · ProForms · ProHalftone · ProSchematic · ProForensics · ProDigital Distortion · ProDatamosh · ProWoodblock · ProMolten Metal · ProVitrine · ProLight Wind · ProKaleidoscope · ProWarpbloom · ProLofi · ProRGB Split · ProDuotone · ProEdge Glow · ProPosterize · ProCrystallize · ProMezzotint · ProPointillize · ProScanline · ProCrosshatch · ProNeon Grid · ProLED Matrix · ProThermal · ProBeacon · ProEmboss · ProCMYK Drops · ProAberration · ProGlass Orb · ProFluted Glass · ProGlass · ProCyanotype · ProHoneycomb Screen · ProCrumpled Print · ProPetrol Sheen · ProHeat Tint · ProBackdropModeBlurred ImageSolid BlackOriginal ImageNone (Transparent)Softness0pxOpacity100%MixedStyleCharactersDither ▦Block CharactersDotsLinesDiagonalCrossDiamondMixedPixel ArtLEGOMosaicBrailleVoxel (Cube)Disco ✨StipplingLiquid GlassWavesRisographCRT ScreenSpecimenLatticeBlueprintTopographyPrismMarbleDreamdust ✵FormsSchematicFont Size11Blend ModeNormalOverlayColor DodgeScreenLighterChar Opacity100%Invert MappingDot Grid OverlayRandomize CharactersIntensityCoverage100%Brightness0Contrast70BlurTypeOffGaussianLensTilt-ShiftDirectionalRadialZoomGlassyPerspectiveProgressive"
+    },
+    "block": {
+      "controls": [
+        {
+          "checked": false,
+          "id": "",
+          "max": null,
+          "min": null,
+          "step": null,
+          "type": "text",
+          "value": ""
+        },
+        {
+          "checked": false,
+          "id": "",
+          "max": null,
+          "min": null,
+          "options": [
+            {
+              "label": "Characters",
+              "value": "characters"
+            },
+            {
+              "label": "ASCII Studio · Pro",
+              "value": "asciiStudio"
+            },
+            {
+              "label": "Dither",
+              "value": "dither"
+            },
+            {
+              "label": "Block",
+              "value": "block-chars"
+            },
+            {
+              "label": "Dots",
+              "value": "dots"
+            },
+            {
+              "label": "Frosted Glass · Pro",
+              "value": "frostedglass"
+            },
+            {
+              "label": "Motion Blur · Pro",
+              "value": "motionblur"
+            },
+            {
+              "label": "Mixed",
+              "value": "mixed"
+            },
+            {
+              "label": "Pixel Art",
+              "value": "pixel"
+            },
+            {
+              "label": "Mosaic",
+              "value": "mosaic"
+            },
+            {
+              "label": "LEGO",
+              "value": "lego"
+            },
+            {
+              "label": "Cross",
+              "value": "cross"
+            },
+            {
+              "label": "Diamond",
+              "value": "diamond"
+            },
+            {
+              "label": "Lines",
+              "value": "lines"
+            },
+            {
+              "label": "Diagonal",
+              "value": "diagonal"
+            },
+            {
+              "label": "Braille",
+              "value": "braille"
+            },
+            {
+              "label": "Voxel",
+              "value": "3d"
+            },
+            {
+              "label": "Disco",
+              "value": "disco"
+            },
+            {
+              "label": "Stippling · Pro",
+              "value": "stippling"
+            },
+            {
+              "label": "Waves · Pro",
+              "value": "waves"
+            },
+            {
+              "label": "Risograph · Pro",
+              "value": "risograph"
+            },
+            {
+              "label": "CRT Screen · Pro",
+              "value": "crt"
+            },
+            {
+              "label": "Specimen · Pro",
+              "value": "specimen"
+            },
+            {
+              "label": "Smudge · Pro",
+              "value": "smudge"
+            },
+            {
+              "label": "Pinch · Pro",
+              "value": "pinch"
+            },
+            {
+              "label": "Spherize · Pro",
+              "value": "spherize"
+            },
+            {
+              "label": "Twirl · Pro",
+              "value": "twirl"
+            },
+            {
+              "label": "ZigZag · Pro",
+              "value": "ripple"
+            },
+            {
+              "label": "Ripple · Pro",
+              "value": "zigzag"
+            },
+            {
+              "label": "Polar · Pro",
+              "value": "polar"
+            },
+            {
+              "label": "Shear · Pro",
+              "value": "shear"
+            },
+            {
+              "label": "Pixel Sort · Pro",
+              "value": "pixelsort"
+            },
+            {
+              "label": "Oil Paint · Pro",
+              "value": "oilpaint"
+            },
+            {
+              "label": "Low Poly · Pro",
+              "value": "lowpoly"
+            },
+            {
+              "label": "Comic · Pro",
+              "value": "comic"
+            },
+            {
+              "label": "Sketch · Pro",
+              "value": "sketch"
+            },
+            {
+              "label": "Watercolor · Pro",
+              "value": "watercolor"
+            },
+            {
+              "label": "Chrome · Pro",
+              "value": "chrome"
+            },
+            {
+              "label": "Hex Mosaic · Pro",
+              "value": "hexmosaic"
+            },
+            {
+              "label": "Tinted Glass · Pro",
+              "value": "stainedglass"
+            },
+            {
+              "label": "Anaglyph 3D · Pro",
+              "value": "anaglyph"
+            },
+            {
+              "label": "Droste · Pro",
+              "value": "droste"
+            },
+            {
+              "label": "Tilt-Shift · Pro",
+              "value": "tiltshift"
+            },
+            {
+              "label": "Gaussian Blur · Pro",
+              "value": "gaussianblur"
+            },
+            {
+              "label": "Radial Blur · Pro",
+              "value": "radialblur"
+            },
+            {
+              "label": "Thin-Film · Pro",
+              "value": "thinfilm"
+            },
+            {
+              "label": "Truchet · Pro",
+              "value": "truchet"
+            },
+            {
+              "label": "Iso Extrude · Pro",
+              "value": "isoextrude"
+            },
+            {
+              "label": "Flow Field · Pro",
+              "value": "flowfield"
+            },
+            {
+              "label": "Engraving · Pro",
+              "value": "engraving"
+            },
+            {
+              "label": "Gradient Map · Pro",
+              "value": "gradientmap"
+            },
+            {
+              "label": "Warhol · Pro",
+              "value": "warhol"
+            },
+            {
+              "label": "Shatter · Pro",
+              "value": "shatter"
+            },
+            {
+              "label": "Lattice · Pro",
+              "value": "lattice"
+            },
+            {
+              "label": "Blueprint · Pro",
+              "value": "blueprint"
+            },
+            {
+              "label": "Topography · Pro",
+              "value": "topography"
+            },
+            {
+              "label": "Prism · Pro",
+              "value": "prism"
+            },
+            {
+              "label": "Marble · Pro",
+              "value": "marble"
+            },
+            {
+              "label": "Dreamdust · Pro",
+              "value": "dreamdust"
+            },
+            {
+              "label": "Forms · Pro",
+              "value": "forms"
+            },
+            {
+              "label": "Halftone · Pro",
+              "value": "halftone"
+            },
+            {
+              "label": "Schematic · Pro",
+              "value": "schematic"
+            },
+            {
+              "label": "Forensics · Pro",
+              "value": "forensics"
+            },
+            {
+              "label": "Digital Distortion · Pro",
+              "value": "glitch"
+            },
+            {
+              "label": "Datamosh · Pro",
+              "value": "datamosh"
+            },
+            {
+              "label": "Woodblock · Pro",
+              "value": "ukiyoe"
+            },
+            {
+              "label": "Molten Metal · Pro",
+              "value": "molten"
+            },
+            {
+              "label": "Vitrine · Pro",
+              "value": "vitrine"
+            },
+            {
+              "label": "Light Wind · Pro",
+              "value": "lightwind"
+            },
+            {
+              "label": "Kaleidoscope · Pro",
+              "value": "starburst"
+            },
+            {
+              "label": "Warpbloom · Pro",
+              "value": "warpbloom"
+            },
+            {
+              "label": "Lofi · Pro",
+              "value": "lofi"
+            },
+            {
+              "label": "RGB Split · Pro",
+              "value": "rgbsplit"
+            },
+            {
+              "label": "Duotone · Pro",
+              "value": "duotone"
+            },
+            {
+              "label": "Edge Glow · Pro",
+              "value": "edgeglow"
+            },
+            {
+              "label": "Posterize · Pro",
+              "value": "posterize"
+            },
+            {
+              "label": "Crystallize · Pro",
+              "value": "crystallize"
+            },
+            {
+              "label": "Mezzotint · Pro",
+              "value": "mezzotint"
+            },
+            {
+              "label": "Pointillize · Pro",
+              "value": "pointillize"
+            },
+            {
+              "label": "Scanline · Pro",
+              "value": "scanline"
+            },
+            {
+              "label": "Crosshatch · Pro",
+              "value": "crosshatch"
+            },
+            {
+              "label": "Neon Grid · Pro",
+              "value": "neongrid"
+            },
+            {
+              "label": "LED Matrix · Pro",
+              "value": "ledmatrix"
+            },
+            {
+              "label": "Thermal · Pro",
+              "value": "thermal"
+            },
+            {
+              "label": "Beacon · Pro",
+              "value": "beacon"
+            },
+            {
+              "label": "Emboss · Pro",
+              "value": "emboss"
+            },
+            {
+              "label": "CMYK Drops · Pro",
+              "value": "halftonecmyk"
+            },
+            {
+              "label": "Aberration · Pro",
+              "value": "lens"
+            },
+            {
+              "label": "Glass Orb · Pro",
+              "value": "glassorb"
+            },
+            {
+              "label": "Fluted Glass · Pro",
+              "value": "flutedglass"
+            },
+            {
+              "label": "Glass · Pro",
+              "value": "liquidglass"
+            },
+            {
+              "label": "Cyanotype · Pro",
+              "value": "cyanotype"
+            },
+            {
+              "label": "Honeycomb Screen · Pro",
+              "value": "hexhalftone"
+            },
+            {
+              "label": "Crumpled Print · Pro",
+              "value": "paperstock"
+            },
+            {
+              "label": "Petrol Sheen · Pro",
+              "value": "oilpool"
+            },
+            {
+              "label": "Heat Tint · Pro",
+              "value": "anodized"
+            }
+          ],
+          "step": null,
+          "type": null,
+          "value": "block-chars"
+        },
+        {
+          "checked": false,
+          "id": "bgMode",
+          "max": null,
+          "min": null,
+          "options": [
+            {
+              "label": "Blurred Image",
+              "value": "blur"
+            },
+            {
+              "label": "Solid Black",
+              "value": "solid"
+            },
+            {
+              "label": "Original Image",
+              "value": "original"
+            },
+            {
+              "label": "None (Transparent)",
+              "value": "none"
+            }
+          ],
+          "step": null,
+          "type": null,
+          "value": "blur"
+        },
+        {
+          "checked": false,
+          "id": "bgBlur",
+          "max": "60",
+          "min": "0",
+          "step": null,
+          "type": "range",
+          "value": "0"
+        },
+        {
+          "checked": false,
+          "id": "bgOpacity",
+          "max": "100",
+          "min": "0",
+          "step": null,
+          "type": "range",
+          "value": "100"
+        },
+        {
+          "checked": false,
+          "id": "fontSize",
+          "max": "80",
+          "min": "3",
+          "step": "1",
+          "type": "range",
+          "value": "11"
+        },
+        {
+          "checked": false,
+          "id": "blendMode",
+          "max": null,
+          "min": null,
+          "options": [
+            {
+              "label": "Normal",
+              "value": "source-over"
+            },
+            {
+              "label": "Overlay",
+              "value": "overlay"
+            },
+            {
+              "label": "Color Dodge",
+              "value": "color-dodge"
+            },
+            {
+              "label": "Screen",
+              "value": "screen"
+            },
+            {
+              "label": "Lighter",
+              "value": "lighter"
+            }
+          ],
+          "step": null,
+          "type": null,
+          "value": "source-over"
+        },
+        {
+          "checked": false,
+          "id": "charOpacity",
+          "max": "100",
+          "min": "0",
+          "step": null,
+          "type": "range",
+          "value": "100"
+        },
+        {
+          "checked": false,
+          "id": "coverage",
+          "max": "100",
+          "min": "0",
+          "step": null,
+          "type": "range",
+          "value": "100"
+        },
+        {
+          "checked": false,
+          "id": "brightness",
+          "max": "100",
+          "min": "-100",
+          "step": null,
+          "type": "range",
+          "value": "0"
+        },
+        {
+          "checked": false,
+          "id": "contrast",
+          "max": "100",
+          "min": "-100",
+          "step": null,
+          "type": "range",
+          "value": "70"
+        },
+        {
+          "checked": false,
+          "id": "advBlur-type",
+          "max": null,
+          "min": null,
+          "options": [
+            {
+              "label": "Off",
+              "value": "off"
+            },
+            {
+              "label": "Gaussian",
+              "value": "gaussian"
+            },
+            {
+              "label": "Lens",
+              "value": "lens"
+            },
+            {
+              "label": "Tilt-Shift",
+              "value": "tilt"
+            },
+            {
+              "label": "Directional",
+              "value": "directional"
+            },
+            {
+              "label": "Radial",
+              "value": "radial"
+            },
+            {
+              "label": "Zoom",
+              "value": "zoom"
+            },
+            {
+              "label": "Glassy",
+              "value": "glassy"
+            },
+            {
+              "label": "Perspective",
+              "value": "perspective"
+            },
+            {
+              "label": "Progressive",
+              "value": "progressive"
+            }
+          ],
+          "step": null,
+          "type": null,
+          "value": "off"
+        },
+        {
+          "checked": false,
+          "id": "crop-aspect",
+          "max": null,
+          "min": null,
+          "options": [
+            {
+              "label": "Free",
+              "value": "free"
+            },
+            {
+              "label": "1:1 (Square)",
+              "value": "1:1"
+            },
+            {
+              "label": "4:5 (Portrait)",
+              "value": "4:5"
+            },
+            {
+              "label": "3:4",
+              "value": "3:4"
+            },
+            {
+              "label": "9:16 (Story)",
+              "value": "9:16"
+            },
+            {
+              "label": "16:9 (Wide)",
+              "value": "16:9"
+            },
+            {
+              "label": "4:3",
+              "value": "4:3"
+            },
+            {
+              "label": "3:2",
+              "value": "3:2"
+            }
+          ],
+          "step": null,
+          "type": null,
+          "value": "free"
+        }
+      ]
+    },
+    "braille": {
+      "controls": [
+        {
+          "checked": false,
+          "id": "",
+          "max": null,
+          "min": null,
+          "step": null,
+          "type": "text",
+          "value": ""
+        },
+        {
+          "checked": false,
+          "id": "",
+          "max": null,
+          "min": null,
+          "options": [
+            {
+              "label": "Characters",
+              "value": "characters"
+            },
+            {
+              "label": "ASCII Studio · Pro",
+              "value": "asciiStudio"
+            },
+            {
+              "label": "Dither",
+              "value": "dither"
+            },
+            {
+              "label": "Block",
+              "value": "block-chars"
+            },
+            {
+              "label": "Dots",
+              "value": "dots"
+            },
+            {
+              "label": "Frosted Glass · Pro",
+              "value": "frostedglass"
+            },
+            {
+              "label": "Motion Blur · Pro",
+              "value": "motionblur"
+            },
+            {
+              "label": "Mixed",
+              "value": "mixed"
+            },
+            {
+              "label": "Pixel Art",
+              "value": "pixel"
+            },
+            {
+              "label": "Mosaic",
+              "value": "mosaic"
+            },
+            {
+              "label": "LEGO",
+              "value": "lego"
+            },
+            {
+              "label": "Cross",
+              "value": "cross"
+            },
+            {
+              "label": "Diamond",
+              "value": "diamond"
+            },
+            {
+              "label": "Lines",
+              "value": "lines"
+            },
+            {
+              "label": "Diagonal",
+              "value": "diagonal"
+            },
+            {
+              "label": "Braille",
+              "value": "braille"
+            },
+            {
+              "label": "Voxel",
+              "value": "3d"
+            },
+            {
+              "label": "Disco",
+              "value": "disco"
+            },
+            {
+              "label": "Stippling · Pro",
+              "value": "stippling"
+            },
+            {
+              "label": "Waves · Pro",
+              "value": "waves"
+            },
+            {
+              "label": "Risograph · Pro",
+              "value": "risograph"
+            },
+            {
+              "label": "CRT Screen · Pro",
+              "value": "crt"
+            },
+            {
+              "label": "Specimen · Pro",
+              "value": "specimen"
+            },
+            {
+              "label": "Smudge · Pro",
+              "value": "smudge"
+            },
+            {
+              "label": "Pinch · Pro",
+              "value": "pinch"
+            },
+            {
+              "label": "Spherize · Pro",
+              "value": "spherize"
+            },
+            {
+              "label": "Twirl · Pro",
+              "value": "twirl"
+            },
+            {
+              "label": "ZigZag · Pro",
+              "value": "ripple"
+            },
+            {
+              "label": "Ripple · Pro",
+              "value": "zigzag"
+            },
+            {
+              "label": "Polar · Pro",
+              "value": "polar"
+            },
+            {
+              "label": "Shear · Pro",
+              "value": "shear"
+            },
+            {
+              "label": "Pixel Sort · Pro",
+              "value": "pixelsort"
+            },
+            {
+              "label": "Oil Paint · Pro",
+              "value": "oilpaint"
+            },
+            {
+              "label": "Low Poly · Pro",
+              "value": "lowpoly"
+            },
+            {
+              "label": "Comic · Pro",
+              "value": "comic"
+            },
+            {
+              "label": "Sketch · Pro",
+              "value": "sketch"
+            },
+            {
+              "label": "Watercolor · Pro",
+              "value": "watercolor"
+            },
+            {
+              "label": "Chrome · Pro",
+              "value": "chrome"
+            },
+            {
+              "label": "Hex Mosaic · Pro",
+              "value": "hexmosaic"
+            },
+            {
+              "label": "Tinted Glass · Pro",
+              "value": "stainedglass"
+            },
+            {
+              "label": "Anaglyph 3D · Pro",
+              "value": "anaglyph"
+            },
+            {
+              "label": "Droste · Pro",
+              "value": "droste"
+            },
+            {
+              "label": "Tilt-Shift · Pro",
+              "value": "tiltshift"
+            },
+            {
+              "label": "Gaussian Blur · Pro",
+              "value": "gaussianblur"
+            },
+            {
+              "label": "Radial Blur · Pro",
+              "value": "radialblur"
+            },
+            {
+              "label": "Thin-Film · Pro",
+              "value": "thinfilm"
+            },
+            {
+              "label": "Truchet · Pro",
+              "value": "truchet"
+            },
+            {
+              "label": "Iso Extrude · Pro",
+              "value": "isoextrude"
+            },
+            {
+              "label": "Flow Field · Pro",
+              "value": "flowfield"
+            },
+            {
+              "label": "Engraving · Pro",
+              "value": "engraving"
+            },
+            {
+              "label": "Gradient Map · Pro",
+              "value": "gradientmap"
+            },
+            {
+              "label": "Warhol · Pro",
+              "value": "warhol"
+            },
+            {
+              "label": "Shatter · Pro",
+              "value": "shatter"
+            },
+            {
+              "label": "Lattice · Pro",
+              "value": "lattice"
+            },
+            {
+              "label": "Blueprint · Pro",
+              "value": "blueprint"
+            },
+            {
+              "label": "Topography · Pro",
+              "value": "topography"
+            },
+            {
+              "label": "Prism · Pro",
+              "value": "prism"
+            },
+            {
+              "label": "Marble · Pro",
+              "value": "marble"
+            },
+            {
+              "label": "Dreamdust · Pro",
+              "value": "dreamdust"
+            },
+            {
+              "label": "Forms · Pro",
+              "value": "forms"
+            },
+            {
+              "label": "Halftone · Pro",
+              "value": "halftone"
+            },
+            {
+              "label": "Schematic · Pro",
+              "value": "schematic"
+            },
+            {
+              "label": "Forensics · Pro",
+              "value": "forensics"
+            },
+            {
+              "label": "Digital Distortion · Pro",
+              "value": "glitch"
+            },
+            {
+              "label": "Datamosh · Pro",
+              "value": "datamosh"
+            },
+            {
+              "label": "Woodblock · Pro",
+              "value": "ukiyoe"
+            },
+            {
+              "label": "Molten Metal · Pro",
+              "value": "molten"
+            },
+            {
+              "label": "Vitrine · Pro",
+              "value": "vitrine"
+            },
+            {
+              "label": "Light Wind · Pro",
+              "value": "lightwind"
+            },
+            {
+              "label": "Kaleidoscope · Pro",
+              "value": "starburst"
+            },
+            {
+              "label": "Warpbloom · Pro",
+              "value": "warpbloom"
+            },
+            {
+              "label": "Lofi · Pro",
+              "value": "lofi"
+            },
+            {
+              "label": "RGB Split · Pro",
+              "value": "rgbsplit"
+            },
+            {
+              "label": "Duotone · Pro",
+              "value": "duotone"
+            },
+            {
+              "label": "Edge Glow · Pro",
+              "value": "edgeglow"
+            },
+            {
+              "label": "Posterize · Pro",
+              "value": "posterize"
+            },
+            {
+              "label": "Crystallize · Pro",
+              "value": "crystallize"
+            },
+            {
+              "label": "Mezzotint · Pro",
+              "value": "mezzotint"
+            },
+            {
+              "label": "Pointillize · Pro",
+              "value": "pointillize"
+            },
+            {
+              "label": "Scanline · Pro",
+              "value": "scanline"
+            },
+            {
+              "label": "Crosshatch · Pro",
+              "value": "crosshatch"
+            },
+            {
+              "label": "Neon Grid · Pro",
+              "value": "neongrid"
+            },
+            {
+              "label": "LED Matrix · Pro",
+              "value": "ledmatrix"
+            },
+            {
+              "label": "Thermal · Pro",
+              "value": "thermal"
+            },
+            {
+              "label": "Beacon · Pro",
+              "value": "beacon"
+            },
+            {
+              "label": "Emboss · Pro",
+              "value": "emboss"
+            },
+            {
+              "label": "CMYK Drops · Pro",
+              "value": "halftonecmyk"
+            },
+            {
+              "label": "Aberration · Pro",
+              "value": "lens"
+            },
+            {
+              "label": "Glass Orb · Pro",
+              "value": "glassorb"
+            },
+            {
+              "label": "Fluted Glass · Pro",
+              "value": "flutedglass"
+            },
+            {
+              "label": "Glass · Pro",
+              "value": "liquidglass"
+            },
+            {
+              "label": "Cyanotype · Pro",
+              "value": "cyanotype"
+            },
+            {
+              "label": "Honeycomb Screen · Pro",
+              "value": "hexhalftone"
+            },
+            {
+              "label": "Crumpled Print · Pro",
+              "value": "paperstock"
+            },
+            {
+              "label": "Petrol Sheen · Pro",
+              "value": "oilpool"
+            },
+            {
+              "label": "Heat Tint · Pro",
+              "value": "anodized"
+            }
+          ],
+          "step": null,
+          "type": null,
+          "value": "braille"
+        },
+        {
+          "checked": false,
+          "id": "bgMode",
+          "max": null,
+          "min": null,
+          "options": [
+            {
+              "label": "Blurred Image",
+              "value": "blur"
+            },
+            {
+              "label": "Solid Black",
+              "value": "solid"
+            },
+            {
+              "label": "Original Image",
+              "value": "original"
+            },
+            {
+              "label": "None (Transparent)",
+              "value": "none"
+            }
+          ],
+          "step": null,
+          "type": null,
+          "value": "blur"
+        },
+        {
+          "checked": false,
+          "id": "bgBlur",
+          "max": "60",
+          "min": "0",
+          "step": null,
+          "type": "range",
+          "value": "0"
+        },
+        {
+          "checked": false,
+          "id": "bgOpacity",
+          "max": "100",
+          "min": "0",
+          "step": null,
+          "type": "range",
+          "value": "100"
+        },
+        {
+          "checked": false,
+          "id": "fontSize",
+          "max": "80",
+          "min": "3",
+          "step": "1",
+          "type": "range",
+          "value": "11"
+        },
+        {
+          "checked": false,
+          "id": "blendMode",
+          "max": null,
+          "min": null,
+          "options": [
+            {
+              "label": "Normal",
+              "value": "source-over"
+            },
+            {
+              "label": "Overlay",
+              "value": "overlay"
+            },
+            {
+              "label": "Color Dodge",
+              "value": "color-dodge"
+            },
+            {
+              "label": "Screen",
+              "value": "screen"
+            },
+            {
+              "label": "Lighter",
+              "value": "lighter"
+            }
+          ],
+          "step": null,
+          "type": null,
+          "value": "source-over"
+        },
+        {
+          "checked": false,
+          "id": "charOpacity",
+          "max": "100",
+          "min": "0",
+          "step": null,
+          "type": "range",
+          "value": "100"
+        },
+        {
+          "checked": false,
+          "id": "coverage",
+          "max": "100",
+          "min": "0",
+          "step": null,
+          "type": "range",
+          "value": "100"
+        },
+        {
+          "checked": false,
+          "id": "brightness",
+          "max": "100",
+          "min": "-100",
+          "step": null,
+          "type": "range",
+          "value": "0"
+        },
+        {
+          "checked": false,
+          "id": "contrast",
+          "max": "100",
+          "min": "-100",
+          "step": null,
+          "type": "range",
+          "value": "70"
+        },
+        {
+          "checked": false,
+          "id": "advBlur-type",
+          "max": null,
+          "min": null,
+          "options": [
+            {
+              "label": "Off",
+              "value": "off"
+            },
+            {
+              "label": "Gaussian",
+              "value": "gaussian"
+            },
+            {
+              "label": "Lens",
+              "value": "lens"
+            },
+            {
+              "label": "Tilt-Shift",
+              "value": "tilt"
+            },
+            {
+              "label": "Directional",
+              "value": "directional"
+            },
+            {
+              "label": "Radial",
+              "value": "radial"
+            },
+            {
+              "label": "Zoom",
+              "value": "zoom"
+            },
+            {
+              "label": "Glassy",
+              "value": "glassy"
+            },
+            {
+              "label": "Perspective",
+              "value": "perspective"
+            },
+            {
+              "label": "Progressive",
+              "value": "progressive"
+            }
+          ],
+          "step": null,
+          "type": null,
+          "value": "off"
+        },
+        {
+          "checked": false,
+          "id": "crop-aspect",
+          "max": null,
+          "min": null,
+          "options": [
+            {
+              "label": "Free",
+              "value": "free"
+            },
+            {
+              "label": "1:1 (Square)",
+              "value": "1:1"
+            },
+            {
+              "label": "4:5 (Portrait)",
+              "value": "4:5"
+            },
+            {
+              "label": "3:4",
+              "value": "3:4"
+            },
+            {
+              "label": "9:16 (Story)",
+              "value": "9:16"
+            },
+            {
+              "label": "16:9 (Wide)",
+              "value": "16:9"
+            },
+            {
+              "label": "4:3",
+              "value": "4:3"
+            },
+            {
+              "label": "3:2",
+              "value": "3:2"
+            }
+          ],
+          "step": null,
+          "type": null,
+          "value": "free"
+        }
+      ]
+    }
+  }
+}

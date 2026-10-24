@@ -1,0 +1,1301 @@
+Browser tab: 2, Title: "ASCII Magic Editor, Free Online Image & Video Shader Tool", URL: "https://www.ascii-magic.com/app".
+0 AXWebArea ASCII Magic Editor, Free Online Image & Video Shader Tool, URL: ascii-magic.com/app
+	1 container
+		2 heading ASCII Magic, Value: 1
+			3 text ASCII Magic
+		4 image ASCII Magic
+		5 tab group Workspace
+			6 tab (selected, settable, boolean) Studio, Value: 1
+			7 tab (selectable, settable, boolean) Flow, Value: 0
+		8 button Zoom out
+			9 image
+		10 button 100%
+			11 text 100
+			12 text %
+		13 button Zoom in
+			14 image
+		15 button Crop
+			16 image
+		17 checkbox Description: Compare before and after, Value: 0
+			18 image
+		19 button Add text
+			20 image
+		21 button (disabled) Undo
+			22 image
+		23 button (disabled) Redo
+			24 image
+		25 button Recipes
+			26 image
+		27 button Go Pro
+			28 container
+				29 text Go Pro
+		30 button Help
+		31 button Sign in
+		32 pop up button Description: Menu, ID: menu-btn
+		33 container
+			34 container
+				35 text Styles
+				36 checkbox Description: Expand styles panel, Help: Expand panel, Value: 0
+					37 image
+				38 button Collapse styles
+					39 image
+			40 tab group Style category
+				41 tab (selected, settable, boolean) Realtime, Value: 1
+				42 tab (selectable, settable, boolean) Generative, Value: 0
+			43 text field (settable) Search styles
+			44 tab group Styles views
+				45 tab (selected, settable, boolean) Explore, Value: 1
+				46 tab (selectable, settable, boolean) Favorites, Value: 0
+				47 tab (selectable, settable, boolean) Recipes, Value: 0
+			48 container
+				49 heading SUGGESTED FOR THIS IMAGE, Value: 4
+					1243 text SUGGESTED FOR THIS IMAGE
+				50 container
+					51 button ▣ Mosaic, Help: Mosaic
+						1244 text ▣
+						1245 text Mosaic
+					52 checkbox Description: Favorite Mosaic, Value: 0
+						53 image
+				54 container
+					55 button ⊞ PRO Specimen, Help: Specimen — Pro effect
+						1246 text ⊞
+						56 image
+						1247 text PRO
+						1248 text Specimen
+					57 checkbox Description: Favorite Specimen, Value: 0
+						58 image
+				59 container
+					60 button ✛ PRO Schematic, Help: Schematic — Pro effect
+						1249 text ✛
+						61 image
+						1250 text PRO
+						1251 text Schematic
+					62 checkbox Description: Favorite Schematic, Value: 0
+						63 image
+				64 container
+					65 button ◩ PRO New this week Cyanotype Retro · Mono, Help: Cyanotype — Pro effect
+						1252 text ◩
+						66 image
+						1253 text PRO
+						1254 text New this week
+						1255 text Cyanotype
+						1256 text Retro · Mono
+					67 checkbox Description: Favorite Cyanotype, Value: 0
+						68 image
+				69 container
+					70 button ◆ PRO Heat Tint, Help: Heat Tint — Pro effect
+						1257 text ◆
+						71 image
+						1258 text PRO
+						1259 text Heat Tint
+					72 checkbox Description: Favorite Heat Tint, Value: 0
+						73 image
+				74 container
+					75 button ◉ PRO Petrol Sheen, Help: Petrol Sheen — Pro effect
+						1260 text ◉
+						76 image
+						1261 text PRO
+						1262 text Petrol Sheen
+					77 checkbox Description: Favorite Petrol Sheen, Value: 0
+						78 image
+				79 container
+					80 button ⬢ PRO Honeycomb Screen, Help: Honeycomb Screen — Pro effect
+						1263 text ⬢
+						81 image
+						1264 text PRO
+						1265 text Honeycomb Screen
+					82 checkbox Description: Favorite Honeycomb Screen, Value: 0
+						83 image
+				84 container
+					85 button ▢ PRO Crumpled Print, Help: Crumpled Print — Pro effect
+						1266 text ▢
+						86 image
+						1267 text PRO
+						1268 text Crumpled Print
+					87 checkbox Description: Favorite Crumpled Print, Value: 0
+						88 image
+				89 container
+					90 button ◫ PRO Blueprint, Help: Blueprint — Pro effect
+						1269 text ◫
+						91 image
+						1270 text PRO
+						1271 text Blueprint
+					92 checkbox Description: Favorite Blueprint, Value: 0
+						93 image
+				94 heading ASCII & TEXT, Value: 4
+					95 text ASCII & TEXT
+				96 container
+					97 button Characters Dense · Mono, Help: Characters
+						98 text Characters
+						99 text Dense · Mono
+					100 checkbox Description: Favorite Characters, Value: 0
+						101 image
+				102 container
+					103 button ◉ PRO ASCII Studio Color · Geometric, Help: ASCII Studio — Pro effect
+						104 text ◉
+						105 image
+						106 text PRO
+						107 text ASCII Studio
+						108 text Color · Geometric
+					109 checkbox Description: Favorite ASCII Studio, Value: 0
+						110 image
+				111 container
+					112 button ▛ Block Minimal · Mono, Help: Block
+						113 text ▛
+						114 text Block
+						115 text Minimal · Mono
+					116 checkbox Description: Favorite Block, Value: 0
+						117 image
+				118 container
+					119 button Dots Minimal · Organic, Help: Dots
+						120 text Dots
+						121 text Minimal · Organic
+					122 checkbox Description: Favorite Dots, Value: 0
+						123 image
+				124 container
+					125 button Mixed Dense · Mono, Help: Mixed
+						126 text Mixed
+						127 text Dense · Mono
+					128 checkbox Description: Favorite Mixed, Value: 0
+						129 image
+				130 container
+					131 button ⣷⠛⣠ Braille Dense · Mono, Help: Braille
+						132 text ⣷⠛⣠
+						133 text Braille
+						134 text Dense · Mono
+					135 checkbox Description: Favorite Braille, Value: 0
+						136 image
+				137 heading PIXEL & BLOCKS, Value: 4
+					138 text PIXEL & BLOCKS
+				139 container
+					140 button ◧ New Pixel Art Retro · Color, Help: Pixel Art
+						141 text ◧
+						142 text New
+						143 text Pixel Art
+						144 text Retro · Color
+					145 checkbox Description: Favorite Pixel Art, Value: 0
+						146 image
+				147 container
+					148 button ▣ Mosaic Color · Geometric, Help: Mosaic
+						149 text ▣
+						150 text Mosaic
+						151 text Color · Geometric
+					152 checkbox Description: Favorite Mosaic, Value: 0
+						153 image
+				154 container
+					155 button ▦ LEGO Color · Geometric, Help: LEGO
+						156 text ▦
+						157 text LEGO
+						158 text Color · Geometric
+					159 checkbox Description: Favorite LEGO, Value: 0
+						160 image
+				161 container
+					162 button New Voxel Geometric · Dense, Help: Voxel
+						163 text New
+						164 text Voxel
+						165 text Geometric · Dense
+					166 checkbox Description: Favorite Voxel, Value: 0
+						167 image
+				168 container
+					169 button ⬡ PRO Hex Mosaic Geometric · Color, Help: Hex Mosaic — Pro effect
+						170 text ⬡
+						171 image
+						172 text PRO
+						173 text Hex Mosaic
+						174 text Geometric · Color
+					175 checkbox Description: Favorite Hex Mosaic, Value: 0
+						176 image
+				177 container
+					178 button ⣿ PRO LED Matrix Retro · Geometric, Help: LED Matrix — Pro effect
+						179 text ⣿
+						180 image
+						181 text PRO
+						182 text LED Matrix
+						183 text Retro · Geometric
+					184 checkbox Description: Favorite LED Matrix, Value: 0
+						185 image
+				186 heading PRINT & PAPER, Value: 4
+					187 text PRINT & PAPER
+				188 container
+					189 button ▚ Dither Retro · Dense, Help: Dither
+						190 text ▚
+						191 text Dither
+						192 text Retro · Dense
+					193 checkbox Description: Favorite Dither, Value: 0
+						194 image
+				195 container
+					196 button ⣠⠟ PRO Stippling Organic · Mono, Help: Stippling — Pro effect
+						197 text ⣠⠟
+						198 image
+						199 text PRO
+						200 text Stippling
+						201 text Organic · Mono
+					202 checkbox Description: Favorite Stippling, Value: 0
+						203 image
+				204 container
+					205 button ▚ PRO Risograph Retro · Color, Help: Risograph — Pro effect
+						206 text ▚
+						207 image
+						208 text PRO
+						209 text Risograph
+						210 text Retro · Color
+					211 checkbox Description: Favorite Risograph, Value: 0
+						212 image
+				213 container
+					214 button ◗ PRO Comic Retro · Color, Help: Comic — Pro effect
+						215 text ◗
+						216 image
+						217 text PRO
+						218 text Comic
+						219 text Retro · Color
+					220 checkbox Description: Favorite Comic, Value: 0
+						221 image
+				222 container
+					223 button ✎ PRO Sketch Mono · Minimal, Help: Sketch — Pro effect
+						224 text ✎
+						225 image
+						226 text PRO
+						227 text Sketch
+						228 text Mono · Minimal
+					229 checkbox Description: Favorite Sketch, Value: 0
+						230 image
+				231 container
+					232 button ≣ PRO Engraving Mono · Retro, Help: Engraving — Pro effect
+						233 text ≣
+						234 image
+						235 text PRO
+						236 text Engraving
+						237 text Mono · Retro
+					238 checkbox Description: Favorite Engraving, Value: 0
+						239 image
+				240 container
+					241 button ⊞ PRO Warhol Color · Retro, Help: Warhol — Pro effect
+						242 text ⊞
+						243 image
+						244 text PRO
+						245 text Warhol
+						246 text Color · Retro
+					247 checkbox Description: Favorite Warhol, Value: 0
+						248 image
+				249 container
+					250 button ◫ PRO Blueprint Retro · Color, Help: Blueprint — Pro effect
+						251 text ◫
+						252 image
+						253 text PRO
+						254 text Blueprint
+						255 text Retro · Color
+					256 checkbox Description: Favorite Blueprint, Value: 0
+						257 image
+				258 container
+					259 button ◉ PRO Halftone Retro · Mono, Help: Halftone — Pro effect
+						260 text ◉
+						261 image
+						262 text PRO
+						263 text Halftone
+						264 text Retro · Mono
+					265 checkbox Description: Favorite Halftone, Value: 0
+						266 image
+				267 container
+					268 button ❀ PRO Woodblock Retro · Color, Help: Woodblock — Pro effect
+						269 text ❀
+						270 image
+						271 text PRO
+						272 text Woodblock
+						273 text Retro · Color
+					274 checkbox Description: Favorite Woodblock, Value: 0
+						275 image
+				276 container
+					277 button ◱ PRO Posterize Color · Retro, Help: Posterize — Pro effect
+						278 text ◱
+						279 image
+						280 text PRO
+						281 text Posterize
+						282 text Color · Retro
+					283 checkbox Description: Favorite Posterize, Value: 0
+						284 image
+				285 container
+					286 button ▚ PRO Mezzotint Retro · Mono, Help: Mezzotint — Pro effect
+						287 text ▚
+						288 image
+						289 text PRO
+						290 text Mezzotint
+						291 text Retro · Mono
+					292 checkbox Description: Favorite Mezzotint, Value: 0
+						293 image
+				294 container
+					295 button ⣿ PRO Pointillize Color · Retro, Help: Pointillize — Pro effect
+						296 text ⣿
+						297 image
+						298 text PRO
+						299 text Pointillize
+						300 text Color · Retro
+					301 checkbox Description: Favorite Pointillize, Value: 0
+						302 image
+				303 container
+					304 button ✕ PRO Crosshatch Mono · Geometric, Help: Crosshatch — Pro effect
+						305 text ✕
+						306 image
+						307 text PRO
+						308 text Crosshatch
+						309 text Mono · Geometric
+					310 checkbox Description: Favorite Crosshatch, Value: 0
+						311 image
+				312 container
+					313 button ⣿ PRO CMYK Drops Color · Retro, Help: CMYK Drops — Pro effect
+						314 text ⣿
+						315 image
+						316 text PRO
+						317 text CMYK Drops
+						318 text Color · Retro
+					319 checkbox Description: Favorite CMYK Drops, Value: 0
+						320 image
+				321 container
+					322 button ◩ PRO Cyanotype Retro · Mono, Help: Cyanotype — Pro effect
+						323 text ◩
+						324 image
+						325 text PRO
+						326 text Cyanotype
+						327 text Retro · Mono
+					328 checkbox Description: Favorite Cyanotype, Value: 0
+						329 image
+				330 container
+					331 button ⬢ PRO Honeycomb Screen Retro · Geometric, Help: Honeycomb Screen — Pro effect
+						332 text ⬢
+						333 image
+						334 text PRO
+						335 text Honeycomb Screen
+						336 text Retro · Geometric
+					337 checkbox Description: Favorite Honeycomb Screen, Value: 0
+						338 image
+				339 container
+					340 button ▢ PRO Crumpled Print Minimal · Organic, Help: Crumpled Print — Pro effect
+						341 text ▢
+						342 image
+						343 text PRO
+						344 text Crumpled Print
+						345 text Minimal · Organic
+					346 checkbox Description: Favorite Crumpled Print, Value: 0
+						347 image
+				348 heading GEOMETRIC, Value: 4
+					349 text GEOMETRIC
+				350 container
+					351 button Cross Geometric · Mono, Help: Cross
+						352 text Cross
+						353 text Geometric · Mono
+					354 checkbox Description: Favorite Cross, Value: 0
+						355 image
+				356 container
+					357 button Diamond Geometric · Mono, Help: Diamond
+						358 text Diamond
+						359 text Geometric · Mono
+					360 checkbox Description: Favorite Diamond, Value: 0
+						361 image
+				362 container
+					363 button Lines Minimal · Geometric, Help: Lines
+						364 text Lines
+						365 text Minimal · Geometric
+					366 checkbox Description: Favorite Lines, Value: 0
+						367 image
+				368 container
+					369 button Diagonal Geometric · Minimal, Help: Diagonal
+						370 text Diagonal
+						371 text Geometric · Minimal
+					372 checkbox Description: Favorite Diagonal, Value: 0
+						373 image
+				374 container
+					375 button ⊞ PRO Specimen Geometric · Color, Help: Specimen — Pro effect
+						376 text ⊞
+						377 image
+						378 text PRO
+						379 text Specimen
+						380 text Geometric · Color
+					381 checkbox Description: Favorite Specimen, Value: 0
+						382 image
+				383 container
+					384 button ◺ PRO Low Poly Geometric · Minimal, Help: Low Poly — Pro effect
+						385 text ◺
+						386 image
+						387 text PRO
+						388 text Low Poly
+						389 text Geometric · Minimal
+					390 checkbox Description: Favorite Low Poly, Value: 0
+						391 image
+				392 container
+					393 button ⟳ PRO Droste Geometric · Glitch, Help: Droste — Pro effect
+						394 text ⟳
+						395 image
+						396 text PRO
+						397 text Droste
+						398 text Geometric · Glitch
+					399 checkbox Description: Favorite Droste, Value: 0
+						400 image
+				401 container
+					402 button ▚ PRO Truchet Geometric · Mono, Help: Truchet — Pro effect
+						403 text ▚
+						404 image
+						405 text PRO
+						406 text Truchet
+						407 text Geometric · Mono
+					408 checkbox Description: Favorite Truchet, Value: 0
+						409 image
+				410 container
+					411 button ⬢ PRO Iso Extrude Geometric · Retro, Help: Iso Extrude — Pro effect
+						412 text ⬢
+						413 image
+						414 text PRO
+						415 text Iso Extrude
+						416 text Geometric · Retro
+					417 checkbox Description: Favorite Iso Extrude, Value: 0
+						418 image
+				419 container
+					420 button ≋ PRO Flow Field Organic · Mono, Help: Flow Field — Pro effect
+						421 text ≋
+						422 image
+						423 text PRO
+						424 text Flow Field
+						425 text Organic · Mono
+					426 checkbox Description: Favorite Flow Field, Value: 0
+						427 image
+				428 container
+					429 button ▦ PRO Lattice Organic · Color, Help: Lattice — Pro effect
+						430 text ▦
+						431 image
+						432 text PRO
+						433 text Lattice
+						434 text Organic · Color
+					435 checkbox Description: Favorite Lattice, Value: 0
+						436 image
+				437 container
+					438 button ∿ PRO Topography Organic · Geometric, Help: Topography — Pro effect
+						439 text ∿
+						440 image
+						441 text PRO
+						442 text Topography
+						443 text Organic · Geometric
+					444 checkbox Description: Favorite Topography, Value: 0
+						445 image
+				446 container
+					447 button ✽ PRO Forms Color · Organic, Help: Forms — Pro effect
+						448 text ✽
+						449 image
+						450 text PRO
+						451 text Forms
+						452 text Color · Organic
+					453 checkbox Description: Favorite Forms, Value: 0
+						454 image
+				455 container
+					456 button ✛ PRO Schematic Geometric · Minimal, Help: Schematic — Pro effect
+						457 text ✛
+						458 image
+						459 text PRO
+						460 text Schematic
+						461 text Geometric · Minimal
+					462 checkbox Description: Favorite Schematic, Value: 0
+						463 image
+				464 container
+					465 button ▦ PRO Neon Grid Color · Geometric, Help: Neon Grid — Pro effect
+						466 text ▦
+						467 image
+						468 text PRO
+						469 text Neon Grid
+						470 text Color · Geometric
+					471 checkbox Description: Favorite Neon Grid, Value: 0
+						472 image
+				473 heading DISTORT, Value: 4
+					474 text DISTORT
+				475 container
+					476 button 〰 PRO Smudge Organic · Color, Help: Smudge — Pro effect
+						477 text 〰
+						478 image
+						479 text PRO
+						480 text Smudge
+						481 text Organic · Color
+					482 checkbox Description: Favorite Smudge, Value: 0
+						483 image
+				484 container
+					485 button ⊙ PRO Pinch Geometric · Minimal, Help: Pinch — Pro effect
+						486 text ⊙
+						487 image
+						488 text PRO
+						489 text Pinch
+						490 text Geometric · Minimal
+					491 checkbox Description: Favorite Pinch, Value: 0
+						492 image
+				493 container
+					494 button ◍ PRO Spherize Geometric · Minimal, Help: Spherize — Pro effect
+						495 text ◍
+						496 image
+						497 text PRO
+						498 text Spherize
+						499 text Geometric · Minimal
+					500 checkbox Description: Favorite Spherize, Value: 0
+						501 image
+				502 container
+					503 button ◉ PRO Twirl Geometric · Organic, Help: Twirl — Pro effect
+						504 text ◉
+						505 image
+						506 text PRO
+						507 text Twirl
+						508 text Geometric · Organic
+					509 checkbox Description: Favorite Twirl, Value: 0
+						510 image
+				511 container
+					512 button ⌇ PRO ZigZag Geometric · Organic, Help: ZigZag — Pro effect
+						513 text ⌇
+						514 image
+						515 text PRO
+						516 text ZigZag
+						517 text Geometric · Organic
+					518 checkbox Description: Favorite ZigZag, Value: 0
+						519 image
+				520 container
+					521 button ≈ PRO Ripple Geometric · Organic, Help: Ripple — Pro effect
+						522 text ≈
+						523 image
+						524 text PRO
+						525 text Ripple
+						526 text Geometric · Organic
+					527 checkbox Description: Favorite Ripple, Value: 0
+						528 image
+				529 container
+					530 button ◎ PRO Polar Geometric · Minimal, Help: Polar — Pro effect
+						531 text ◎
+						532 image
+						533 text PRO
+						534 text Polar
+						535 text Geometric · Minimal
+					536 checkbox Description: Favorite Polar, Value: 0
+						537 image
+				538 container
+					539 button ⇔ PRO Shear Geometric · Minimal, Help: Shear — Pro effect
+						540 text ⇔
+						541 image
+						542 text PRO
+						543 text Shear
+						544 text Geometric · Minimal
+					545 checkbox Description: Favorite Shear, Value: 0
+						546 image
+				547 heading BLUR & FOCUS, Value: 4
+					548 text BLUR & FOCUS
+				549 container
+					550 button ⇉ PRO Motion Blur Minimal · Organic, Help: Motion Blur — Pro effect
+						551 text ⇉
+						552 image
+						553 text PRO
+						554 text Motion Blur
+						555 text Minimal · Organic
+					556 checkbox Description: Favorite Motion Blur, Value: 0
+						557 image
+				558 container
+					559 button ⊙ PRO Tilt-Shift Minimal · Color, Help: Tilt-Shift — Pro effect
+						560 text ⊙
+						561 image
+						562 text PRO
+						563 text Tilt-Shift
+						564 text Minimal · Color
+					565 checkbox Description: Favorite Tilt-Shift, Value: 0
+						566 image
+				567 container
+					568 button ◍ PRO Gaussian Blur Minimal · Organic, Help: Gaussian Blur — Pro effect
+						569 text ◍
+						570 image
+						571 text PRO
+						572 text Gaussian Blur
+						573 text Minimal · Organic
+					574 checkbox Description: Favorite Gaussian Blur, Value: 0
+						575 image
+				576 container
+					577 button ◎ PRO Radial Blur Minimal · Organic, Help: Radial Blur — Pro effect
+						578 text ◎
+						579 image
+						580 text PRO
+						581 text Radial Blur
+						582 text Minimal · Organic
+					583 checkbox Description: Favorite Radial Blur, Value: 0
+						584 image
+				585 heading GLITCH & SIGNAL, Value: 4
+					586 text GLITCH & SIGNAL
+				587 container
+					588 button ▓ PRO CRT Screen Retro · Color, Help: CRT Screen — Pro effect
+						589 text ▓
+						590 image
+						591 text PRO
+						592 text CRT Screen
+						593 text Retro · Color
+					594 checkbox Description: Favorite CRT Screen, Value: 0
+						595 image
+				596 container
+					597 button ▧ PRO Pixel Sort Glitch · Color, Help: Pixel Sort — Pro effect
+						598 text ▧
+						599 image
+						600 text PRO
+						601 text Pixel Sort
+						602 text Glitch · Color
+					603 checkbox Description: Favorite Pixel Sort, Value: 0
+						604 image
+				605 container
+					606 button ⊚ PRO Forensics Mono · Color, Help: Forensics — Pro effect
+						607 text ⊚
+						608 image
+						609 text PRO
+						610 text Forensics
+						611 text Mono · Color
+					612 checkbox Description: Favorite Forensics, Value: 0
+						613 image
+				614 container
+					615 button ▒ PRO Digital Distortion Glitch · Color, Help: Digital Distortion — Pro effect
+						616 text ▒
+						617 image
+						618 text PRO
+						619 text Digital Distortion
+						620 text Glitch · Color
+					621 checkbox Description: Favorite Digital Distortion, Value: 0
+						622 image
+				623 container
+					624 button ▞ PRO Datamosh Glitch · Color, Help: Datamosh — Pro effect
+						625 text ▞
+						626 image
+						627 text PRO
+						628 text Datamosh
+						629 text Glitch · Color
+					630 checkbox Description: Favorite Datamosh, Value: 0
+						631 image
+				632 container
+					633 button ▒ PRO Lofi Retro · Color, Help: Lofi — Pro effect
+						634 text ▒
+						635 image
+						636 text PRO
+						637 text Lofi
+						638 text Retro · Color
+					639 checkbox Description: Favorite Lofi, Value: 0
+						640 image
+				641 container
+					642 button ◐ PRO RGB Split Glitch · Color, Help: RGB Split — Pro effect
+						643 text ◐
+						644 image
+						645 text PRO
+						646 text RGB Split
+						647 text Glitch · Color
+					648 checkbox Description: Favorite RGB Split, Value: 0
+						649 image
+				650 container
+					651 button ☰ PRO Scanline Retro · Glitch, Help: Scanline — Pro effect
+						652 text ☰
+						653 image
+						654 text PRO
+						655 text Scanline
+						656 text Retro · Glitch
+					657 checkbox Description: Favorite Scanline, Value: 0
+						658 image
+				659 container
+					660 button ◉ PRO Thermal Color · Glitch, Help: Thermal — Pro effect
+						661 text ◉
+						662 image
+						663 text PRO
+						664 text Thermal
+						665 text Color · Glitch
+					666 checkbox Description: Favorite Thermal, Value: 0
+						667 image
+				668 container
+					669 button ✦ PRO Beacon Color · Dense, Help: Beacon — Pro effect
+						670 text ✦
+						671 image
+						672 text PRO
+						673 text Beacon
+						674 text Color · Dense
+					675 checkbox Description: Favorite Beacon, Value: 0
+						676 image
+				677 heading LIGHT & COLOR, Value: 4
+					678 text LIGHT & COLOR
+				679 container
+					680 button ◈◉◇ New Disco Glitch · Color, Help: Disco
+						681 text ◈◉◇
+						682 text New
+						683 text Disco
+						684 text Glitch · Color
+					685 checkbox Description: Favorite Disco, Value: 0
+						686 image
+				687 container
+					688 button ◑ PRO Anaglyph 3D Retro · Color, Help: Anaglyph 3D — Pro effect
+						689 text ◑
+						690 image
+						691 text PRO
+						692 text Anaglyph 3D
+						693 text Retro · Color
+					694 checkbox Description: Favorite Anaglyph 3D, Value: 0
+						695 image
+				696 container
+					697 button ⬒ PRO Gradient Map Color · Retro, Help: Gradient Map — Pro effect
+						698 text ⬒
+						699 image
+						700 text PRO
+						701 text Gradient Map
+						702 text Color · Retro
+					703 checkbox Description: Favorite Gradient Map, Value: 0
+						704 image
+				705 container
+					706 button ✧ PRO Prism Geometric · Color, Help: Prism — Pro effect
+						707 text ✧
+						708 image
+						709 text PRO
+						710 text Prism
+						711 text Geometric · Color
+					712 checkbox Description: Favorite Prism, Value: 0
+						713 image
+				714 container
+					715 button ✵ PRO Dreamdust Organic · Color, Help: Dreamdust — Pro effect
+						716 text ✵
+						717 image
+						718 text PRO
+						719 text Dreamdust
+						720 text Organic · Color
+					721 checkbox Description: Favorite Dreamdust, Value: 0
+						722 image
+				723 container
+					724 button ༄ PRO Light Wind Color · Organic, Help: Light Wind — Pro effect
+						725 text ༄
+						726 image
+						727 text PRO
+						728 text Light Wind
+						729 text Color · Organic
+					730 checkbox Description: Favorite Light Wind, Value: 0
+						731 image
+				732 container
+					733 button ✺ PRO Kaleidoscope Color · Organic, Help: Kaleidoscope — Pro effect
+						734 text ✺
+						735 image
+						736 text PRO
+						737 text Kaleidoscope
+						738 text Color · Organic
+					739 checkbox Description: Favorite Kaleidoscope, Value: 0
+						740 image
+				741 container
+					742 button ❃ PRO Warpbloom Organic · Color, Help: Warpbloom — Pro effect
+						743 text ❃
+						744 image
+						745 text PRO
+						746 text Warpbloom
+						747 text Organic · Color
+					748 checkbox Description: Favorite Warpbloom, Value: 0
+						749 image
+				750 container
+					751 button ◑ PRO Duotone Color · Minimal, Help: Duotone — Pro effect
+						752 text ◑
+						753 image
+						754 text PRO
+						755 text Duotone
+						756 text Color · Minimal
+					757 checkbox Description: Favorite Duotone, Value: 0
+						758 image
+				759 container
+					760 button ◇ PRO Edge Glow Glitch · Color, Help: Edge Glow — Pro effect
+						761 text ◇
+						762 image
+						763 text PRO
+						764 text Edge Glow
+						765 text Glitch · Color
+					766 checkbox Description: Favorite Edge Glow, Value: 0
+						767 image
+				768 container
+					769 button ◉ PRO Aberration Color · Organic, Help: Aberration — Pro effect
+						770 text ◉
+						771 image
+						772 text PRO
+						773 text Aberration
+						774 text Color · Organic
+					775 checkbox Description: Favorite Aberration, Value: 0
+						776 image
+				777 heading GLASS, Value: 4
+					778 text GLASS
+				779 container
+					780 button ▩ PRO Frosted Glass Minimal · Organic, Help: Frosted Glass — Pro effect
+						781 text ▩
+						782 image
+						783 text PRO
+						784 text Frosted Glass
+						785 text Minimal · Organic
+					786 checkbox Description: Favorite Frosted Glass, Value: 0
+						787 image
+				788 container
+					789 button ◈ PRO Tinted Glass Color · Geometric, Help: Tinted Glass — Pro effect
+						790 text ◈
+						791 image
+						792 text PRO
+						793 text Tinted Glass
+						794 text Color · Geometric
+					795 checkbox Description: Favorite Tinted Glass, Value: 0
+						796 image
+				797 container
+					798 button ❖ PRO Shatter Geometric · Glitch, Help: Shatter — Pro effect
+						799 text ❖
+						800 image
+						801 text PRO
+						802 text Shatter
+						803 text Geometric · Glitch
+					804 checkbox Description: Favorite Shatter, Value: 0
+						805 image
+				806 container
+					807 button ▦ PRO Vitrine Organic · Color, Help: Vitrine — Pro effect
+						808 text ▦
+						809 image
+						810 text PRO
+						811 text Vitrine
+						812 text Organic · Color
+					813 checkbox Description: Favorite Vitrine, Value: 0
+						814 image
+				815 container
+					816 button ⬤ PRO Glass Orb Color · Organic, Help: Glass Orb — Pro effect
+						817 text ⬤
+						818 image
+						819 text PRO
+						820 text Glass Orb
+						821 text Color · Organic
+					822 checkbox Description: Favorite Glass Orb, Value: 0
+						823 image
+				824 container
+					825 button ⦀ PRO Fluted Glass Color · Organic, Help: Fluted Glass — Pro effect
+						826 text ⦀
+						827 image
+						828 text PRO
+						829 text Fluted Glass
+						830 text Color · Organic
+					831 checkbox Description: Favorite Fluted Glass, Value: 0
+						832 image
+				833 container
+					834 button ▦ PRO Cross Reeded Geometric · Dense, Help: Cross Reeded — Pro effect
+						835 text ▦
+						836 image
+						837 text PRO
+						838 text Cross Reeded
+						839 text Geometric · Dense
+					840 checkbox Description: Favorite Cross Reeded, Value: 0
+						841 image
+				842 container
+					843 button ▨ PRO Hammered Organic · Dense, Help: Hammered — Pro effect
+						844 text ▨
+						845 image
+						846 text PRO
+						847 text Hammered
+						848 text Organic · Dense
+					849 checkbox Description: Favorite Hammered, Value: 0
+						850 image
+				851 container
+					852 button ◆ PRO Diamond Glass Geometric · Color, Help: Diamond Glass — Pro effect
+						853 text ◆
+						854 image
+						855 text PRO
+						856 text Diamond Glass
+						857 text Geometric · Color
+					858 checkbox Description: Favorite Diamond Glass, Value: 0
+						859 image
+				860 container
+					861 button ⬡ PRO Hexagon Geometric · Minimal, Help: Hexagon — Pro effect
+						862 text ⬡
+						863 image
+						864 text PRO
+						865 text Hexagon
+						866 text Geometric · Minimal
+					867 checkbox Description: Favorite Hexagon, Value: 0
+						868 image
+				869 container
+					870 button ◎ PRO Ripple Organic · Minimal, Help: Ripple — Pro effect
+						871 text ◎
+						872 image
+						873 text PRO
+						874 text Ripple
+						875 text Organic · Minimal
+					876 checkbox Description: Favorite Ripple, Value: 0
+						877 image
+				878 container
+					879 button ❄ PRO Ice Crackle Organic · Dense, Help: Ice Crackle — Pro effect
+						880 text ❄
+						881 image
+						882 text PRO
+						883 text Ice Crackle
+						884 text Organic · Dense
+					885 checkbox Description: Favorite Ice Crackle, Value: 0
+						886 image
+				887 container
+					888 button ∧ PRO Chevron Prism Geometric · Color, Help: Chevron Prism — Pro effect
+						889 text ∧
+						890 image
+						891 text PRO
+						892 text Chevron Prism
+						893 text Geometric · Color
+					894 checkbox Description: Favorite Chevron Prism, Value: 0
+						895 image
+				896 container
+					897 button ⁙ PRO Seedy Bubbles Organic · Minimal, Help: Seedy Bubbles — Pro effect
+						898 text ⁙
+						899 image
+						900 text PRO
+						901 text Seedy Bubbles
+						902 text Organic · Minimal
+					903 checkbox Description: Favorite Seedy Bubbles, Value: 0
+						904 image
+				905 container
+					906 button ▩ PRO Glass Pixel Geometric · Retro, Help: Glass Pixel — Pro effect
+						907 text ▩
+						908 image
+						909 text PRO
+						910 text Glass Pixel
+						911 text Geometric · Retro
+					912 checkbox Description: Favorite Glass Pixel, Value: 0
+						913 image
+				914 container
+					915 button ◍ PRO Jello Organic · Color, Help: Jello — Pro effect
+						916 text ◍
+						917 image
+						918 text PRO
+						919 text Jello
+						920 text Organic · Color
+					921 checkbox Description: Favorite Jello, Value: 0
+						922 image
+				923 heading MATERIAL & TEXTURE, Value: 4
+					924 text MATERIAL & TEXTURE
+				925 container
+					926 button ≈ PRO Waves Organic · Color, Help: Waves — Pro effect
+						927 text ≈
+						928 image
+						929 text PRO
+						930 text Waves
+						931 text Organic · Color
+					932 checkbox Description: Favorite Waves, Value: 0
+						933 image
+				934 container
+					935 button ❋ PRO Oil Paint Organic · Color, Help: Oil Paint — Pro effect
+						936 text ❋
+						937 image
+						938 text PRO
+						939 text Oil Paint
+						940 text Organic · Color
+					941 checkbox Description: Favorite Oil Paint, Value: 0
+						942 image
+				943 container
+					944 button ❍ PRO Watercolor Organic · Color, Help: Watercolor — Pro effect
+						945 text ❍
+						946 image
+						947 text PRO
+						948 text Watercolor
+						949 text Organic · Color
+					950 checkbox Description: Favorite Watercolor, Value: 0
+						951 image
+				952 container
+					953 button ◐ PRO Chrome Color · Geometric, Help: Chrome — Pro effect
+						954 text ◐
+						955 image
+						956 text PRO
+						957 text Chrome
+						958 text Color · Geometric
+					959 checkbox Description: Favorite Chrome, Value: 0
+						960 image
+				961 container
+					962 button ◍ PRO Thin-Film Color · Organic, Help: Thin-Film — Pro effect
+						963 text ◍
+						964 image
+						965 text PRO
+						966 text Thin-Film
+						967 text Color · Organic
+					968 checkbox Description: Favorite Thin-Film, Value: 0
+						969 image
+				970 container
+					971 button ❖ PRO Marble Organic · Color, Help: Marble — Pro effect
+						972 text ❖
+						973 image
+						974 text PRO
+						975 text Marble
+						976 text Organic · Color
+					977 checkbox Description: Favorite Marble, Value: 0
+						978 image
+				979 container
+					980 button ◈ PRO Molten Metal Organic · Color, Help: Molten Metal — Pro effect
+						981 text ◈
+						982 image
+						983 text PRO
+						984 text Molten Metal
+						985 text Organic · Color
+					986 checkbox Description: Favorite Molten Metal, Value: 0
+						987 image
+				988 container
+					989 button ◈ PRO Crystallize Geometric · Color, Help: Crystallize — Pro effect
+						990 text ◈
+						991 image
+						992 text PRO
+						993 text Crystallize
+						994 text Geometric · Color
+					995 checkbox Description: Favorite Crystallize, Value: 0
+						996 image
+				997 container
+					998 button ◪ PRO Emboss Mono · Geometric, Help: Emboss — Pro effect
+						999 text ◪
+						1000 image
+						1001 text PRO
+						1002 text Emboss
+						1003 text Mono · Geometric
+					1004 checkbox Description: Favorite Emboss, Value: 0
+						1005 image
+				1006 container
+					1007 button ◉ PRO Petrol Sheen Color · Organic, Help: Petrol Sheen — Pro effect
+						1008 text ◉
+						1009 image
+						1010 text PRO
+						1011 text Petrol Sheen
+						1012 text Color · Organic
+					1013 checkbox Description: Favorite Petrol Sheen, Value: 0
+						1014 image
+				1015 container
+					1016 button ◆ PRO Heat Tint Color, Help: Heat Tint — Pro effect
+						1017 text ◆
+						1018 image
+						1019 text PRO
+						1020 text Heat Tint
+						1021 text Color
+					1022 checkbox Description: Favorite Heat Tint, Value: 0
+						1023 image
+			1024 splitter Description: Resize styles panel, Help: Drag to resize · double-click to collapse
+		1025 container
+			1026 container preview-area
+				1027 image output-canvas
+				1028 container bg-attribution-toast
+					1029 text Wonder where these backgrounds are from? Check out
+					1030 link Description: backgrounds.supply, Value: backgrounds.supply/
+			1031 container Primary actions
+				1032 button Upload, Help: Upload, or drop a file here
+					1033 image
+					1034 text Upload
+				1035 button Inspire
+					1036 image
+					1037 text Inspire
+				1038 button Restyle
+					1039 image
+					1040 text Restyle
+				1041 button Shuffle
+					1042 image
+					1043 text Shuffle
+				1044 button Library
+					1045 image
+					1046 text Library
+				1047 button Export, ID: btn-export
+					1048 image
+					1049 text Export
+		1050 container Braille properties
+			1051 container
+				1052 text / CHARACTERS
+				1053 pop up button (collapsed, settable) Value: Braille, Secondary Actions: Expand
+					1054 menu
+						1055 Characters
+						1056 ASCII Studio · Pro
+						1057 Dither
+						1058 Block
+						1059 Dots
+						1060 Frosted Glass · Pro
+						1061 Motion Blur · Pro
+						1062 Mixed
+						1063 Pixel Art
+						1064 Mosaic
+						1065 LEGO
+						1066 Cross
+						1067 Diamond
+						1068 Lines
+						1069 Diagonal
+						1070 (selected) Braille
+						1071 Voxel
+						1072 Disco
+						1073 Stippling · Pro
+						1074 Waves · Pro
+						1075 Risograph · Pro
+						1076 CRT Screen · Pro
+						1077 Specimen · Pro
+						1078 Smudge · Pro
+						1079 Pinch · Pro
+						1080 Spherize · Pro
+						1081 Twirl · Pro
+						1082 ZigZag · Pro
+						1083 Ripple · Pro
+						1084 Polar · Pro
+						1085 Shear · Pro
+						1086 Pixel Sort · Pro
+						1087 Oil Paint · Pro
+						1088 Low Poly · Pro
+						1089 Comic · Pro
+						1090 Sketch · Pro
+						1091 Watercolor · Pro
+						1092 Chrome · Pro
+						1093 Hex Mosaic · Pro
+						1094 Tinted Glass · Pro
+						1095 Anaglyph 3D · Pro
+						1096 Droste · Pro
+						1097 Tilt-Shift · Pro
+						1098 Gaussian Blur · Pro
+						1099 Radial Blur · Pro
+						1100 Thin-Film · Pro
+						1101 Truchet · Pro
+						1102 Iso Extrude · Pro
+						1103 Flow Field · Pro
+						1104 Engraving · Pro
+						1105 Gradient Map · Pro
+						1106 Warhol · Pro
+						1107 Shatter · Pro
+						1108 Lattice · Pro
+						1109 Blueprint · Pro
+						1110 Topography · Pro
+						1111 Prism · Pro
+						1112 Marble · Pro
+						1113 Dreamdust · Pro
+						1114 Forms · Pro
+						1115 Halftone · Pro
+						1116 Schematic · Pro
+						1117 Forensics · Pro
+						1118 Digital Distortion · Pro
+						1119 Datamosh · Pro
+						1120 Woodblock · Pro
+						1121 Molten Metal · Pro
+						1122 Vitrine · Pro
+						1123 Light Wind · Pro
+						1124 Kaleidoscope · Pro
+						1125 Warpbloom · Pro
+						1126 Lofi · Pro
+						1127 RGB Split · Pro
+						1128 Duotone · Pro
+						1129 Edge Glow · Pro
+						1130 Posterize · Pro
+						1131 Crystallize · Pro
+						1132 Mezzotint · Pro
+						1133 Pointillize · Pro
+						1134 Scanline · Pro
+						1135 Crosshatch · Pro
+						1136 Neon Grid · Pro
+						1137 LED Matrix · Pro
+						1138 Thermal · Pro
+						1139 Beacon · Pro
+						1140 Emboss · Pro
+						1141 CMYK Drops · Pro
+						1142 Aberration · Pro
+						1143 Glass Orb · Pro
+						1144 Fluted Glass · Pro
+						1145 Glass · Pro
+						1146 Cyanotype · Pro
+						1147 Honeycomb Screen · Pro
+						1148 Crumpled Print · Pro
+						1149 Petrol Sheen · Pro
+						1150 Heat Tint · Pro
+				1151 button Collapse properties
+					1152 image
+				1153 heading /BACKDROP, Value: 3
+					1154 text / BACKDROP
+				1155 container bgMode-row
+					1156 text Mode
+					1157 pop up button (collapsed, settable) Value: Blurred Image, ID: bgMode, Secondary Actions: Expand
+						1158 menu
+							1159 (selected) Blurred Image
+							1160 Solid Black
+							1161 Original Image
+							1162 None (Transparent)
+				1163 container bgBlur-row
+					1164 text Softness
+					1165 container
+						1166 slider (settable, integer) Value: 0, ID: bgBlur
+						1167 container bgBlur-val
+							1168 text 0 px
+				1169 container bgOpacity-row
+					1170 text Opacity
+					1171 container
+						1172 slider (settable, integer) Value: 100, ID: bgOpacity
+						1173 container bgOpacity-val
+							1174 text 100 %
+				1175 container characters-section
+					1176 container fontSize-row
+						1177 text Font Size
+						1178 container
+							1179 slider (settable, integer) Value: 11, ID: fontSize
+							1180 text 11
+					1181 text Blend Mode
+					1182 pop up button (collapsed, settable) Value: Normal, ID: blendMode, Secondary Actions: Expand
+						1183 menu
+							1184 (selected) Normal
+							1185 Overlay
+							1186 Color Dodge
+							1187 Screen
+							1188 Lighter
+					1189 container
+						1190 text Char Opacity
+						1191 slider (settable, integer) Value: 100, ID: charOpacity
+						1192 container charOpacity-val
+							1193 text 100 %
+					1194 text Invert Mapping
+					1195 text Dot Grid Overlay
+				1198 heading /INTENSITY, Value: 3
+					1199 text / INTENSITY
+				1200 container
+					1201 text Coverage
+					1202 slider (settable, integer) Value: 100, ID: coverage
+					1203 container coverage-val
+						1204 text 100 %
+				1205 container
+					1206 text Brightness
+					1207 slider (settable, integer) Value: 0, ID: brightness
+					1208 text 0
+				1209 container
+					1210 text Contrast
+					1211 slider (settable, integer) Value: 70, ID: contrast
+					1212 text 70
+				1213 heading /BLUR, Value: 3
+					1214 text / BLUR
+				1215 text Type
+				1216 pop up button (collapsed, settable) Value: Off, ID: advBlur-type, Secondary Actions: Expand
+					1217 menu
+						1218 (selected) Off
+						1219 Gaussian
+						1220 Lens
+						1221 Tilt-Shift
+						1222 Directional
+						1223 Radial
+						1224 Zoom
+						1225 Glassy
+						1226 Perspective
+						1227 Progressive
+			1228 container Property categories
+				1229 checkbox Description: Characters, Value: 1
+					1230 image
+				1231 checkbox Description: Depth, Value: 0
+					1232 image
+				1233 checkbox Description: Animation, Value: 0
+					1234 image
+				1235 checkbox Description: Lights, Value: 0
+					1236 image
+				1237 checkbox Description: Color, Value: 0
+					1238 image
+				1239 checkbox Description: Post FX, Value: 0
+					1240 image
+				1241 checkbox Description: Mask, Value: 0
+					1242 image
+		1272 container crop-modal
+			1273 container
+				1274 heading Crop & Rotate, Value: 2
+					1275 text Crop & Rotate
+				1276 image crop-modal-canvas
+				1277 button ↺, Help: Rotate counter-clockwise
+				1278 button ↻, Help: Rotate clockwise
+				1279 text RATIO
+				1280 pop up button (collapsed, settable) RATIO, Value: Free, ID: crop-aspect, Secondary Actions: Expand
+					1281 menu
+						1282 (selected) Free
+						1283 1:1 (Square)
+						1284 4:5 (Portrait)
+						1285 3:4
+						1286 9:16 (Story)
+						1287 16:9 (Wide)
+						1288 4:3
+						1289 3:2
+				1290 button Cancel
+				1291 button Save
+		1292 container Pro plan
+			1293 button Unlock 90 more effects, 4K exports and AI renders with Pro See Pro →
+				1294 text Unlock
+				1295 text 90
+				1296 text  more effects, 4K exports and AI renders with Pro
+				1297 text See Pro →
+			1298 button Dismiss
+				1299 image
+
+The focused UI element is 131 button ⣷⠛⣠ Braille Dense · Mono, Help: Braille

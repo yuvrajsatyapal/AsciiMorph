@@ -1,0 +1,11 @@
+# Initial-family UI observations
+
+Captured on 2026-10-24 from the public reference editor through CUA. Mixed, Block and Braille were selected through their catalog buttons; each property container and selected mode visibly changed. The JSON contains DOM attributes for controls with nonzero bounding boxes, not a complete visibility audit. The Braille AX tree can include hidden modal descendants. These are bounded UI observations, not REA semantic results.
+
+The existing browser session retained Font Size11, brightness0, contrast70, blurred backdrop with Softness0 and Opacity100. Mode changes retained those shared values. They are **not fresh defaults**. Static baseline evidence remains separate. Mixed exposes the Font Size label; Block changes that label to Block Size; Braille returns to Font Size. Shared Blend Mode choices are Normal/source-over, Overlay/overlay, Color Dodge/color-dodge, Screen/screen and Lighter/lighter. Char Opacity and Coverage ranges are0–100; brightness/contrast are−100–100. Font Size has3–80 and step1; backdrop Softness0–60.
+
+Invert Mapping and Dot Grid Overlay labels were present in all three property trees. Randomize Characters was present for Mixed and Block and absent from the Braille property tree. The observation does not establish their state, mathematical behavior, complete advanced controls, output equality or animation/export behavior.
+
+The JPEG header and sips independently establish1109×720; SHA256 and byte count are in capture-manifest.json. This screenshot is research evidence only and must not be shipped as application artwork. It is neither a1440px desktop measurement nor physical-mobile evidence. The reference was observed in an inherited state; no reset, account action, upload or subscription occurred.
+
+Visual inspection: the captured image clips the right side of the properties dock and toolbar. It establishes the selected Braille tile and visible section labels only; control values/bounds come from the separate DOM observations. Do not use this capture to infer full-width geometry or complete dock visibility. The stage visually retains the inherited source-like image, so no successful Braille processing or numerical parity is established by it.
