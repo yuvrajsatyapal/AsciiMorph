@@ -68,10 +68,15 @@ export async function saveProject(doc: AsciiDocument) {
     data,
   });
   if (existing[0]?.data !== data) {
+    // Read and advance the last timestamp inside this transaction: the wall
+    // clock may tie or move backward, while UUID order is unrelated to saves.
+    const previousTime = existing[0]
+      ? Date.parse(existing[0].savedAt)
+      : -Infinity;
     snapshots.put({
       id: crypto.randomUUID(),
       documentId: doc.id,
-      savedAt: new Date().toISOString(),
+      savedAt: new Date(Math.max(Date.now(), previousTime + 1)).toISOString(),
       data,
     });
     for (const old of existing.slice(9)) snapshots.delete(old.id);
