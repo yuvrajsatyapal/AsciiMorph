@@ -1,0 +1,40 @@
+{
+  "date": "2026-10-24",
+  "base": "89a9ab9f389626cbce3e465a27175fd0f5e3244f",
+  "productionBuildId": "R4bCTSCzjXrkSWBN8jzP8",
+  "capture": {
+    "path": "final-fix-coarse-phone-menu-390x844.png",
+    "format": "PNG",
+    "width": 390,
+    "height": 844,
+    "bytes": 35294,
+    "sha256": "6b50752f1ea5d3d41809b447bc040908d6b0ada2d5c3ffdfa47e39ff6e3953a1"
+  },
+  "context": {
+    "browser": "Chromium",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "deviceScaleFactor": 1,
+    "hasTouch": true,
+    "isMobile": true,
+    "pointerCoarseAsserted": true
+  },
+  "source": {
+    "name": "owned-procedural.png",
+    "width": 67,
+    "height": 53,
+    "provenance": "Authored by tests/e2e/effects-studio.spec.ts upload helper, per pixel RGBA: [(17*x+3*y)%256,(5*x+19*y)%256,(11*x+7*y)%256,255]. No reference artwork."
+  },
+  "state": "Font Size changed by touchscreen slider tap, Menu Undo restores baseline native preview hash, Menu Redo restores edited native preview hash. Captured after Redo; Undo enabled and Redo disabled.",
+  "assertions": [
+    "Zero keydown events for the complete coarse history flow",
+    "Visible Menu history actions with width and height >=44px",
+    "One dialog owner and no horizontal document overflow",
+    "Actual rendered canvas pixels change, restore on Undo, and restore edited state on Redo",
+    "No unhandled page errors"
+  ],
+  "visualInspection": "Inspected actual PNG at390x844: Menu and both labeled history actions visible and unclipped. Narrow toolbar and panels preserve existing compact packing.",
+  "limits": "Chromium emulation, not physical mobile hardware or verified mobile reference parity. Screenshot shows owned procedural source and verifies UI presence; actual preview restoration is asserted from full canvas readbacks in the test."
+}

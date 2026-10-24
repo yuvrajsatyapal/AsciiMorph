@@ -677,6 +677,15 @@
   width: 290px;
   padding: 16px;
 }
+.effects-studio .studio-menu-history {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.effects-studio .studio-menu-history button {
+  flex: 1;
+  border: 1px solid var(--studio-border);
+}
 .effects-studio .studio-dialog-layer.export {
   align-items: flex-end;
   justify-content: flex-end;

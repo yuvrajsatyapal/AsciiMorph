@@ -566,9 +566,9 @@ export function StudioShell({
                 Original to inspect your source.
               </p>
               <p>
-                Undo: Ctrl/⌘ Z. Redo: Ctrl/⌘ Shift Z. Text fields keep native
-                undo. Other styles, Flow, Library and generation are
-                unavailable.
+                Undo and Redo are available in Menu. Keyboard shortcuts: Ctrl/⌘
+                Z and Ctrl/⌘ Shift Z. Text fields keep native undo. Other
+                styles, Flow, Library and generation are unavailable.
               </p>
             </>
           ) : dialog === "menu" ? (
@@ -578,6 +578,30 @@ export function StudioShell({
                 favorites and panel preferences are saved on this device.
               </p>
               <Link href="/studio">Open legacy Studio</Link>
+              <div
+                role="group"
+                aria-label="Edit history"
+                className="studio-menu-history"
+              >
+                <button
+                  disabled={!s.history.undoCount && !s.history.editing}
+                  onClick={() => {
+                    c.commitEdit();
+                    c.undo();
+                  }}
+                >
+                  Undo
+                </button>
+                <button
+                  disabled={!s.history.redoCount}
+                  onClick={() => {
+                    c.commitEdit();
+                    c.redo();
+                  }}
+                >
+                  Redo
+                </button>
+              </div>
               <p className="studio-note">
                 The legacy editor has a separate project workflow.
               </p>

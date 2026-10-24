@@ -191,8 +191,29 @@ async function controls(page: Page) {
   if (await button.isVisible()) await button.click();
 }
 async function closeSheet(page: Page) {
-  if (await page.getByRole("dialog", { name: "Controls sheet" }).isVisible())
-    await page.keyboard.press("Escape");
+  const sheet = page.getByRole("dialog", { name: "Controls sheet" });
+  if (await sheet.isVisible())
+    await sheet
+      .getByRole("button", { name: "Close panel", exact: true })
+      .click();
+}
+async function pointerHistory(page: Page, action: "Undo" | "Redo") {
+  const toolbarAction = page.locator(".studio-toolbar").getByRole("button", {
+    name: action,
+    exact: true,
+  });
+  if (await toolbarAction.isVisible()) {
+    await toolbarAction.click();
+    return;
+  }
+  await page.getByRole("button", { name: "Menu", exact: true }).click();
+  const menu = page.getByRole("dialog", { name: "Studio menu", exact: true });
+  const historyAction = menu.getByRole("button", { name: action, exact: true });
+  await expect(historyAction).toBeVisible();
+  await historyAction.click();
+  await menu
+    .getByRole("button", { name: "Close Studio menu", exact: true })
+    .click();
 }
 async function download(page: Page, format: "png" | "jpeg", scale = 1) {
   if (!(await page.getByRole("dialog", { name: "Export image" }).isVisible()))
@@ -329,6 +350,109 @@ test("production native PNG/JPEG download bytes, full frame, alpha and black mat
   });
 });
 
+test("coarse 390px phone exposes pointer-only Menu history with actual native preview restoration", async ({
+  browser,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== "desktop",
+    "Explicit coarse Chromium context runs once",
+  );
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    hasTouch: true,
+    isMobile: true,
+    deviceScaleFactor: 1,
+  });
+  const phone = await context.newPage();
+  const errors: string[] = [];
+  phone.on("pageerror", (error) => errors.push(error.message));
+  // This flow has no keyboard API: both the edit and all history actions are visible taps.
+  await phone.addInitScript(() => {
+    let count = 0;
+    document.addEventListener("keydown", () => {
+      document.documentElement.dataset.historyKeyCount = String(++count);
+    });
+  });
+  try {
+    await phone.goto("/app");
+    await ready(phone);
+    expect(
+      await phone.evaluate(() => matchMedia("(pointer: coarse)").matches),
+    ).toBe(true);
+    await upload(phone);
+    const first = await pixels(phone);
+    await phone.getByRole("button", { name: "Controls", exact: true }).tap();
+    const sheet = phone.getByRole("dialog", { name: "Controls sheet" });
+    const slider = sheet.getByRole("slider", {
+      name: "Font Size",
+      exact: true,
+    });
+    const bounds = await slider.boundingBox();
+    expect(bounds).not.toBeNull();
+    await phone.touchscreen.tap(
+      bounds!.x + bounds!.width * 0.8,
+      bounds!.y + bounds!.height / 2,
+    );
+    await expect
+      .poll(async () => (await pixels(phone)).hash)
+      .not.toBe(first.hash);
+    await ready(phone, 67, 53);
+    const edited = await pixels(phone);
+    await sheet.getByRole("button", { name: "Close panel", exact: true }).tap();
+    await phone.getByRole("button", { name: "Menu", exact: true }).tap();
+    const menu = phone.getByRole("dialog", {
+      name: "Studio menu",
+      exact: true,
+    });
+    const undo = menu.getByRole("button", { name: "Undo", exact: true });
+    const redo = menu.getByRole("button", { name: "Redo", exact: true });
+    await expect(undo).toBeVisible();
+    await expect(undo).toBeEnabled();
+    await expect(redo).toBeDisabled();
+    for (const action of [undo, redo]) {
+      const target = await action.boundingBox();
+      expect(target!.width).toBeGreaterThanOrEqual(44);
+      expect(target!.height).toBeGreaterThanOrEqual(44);
+    }
+    await undo.tap();
+    await expect.poll(async () => (await pixels(phone)).hash).toBe(first.hash);
+    await expect(undo).toBeDisabled();
+    await expect(redo).toBeEnabled();
+    await redo.tap();
+    await expect.poll(async () => (await pixels(phone)).hash).toBe(edited.hash);
+    await expect(undo).toBeEnabled();
+    await expect(redo).toBeDisabled();
+    expect(await phone.getByRole("dialog").count()).toBe(1);
+    expect(
+      await phone.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    const keyboardEvents = await phone.evaluate(() =>
+      Number(document.documentElement.dataset.historyKeyCount ?? 0),
+    );
+    expect(keyboardEvents).toBe(0);
+    expect(errors).toEqual([]);
+    await phone.screenshot({
+      path: "docs/verification/studio-shell-evidence/final-fix-coarse-phone-menu-390x844.png",
+    });
+    await testInfo.attach("coarse-phone-history", {
+      body: Buffer.from(
+        JSON.stringify({
+          viewport: { width: 390, height: 844 },
+          first,
+          edited,
+          restoredAfterRedo: await pixels(phone),
+          keyboardEvents,
+        }),
+      ),
+      contentType: "application/json",
+    });
+  } finally {
+    await context.close();
+  }
+});
+
 test("four controls repaint one retained source, grouped history, native undo and compare release", async ({
   page,
 }) => {
@@ -358,20 +482,10 @@ test("four controls repaint one retained source, grouped history, native undo an
   await assertAdvanced();
   const fontPaint = await pixels(page);
   await closeSheet(page);
-  const undo = page.getByRole("button", { name: "Undo", exact: true });
-  if (await undo.isVisible()) await undo.click();
-  else {
-    await page.getByRole("button", { name: "Menu", exact: true }).focus();
-    await page.keyboard.press("ControlOrMeta+z");
-  }
+  await pointerHistory(page, "Undo");
   await expect.poll(async () => (await pixels(page)).hash).toBe(first.hash);
   await assertAdvanced();
-  const redo = page.getByRole("button", { name: "Redo", exact: true });
-  if (await redo.isVisible()) await redo.click();
-  else {
-    await page.getByRole("button", { name: "Menu", exact: true }).focus();
-    await page.keyboard.press("ControlOrMeta+Shift+z");
-  }
+  await pointerHistory(page, "Redo");
   await expect.poll(async () => (await pixels(page)).hash).toBe(fontPaint.hash);
   await assertAdvanced();
   await controls(page);

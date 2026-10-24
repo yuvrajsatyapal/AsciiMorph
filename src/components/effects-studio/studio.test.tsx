@@ -412,3 +412,28 @@ it("does not offer the sample retry over a committed source after upload failure
   ).not.toBeInTheDocument();
   expect(load).not.toHaveBeenCalled();
 });
+
+it("offers disabled Menu history actions until an edit, then restores the look through undo and redo", () => {
+  const { controller } = setup();
+  fireEvent.click(screen.getByRole("button", { name: "Menu" }));
+  const menu = screen.getByRole("dialog", { name: "Studio menu" });
+  const undo = within(menu).getByRole("button", { name: "Undo" });
+  const redo = within(menu).getByRole("button", { name: "Redo" });
+  expect(undo).toBeDisabled();
+  expect(redo).toBeDisabled();
+  act(() => {
+    controller.beginEdit();
+    controller.patchParameter("fontSize", 13);
+  });
+  expect(undo).toBeEnabled();
+  fireEvent.click(undo);
+  expect(controller.getSnapshot().project.style.parameters.fontSize).toBe(11);
+  expect(controller.getSnapshot().history.editing).toBe(false);
+  expect(undo).toBeDisabled();
+  expect(redo).toBeEnabled();
+  fireEvent.click(redo);
+  expect(controller.getSnapshot().project.style.parameters.fontSize).toBe(13);
+  expect(undo).toBeEnabled();
+  expect(redo).toBeDisabled();
+  expect(screen.getAllByRole("dialog")).toHaveLength(1);
+});

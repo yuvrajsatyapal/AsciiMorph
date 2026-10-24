@@ -509,19 +509,91 @@ test("decode/SVG failures preserve painted source and never send local-source ne
   await expect(page.locator(".effects-studio [role=alert]")).toBeVisible();
   expect(await hash(page)).toBe(before);
   expect(await hash(page, true)).toBe(original);
-  const unexpected = requests.filter(
-    (r) =>
-      r.method !== "GET" ||
-      !(
-        r.url.startsWith("http://127.0.0.1:3107/") ||
-        r.url.startsWith("blob:http://127.0.0.1:3107/") ||
-        r.url ===
-          "https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&display=swap" ||
-        /^https:\/\/cdn\.fontshare\.com\/wf\/[A-Z0-9/]+\.woff2$/.test(r.url)
-      ) ||
-      /owned-|source-must-not-leak/.test(r.url),
+  const origin = "http://127.0.0.1:3107";
+  const officialStylesheet =
+    "https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&display=swap";
+  const officialFont =
+    "https://cdn.fontshare.com/wf/TTX2Z3BF3P6Y5BQT3IV2VNOK6FL22KUT/7QYRJOI3JIMYHGY6CH7SOIFRQLZOLNJ6/KFIAZD4RUMEZIYV6FQ3T3GP5PDBDB6JY.woff2";
+  // Installed app metadata and the inherited layout's initial UI font request.
+  const bootstrapAssets = new Set([
+    `${origin}/icon.svg?aa8bb1834943360c`,
+    `${origin}/_next/static/media/ibm-plex-sans-latin-400-normal.13a15bcd.woff2`,
+  ]);
+  const icons = new Set(
+    [
+      "account",
+      "close",
+      "collapse",
+      "color",
+      "compare",
+      "crop",
+      "expand",
+      "export",
+      "help",
+      "inspire",
+      "layers",
+      "library",
+      "lights",
+      "mask",
+      "menu",
+      "minus",
+      "play",
+      "plus",
+      "redo",
+      "restyle",
+      "search",
+      "shuffle",
+      "star",
+      "text",
+      "undo",
+      "upload",
+    ].map((name) => `/studio/icons/${name}.svg`),
   );
-  expect(unexpected).toEqual([]);
+  const allowed = ({ url, method }: { url: string; method: string }) => {
+    if (method !== "GET") return false;
+    if (
+      url === officialStylesheet ||
+      url === officialFont ||
+      bootstrapAssets.has(url)
+    )
+      return true;
+    // Object URLs are browser-generated UUIDs, never an arbitrary local endpoint/query.
+    if (
+      /^blob:http:\/\/127\.0\.0\.1:3107\/[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(
+        url,
+      )
+    )
+      return true;
+    const parsed = new URL(url);
+    if (parsed.origin !== origin || parsed.search || parsed.hash) return false;
+    const path = parsed.pathname;
+    return (
+      path === "/app" ||
+      path === "/favicon.ico" ||
+      path === "/wasm/asciimorph_engine.wasm" ||
+      path === "/studio/botanical.svg" ||
+      icons.has(path) ||
+      /^\/_next\/static\/css\/[a-f0-9]+\.css$/.test(path) ||
+      /^\/_next\/static\/chunks\/(?:[a-zA-Z0-9_-]+[.-][a-f0-9]+|app\/(?:layout|app\/page)-[a-f0-9]+)\.js$/.test(
+        path,
+      )
+    );
+  };
+  // Policy controls: no same-origin API/query escape, or extra official-font query.
+  for (const url of [
+    `${origin}/api/collect?data=encoded-pixels`,
+    `${origin}/api/collect`,
+    `${origin}/studio/botanical.svg?data=encoded-pixels`,
+    `${origin}/_next/static/chunks/123-abcd.js?data=encoded-pixels`,
+    `${officialFont}?data=encoded-pixels`,
+    `${officialStylesheet}&data=encoded-pixels`,
+    `${origin}/studio/icons/unexpected.svg`,
+    `${origin}/icon.svg?aa8bb1834943360c&data=encoded-pixels`,
+    `${origin}/_next/static/media/ibm-plex-sans-latin-400-normal.13a15bcd.woff2?data=encoded-pixels`,
+  ])
+    expect(allowed({ url, method: "GET" }), url).toBe(false);
+  expect(allowed({ url: `${origin}/app`, method: "POST" })).toBe(false);
+  expect(requests.filter((request) => !allowed(request))).toEqual([]);
 });
 
 test("blocked WASM is actionable and retries actual renderer; blocked UI fonts keep route usable", async ({
