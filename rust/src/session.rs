@@ -10,10 +10,30 @@ use crate::{
     glyph::{DirectionalIndices, GlyphCalibration},
     reference_characters::{ReferenceAtlas, ReferenceBackdrop, ReferenceCharactersSettings},
     source::SourceImage,
+    styles::{
+        contract::{Family, StyleSettings},
+        wire::decode_style_settings,
+        StyleFrame, StyleJob,
+    },
 };
 use std::{collections::BTreeMap, sync::Arc};
+type StylePeak =
+    fn(&SourceImage, &StyleSettings, Option<&ReferenceAtlas>, usize) -> Result<usize, RenderError>;
+type StyleNew = fn(
+    &SourceImage,
+    StyleSettings,
+    Option<&ReferenceAtlas>,
+    usize,
+) -> Result<StyleJob, RenderError>;
 enum NumericJob {
     Legacy(CharacterJob),
+    Style {
+        job: StyleJob,
+        calibration: Option<Arc<GlyphCalibration>>,
+        origin_x: f64,
+        origin_y: f64,
+        space: u16,
+    },
     Reference {
         job: CompleteCharactersJob,
         calibration: Arc<GlyphCalibration>,
@@ -26,6 +46,7 @@ impl NumericJob {
     fn storage_bytes(&self) -> usize {
         match self {
             Self::Legacy(j) => j.storage_bytes(),
+            Self::Style { job, .. } => job.storage_bytes() + std::mem::size_of::<StyleJob>(),
             Self::Reference { job, .. } => {
                 job.storage_bytes() + std::mem::size_of::<CompleteCharactersJob>()
             }
@@ -90,6 +111,7 @@ impl RenderSession {
             .iter()
             .chain(self.jobs.values().filter_map(|j| match j.numeric.as_ref() {
                 Some(NumericJob::Reference { calibration, .. }) => Some(calibration),
+                Some(NumericJob::Style { calibration, .. }) => calibration.as_ref(),
                 _ => None,
             }))
         {
@@ -402,6 +424,98 @@ impl RenderSession {
         );
         Ok(id)
     }
+    pub fn begin_style_staged(&mut self, ptr: usize, len: usize) -> Result<u32, RenderError> {
+        self.begin_style_with(ptr, len, StyleJob::estimated_peak_bytes, StyleJob::new)
+    }
+    fn begin_style_with(
+        &mut self,
+        ptr: usize,
+        len: usize,
+        estimate: StylePeak,
+        create: StyleNew,
+    ) -> Result<u32, RenderError> {
+        let settings = decode_style_settings(self.staged(ptr, len)?)?;
+        if self.jobs.len() >= 2 || self.next_job == u32::MAX {
+            return Err(RenderError::InvalidInput);
+        }
+        let source = self.source.as_ref().ok_or(RenderError::MissingSource)?;
+        settings.validate_source(source.width(), source.height())?;
+        let calibration = if matches!(settings.family, Family::Braille { .. }) {
+            let c = self
+                .calibration
+                .as_ref()
+                .ok_or(RenderError::MissingCalibration)?;
+            if c.glyph_count() as u32 != settings.atlas_count {
+                return Err(RenderError::MissingCalibration);
+            }
+            let stride = c.mask_width as usize * c.mask_height as usize;
+            if c.masks[..stride].iter().any(|v| *v != 0)
+                || !c.masks[255 * stride..256 * stride].iter().any(|v| *v != 0)
+            {
+                return Err(RenderError::InvalidInput);
+            }
+            Some(Arc::clone(c))
+        } else {
+            None
+        };
+        let atlas = calibration
+            .as_ref()
+            .map(|c| {
+                ReferenceAtlas::borrowed(
+                    c,
+                    settings.atlas_origin_x,
+                    settings.atlas_origin_y,
+                    settings.space_index as u16,
+                )
+            })
+            .transpose()?;
+        let output_bytes = (settings.width as usize)
+            .checked_mul(settings.height as usize)
+            .and_then(|n| n.checked_mul(4))
+            .and_then(|n| n.checked_add(16))
+            .ok_or(RenderError::BudgetExceeded)?;
+        let admission = self.admission_bytes();
+        // Every current or captured calibration is already charged in `other`.
+        let other = admission - source.storage_bytes();
+        let peak = estimate(source, &settings, atlas.as_ref(), other)?;
+        let mut reserved_bytes = peak
+            .checked_sub(admission)
+            .ok_or(RenderError::InvalidInput)?;
+        self.preflight(reserved_bytes)?;
+        let job = create(source, settings.clone(), atlas.as_ref(), other)?;
+        reserved_bytes = reserved_bytes
+            .checked_add(job.capacity_excess_bytes())
+            .ok_or(RenderError::BudgetExceeded)?;
+        let actual = job
+            .storage_bytes()
+            .checked_add(std::mem::size_of::<StyleJob>())
+            .and_then(|n| n.checked_add(output_bytes))
+            .ok_or(RenderError::BudgetExceeded)?;
+        reserved_bytes = reserved_bytes.max(actual);
+        self.preflight(reserved_bytes)?;
+        let id = self.next_job;
+        self.next_job += 1;
+        self.jobs.insert(
+            id,
+            RetainedJob {
+                numeric: Some(NumericJob::Style {
+                    job,
+                    calibration,
+                    origin_x: settings.atlas_origin_x,
+                    origin_y: settings.atlas_origin_y,
+                    space: settings.space_index as u16,
+                }),
+                is_profile: true,
+                frame_columns: 0,
+                frame_rows: 0,
+                output: Vec::new(),
+                output_bytes,
+                uses_calibration: atlas.is_some(),
+                reserved_bytes,
+            },
+        );
+        Ok(id)
+    }
     pub fn step(&mut self, id: u32, work: u32) -> Result<JobStatus, RenderError> {
         let j = self.jobs.get_mut(&id).ok_or(RenderError::InvalidInput)?;
         let Some(job) = j.numeric.as_mut() else {
@@ -409,6 +523,19 @@ impl RenderSession {
         };
         let source = self.source.as_ref().ok_or(RenderError::MissingSource)?;
         let status = match job {
+            NumericJob::Style {
+                job,
+                calibration,
+                origin_x,
+                origin_y,
+                space,
+            } => {
+                let atlas = calibration
+                    .as_ref()
+                    .map(|c| ReferenceAtlas::borrowed(c, *origin_x, *origin_y, *space))
+                    .transpose()?;
+                job.step(source, atlas.as_ref(), work)?
+            }
             NumericJob::Legacy(job) => job.step(
                 source,
                 if j.uses_calibration {
@@ -439,6 +566,9 @@ impl RenderSession {
             self.preflight(extra)?;
             let j = self.jobs.get_mut(&id).ok_or(RenderError::InvalidInput)?;
             j.output = match j.numeric.as_mut().ok_or(RenderError::InvalidInput)? {
+                NumericJob::Style { job, .. } => {
+                    serialize_style_frame(&job.take_frame().ok_or(RenderError::InvalidInput)?)?
+                }
                 NumericJob::Legacy(job) => {
                     serialize(&job.take_grid().ok_or(RenderError::InvalidInput)?)
                 }
@@ -481,11 +611,35 @@ impl RenderSession {
         Ok(())
     }
     pub fn cancel(&mut self, id: u32) -> Result<(), RenderError> {
+        if let Some(NumericJob::Style { job, .. }) =
+            self.jobs.get_mut(&id).and_then(|j| j.numeric.as_mut())
+        {
+            job.cancel();
+        }
         self.jobs
             .remove(&id)
             .map(|_| ())
             .ok_or(RenderError::InvalidInput)
     }
+}
+fn serialize_style_frame(frame: &StyleFrame) -> Result<Vec<u8>, RenderError> {
+    let bytes = (frame.width as usize)
+        .checked_mul(frame.height as usize)
+        .and_then(|n| n.checked_mul(4))
+        .ok_or(RenderError::InvalidInput)?;
+    if bytes != frame.rgba.len() {
+        return Err(RenderError::InvalidInput);
+    }
+    let length = bytes.checked_add(16).ok_or(RenderError::BudgetExceeded)?;
+    let mut wire = vec![0; length];
+    for (i, value) in [1, frame.width, frame.height, bytes as u32]
+        .into_iter()
+        .enumerate()
+    {
+        wire[i * 4..i * 4 + 4].copy_from_slice(&value.to_le_bytes());
+    }
+    wire[16..].copy_from_slice(&frame.rgba);
+    Ok(wire)
 }
 fn align4(n: usize) -> usize {
     (n + 3) & !3
@@ -804,3 +958,7 @@ mod retention_tests {
         assert_eq!(s.jobs.len(), 0);
     }
 }
+
+#[cfg(test)]
+#[path = "styles/session_tests.rs"]
+mod style_tests;

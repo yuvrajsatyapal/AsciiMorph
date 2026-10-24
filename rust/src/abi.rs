@@ -139,3 +139,17 @@ pub extern "C" fn render_frame_output_len(h: u32, job: u32) -> u32 {
 pub extern "C" fn render_characters_atlas_retention_version() -> u32 {
     1
 }
+
+/// Additive generic RGBA job transport; query each family separately.
+#[no_mangle]
+pub extern "C" fn render_style_profile_version() -> u32 {
+    1
+}
+#[no_mangle]
+pub extern "C" fn render_style_supported(dispatch_id: u32) -> u32 {
+    crate::styles::supports_style(dispatch_id) as u32
+}
+#[no_mangle]
+pub extern "C" fn render_begin_style_v1(h: u32, ptr: u32, len: u32) -> u32 {
+    with(h, |s| s.begin_style_staged(ptr as usize, len as usize))
+}
