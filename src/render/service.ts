@@ -52,6 +52,8 @@ export type RenderServiceState =
   | "disposed";
 export interface RenderService {
   readonly state: RenderServiceState;
+  /** Metadata-only state/capability changes, including idle worker failure. */
+  subscribeStatus(listener: () => void): () => void;
   /** Selected service snapshot, queued atlas inputs, and submitted atlas jobs
    * through worker terminal response. Bytes deduplicate views of one backing. */
   readonly atlasResourceUsage: Readonly<{
@@ -141,6 +143,10 @@ export function createRenderService(
         type: "module",
       }));
   let state: RenderServiceState = "idle";
+  const statusListeners = new Set<() => void>();
+  const notifyStatus = () => {
+    for (const listener of statusListeners) listener();
+  };
   let styleProfileVersion: 1 | null = null;
   let supportedStyleIds: readonly InitialStyleId[] = Object.freeze([]);
   let charactersProfileVersion: 1 | null = null;
@@ -241,6 +247,7 @@ export function createRenderService(
   function fail(error: RenderError) {
     if (state === "disposed") return;
     state = "recoverable-error";
+    notifyStatus();
     failureEpoch++;
     lastFailure = error;
     detach();
@@ -531,6 +538,7 @@ export function createRenderService(
     // Assign before any asynchronous boundary; all concurrent callers share one attempt.
     const attempt = async () => {
       state = "initializing";
+      notifyStatus();
       styleProfileVersion = null;
       supportedStyleIds = Object.freeze([]);
       charactersProfileVersion = null;
@@ -577,6 +585,7 @@ export function createRenderService(
           await uploadCalibration(retainedCalibration);
         alive();
         state = "ready";
+        notifyStatus();
       } catch (cause) {
         const error =
           cause instanceof RenderError
@@ -853,6 +862,10 @@ export function createRenderService(
     retainedCalibration = undefined;
   }
   return {
+    subscribeStatus(listener) {
+      statusListeners.add(listener);
+      return () => statusListeners.delete(listener);
+    },
     get atlasResourceUsage() {
       return {
         selected: retainedAtlas
@@ -986,6 +999,8 @@ export function createRenderService(
     async dispose() {
       if (state === "disposed") return;
       state = "disposed";
+      notifyStatus();
+      statusListeners.clear();
       for (const id of [...waiters.keys()]) settle(id, disposedError());
       try {
         connection?.worker.postMessage({

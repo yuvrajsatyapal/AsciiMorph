@@ -8,15 +8,23 @@ import {
 import { initialCatalogRegistry } from "./catalog/initial-schemas";
 const sample = fixtures.cases[0];
 describe("strict style contracts", () => {
-  it("reserves canonical names and publishes only closed, unavailable schemas", () => {
+  it("reserves canonical names and binds only reviewed raster schemas", () => {
     expect(STYLE_DISPATCH_IDS["3d"]).toBe(13);
     expect(STYLE_DISPATCH_IDS["block-chars"]).toBe(3);
     expect(STYLE_DISPATCH_IDS).not.toHaveProperty("voxel");
     expect(STYLE_DISPATCH_IDS).not.toHaveProperty("block");
-    for (const id of ["pixel", "mosaic", "braille"]) {
+    for (const id of ["pixel", "mosaic", "braille"] as const) {
       const s = initialCatalogRegistry.getStyle(id)!;
-      expect(s.binding).toBeNull();
-      expect(s.descriptor.ready).toBe(false);
+      const accepted = id === "pixel" || id === "mosaic";
+      expect(s.binding).toEqual(
+        accepted
+          ? { dispatchId: STYLE_DISPATCH_IDS[id], backend: "rust-cpu" }
+          : null,
+      );
+      expect(s.descriptor.ready).toBe(accepted);
+      expect(s.descriptor.dispatchId).toBe(
+        accepted ? STYLE_DISPATCH_IDS[id] : 0,
+      );
       expect(
         initialCatalogRegistry.validateStyle(
           id,

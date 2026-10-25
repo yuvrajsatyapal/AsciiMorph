@@ -3,6 +3,7 @@ import {
   encoderReservationBytes,
   type StillImageBoundaries,
 } from "@/render/export/still-image";
+import { initialCatalogRegistry } from "@/render/catalog/initial-schemas";
 import {
   DEFAULT_MEMORY_BUDGET_BYTES,
   type SourceUpload,
@@ -73,6 +74,7 @@ const cancelled = () =>
 export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
   const createService = options.createService ?? createRenderService;
   let service = createService();
+  let unsubscribeCapability = () => {};
   let disposed = false;
   let disposal: Promise<void> | undefined;
   const serviceDisposals = new WeakMap<RenderService, Promise<void>>();
@@ -207,6 +209,7 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
     staged = null;
   }
   async function reset() {
+    unsubscribeCapability();
     serviceGeneration++;
     latestPrepare++;
     currentResources = null;
@@ -215,7 +218,13 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
     discardStage();
     const old = service;
     await closeService(old);
-    if (!disposed) service = createService();
+    if (!disposed) {
+      service = createService();
+      unsubscribeCapability =
+        service.subscribeStatus?.(() => controller.refreshAvailability()) ??
+        (() => {});
+      controller.refreshAvailability();
+    }
   }
   const source = createSourceTransaction({
     decodeFile: async (file, decodeOptions) => {
@@ -722,6 +731,9 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
       },
     },
   });
+  unsubscribeCapability =
+    service.subscribeStatus?.(() => controller.refreshAvailability()) ??
+    (() => {});
   // Registered before any consumer: publication and identity acceptance form one
   // synchronous notification boundary. Stale/export results never enter staging.
   const unsubscribe = controller.subscribe(() => {
@@ -744,6 +756,25 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
   });
   const runtime = {
     controller,
+    /** Current negotiated worker capability intersected with reviewed bindings. */
+    getAvailableStyleIds(): readonly string[] {
+      const ids: string[] = [];
+      const characters = initialCatalogRegistry.getStyle("characters");
+      if (
+        characters?.binding &&
+        service.charactersProfileVersion === 1 &&
+        service.charactersContextVersion === 1 &&
+        service.charactersAtlasRetentionVersion === 1
+      )
+        ids.push("characters");
+      if (service.styleProfileVersion === 1)
+        for (const id of ["pixel", "mosaic"] as const) {
+          const schema = initialCatalogRegistry.getStyle(id);
+          if (schema?.binding && service.supportedStyleIds.includes(id))
+            ids.push(id);
+        }
+      return ids;
+    },
     exportAvailability(settings: StillExportOptions): {
       available: boolean;
       reason: string;
@@ -970,6 +1001,7 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
         canvas.width = canvas.height = 0;
       }
       canvases.clear();
+      unsubscribeCapability();
       unsubscribe();
       listeners.clear();
       // Settle unacknowledged worker uploads before joining the transaction's

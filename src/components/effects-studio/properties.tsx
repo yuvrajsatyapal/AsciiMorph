@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { initialCatalogRegistry } from "@/render/catalog/initial-schemas";
 import type { StudioController, StudioSnapshot } from "./controller";
 import { Icon } from "./toolbar";
+import { ParameterControl } from "./parameter-control";
 function Range({
   name,
   parameter,
@@ -139,11 +140,27 @@ export function Properties({
   close: () => void;
   collapse: () => void;
 }) {
+  const raster =
+    s.project.style.id === "pixel" || s.project.style.id === "mosaic";
+  const schema = initialCatalogRegistry.getStyle(s.project.style.id)!;
+  const control = (key: string) => {
+    const descriptor = schema.descriptor.parameters.find((p) => p.key === key);
+    return descriptor ? (
+      <ParameterControl
+        key={key}
+        descriptor={descriptor}
+        value={s.project.style.parameters[key]}
+        onChange={(value) => c.patchParameter(key, value)}
+        onBeginEdit={() => c.beginEdit()}
+        onCommitEdit={() => c.commitEdit()}
+      />
+    ) : null;
+  };
   return (
     <>
       <nav className="studio-property-rail" aria-label="Control groups">
         <button
-          aria-label="Characters controls"
+          aria-label={raster ? "Style controls" : "Characters controls"}
           aria-pressed={s.view.activeGroup === "characters"}
           onClick={() =>
             c.setView({ activeGroup: "characters", dockCollapsed: false })
@@ -186,12 +203,23 @@ export function Properties({
         aria-hidden={s.view.dockCollapsed}
       >
         <header className="studio-panel-heading">
-          <span>CHARACTERS</span>
+          <span>{schema.descriptor.name.toUpperCase()}</span>
           <button aria-label="Close controls" onClick={close}>
             <Icon name="close" />
           </button>
         </header>
-        {s.view.activeGroup === "characters" ? (
+        {s.view.activeGroup === "characters" && raster ? (
+          <section className="studio-control-section">
+            <h2>{schema.descriptor.name}</h2>
+            {control("fontSize")}
+            {control("invert")}
+            {control("charOpacity")}
+            {s.project.style.id === "mosaic" && control("mosaicShape")}
+            <p className="studio-note">
+              Advanced controls are unavailable for this profile.
+            </p>
+          </section>
+        ) : s.view.activeGroup === "characters" ? (
           <>
             <section className="studio-control-section">
               <h2>Backdrop</h2>
@@ -222,22 +250,31 @@ export function Properties({
         ) : (
           <section className="studio-control-section">
             <h2>Color</h2>
-            <Range
-              name="Brightness"
-              parameter="brightness"
-              min={-100}
-              max={100}
-              controller={c}
-              snapshot={s}
-            />
-            <Range
-              name="Contrast"
-              parameter="contrast"
-              min={-100}
-              max={100}
-              controller={c}
-              snapshot={s}
-            />
+            {raster ? (
+              <>
+                {control("brightness")}
+                {control("contrast")}
+              </>
+            ) : (
+              <>
+                <Range
+                  name="Brightness"
+                  parameter="brightness"
+                  min={-100}
+                  max={100}
+                  controller={c}
+                  snapshot={s}
+                />
+                <Range
+                  name="Contrast"
+                  parameter="contrast"
+                  min={-100}
+                  max={100}
+                  controller={c}
+                  snapshot={s}
+                />
+              </>
+            )}
           </section>
         )}
       </div>

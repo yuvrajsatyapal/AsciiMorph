@@ -54,6 +54,7 @@ export type StudioError = {
 export type StudioSnapshot = Readonly<{
   project: RenderProjectV1;
   revision: number;
+  capabilityRevision: number;
   view: Readonly<StudioView>;
   history: Readonly<{ undoCount: number; redoCount: number; editing: boolean }>;
   loading: boolean;
@@ -171,6 +172,7 @@ export function createStudioController(
   let project =
     options.project === undefined ? draft() : validate(options.project);
   let revision = 0;
+  let capabilityRevision = 0;
   let generation = 0;
   let jobId = 0;
   let view: StudioView = {
@@ -207,6 +209,7 @@ export function createStudioController(
     snapshot = freeze({
       project,
       revision,
+      capabilityRevision,
       view,
       loading,
       status,
@@ -590,6 +593,11 @@ export function createStudioController(
     /** Resource owners notify when a retained download budget becomes available. */
     refreshExportAvailability() {
       if (alive()) publish();
+    },
+    refreshAvailability() {
+      if (!alive()) return;
+      capabilityRevision++;
+      publish();
     },
     exportStill,
     cancelExport,

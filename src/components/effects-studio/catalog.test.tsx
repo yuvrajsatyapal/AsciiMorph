@@ -1,8 +1,88 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 import { Catalog } from "./catalog";
 import { createStudioController, type StudioSnapshot } from "./controller";
 import type { StudioRuntime } from "./runtime";
+it("selects reviewed raster modes and preserves unavailable catalog entries", () => {
+  const controller = createStudioController();
+  const runtime = {
+    getFrame: () => null,
+    getSnapshot: controller.getSnapshot,
+    getAvailableStyleIds: () => ["characters", "pixel", "mosaic"],
+  } as unknown as StudioRuntime;
+  const { rerender } = render(
+    <Catalog
+      controller={controller}
+      snapshot={controller.getSnapshot()}
+      runtime={runtime}
+      collapse={() => {}}
+    />,
+  );
+  const pixel = screen
+    .getAllByRole("button", { name: /Pixel Art/ })
+    .find((button) => button.classList.contains("studio-tile-pick"))!;
+  expect(pixel).toBeEnabled();
+  fireEvent.click(pixel);
+  expect(controller.getSnapshot().project.style.id).toBe("pixel");
+  rerender(
+    <Catalog
+      controller={controller}
+      snapshot={controller.getSnapshot()}
+      runtime={runtime}
+      collapse={() => {}}
+    />,
+  );
+  expect(
+    screen.getAllByRole("button", { name: /Braille — unavailable/ })[0],
+  ).toBeDisabled();
+});
+it("reacts to negotiated capability loss and recovery without relabeling other profiles", () => {
+  const controller = createStudioController();
+  let ids: string[] = ["characters"];
+  const runtime = {
+    getFrame: () => null,
+    getSnapshot: controller.getSnapshot,
+    getAvailableStyleIds: () => ids,
+  } as unknown as StudioRuntime;
+  const view = render(
+    <Catalog
+      controller={controller}
+      snapshot={controller.getSnapshot()}
+      runtime={runtime}
+      collapse={() => {}}
+    />,
+  );
+  expect(
+    screen.getAllByRole("button", { name: "Pixel Art — unavailable" })[0],
+  ).toBeDisabled();
+  ids = ["characters", "pixel", "mosaic"];
+  view.rerender(
+    <Catalog
+      controller={controller}
+      snapshot={controller.getSnapshot()}
+      runtime={runtime}
+      collapse={() => {}}
+    />,
+  );
+  expect(
+    screen.getAllByRole("button", { name: "Pixel Art — available" })[0],
+  ).toBeEnabled();
+  expect(
+    screen.getAllByRole("button", { name: "Braille — unavailable" })[0],
+  ).toBeDisabled();
+  ids = [];
+  view.rerender(
+    <Catalog
+      controller={controller}
+      snapshot={controller.getSnapshot()}
+      runtime={runtime}
+      collapse={() => {}}
+    />,
+  );
+  expect(
+    screen.getAllByRole("button", { name: "Pixel Art — unavailable" })[0],
+  ).toBeDisabled();
+});
 it("paints a value-matched accepted frame thumbnail without starting a render", async () => {
   const controller = createStudioController();
   const identity = {
@@ -38,6 +118,7 @@ it("paints a value-matched accepted frame thumbnail without starting a render", 
   );
   const runtime = {
     getFrame: () => accepted,
+    getAvailableStyleIds: () => ["characters"],
     getSnapshot: () => snapshot,
     retainCanvas: () => () => {},
   } as unknown as StudioRuntime;
@@ -89,6 +170,7 @@ it("discards a scheduled thumbnail when its accepted frame is replaced", async (
   vi.stubGlobal("cancelIdleCallback", vi.fn());
   const runtime = {
     getFrame: () => current,
+    getAvailableStyleIds: () => ["characters"],
     getSnapshot: () => snapshot,
     retainCanvas: () => () => {},
   } as unknown as StudioRuntime;

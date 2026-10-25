@@ -124,6 +124,7 @@ function harness(width = 3, height = 2) {
   });
   return {
     runtime,
+    service,
     jobs,
     measure,
     setAtlas,
@@ -133,6 +134,32 @@ function harness(width = 3, height = 2) {
 }
 
 describe("Studio raster service integration", () => {
+  it("publishes only currently negotiated reviewed bindings and responds to lost/recovered capability", async () => {
+    const h = harness();
+    const capability = h.service as unknown as {
+      styleProfileVersion: 1 | null;
+      supportedStyleIds: string[];
+      charactersProfileVersion: 1 | null;
+    };
+    try {
+      expect(h.runtime.getAvailableStyleIds()).toEqual([
+        "characters",
+        "pixel",
+        "mosaic",
+      ]);
+      capability.supportedStyleIds = ["pixel", "braille"];
+      expect(h.runtime.getAvailableStyleIds()).toEqual(["characters", "pixel"]);
+      capability.styleProfileVersion = null;
+      expect(h.runtime.getAvailableStyleIds()).toEqual(["characters"]);
+      capability.charactersProfileVersion = null;
+      expect(h.runtime.getAvailableStyleIds()).toEqual([]);
+      capability.styleProfileVersion = 1;
+      capability.supportedStyleIds = ["mosaic"];
+      expect(h.runtime.getAvailableStyleIds()).toEqual(["mosaic"]);
+    } finally {
+      await h.runtime.dispose();
+    }
+  });
   it("prepares none, renders Pixel then Mosaic without dummy calibration", async () => {
     const h = harness();
     try {

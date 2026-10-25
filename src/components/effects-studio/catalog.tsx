@@ -12,9 +12,11 @@ import { Icon } from "./toolbar";
 function AcceptedThumbnail({
   runtime,
   snapshot,
+  label,
 }: {
   runtime: StudioRuntime;
   snapshot: StudioSnapshot;
+  label: string;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const [failed, setFailed] = useState(false);
@@ -61,7 +63,7 @@ function AcceptedThumbnail({
     <>
       <canvas
         ref={canvas}
-        aria-label="Accepted Characters thumbnail"
+        aria-label={`Accepted ${label} thumbnail`}
         hidden={failed}
       />
       {failed && (
@@ -75,42 +77,50 @@ function Tile({
   controller: c,
   snapshot: s,
   runtime,
+  available,
 }: {
   tile: CatalogTile;
   controller: StudioController;
   snapshot: StudioSnapshot;
   runtime: StudioRuntime;
+  available: boolean;
 }) {
   const favorite = s.view.favorites.includes(tile.id);
+  const selected = s.project.style.id === tile.id;
   return (
-    <article className={`studio-tile ${tile.available ? "selected" : ""}`}>
+    <article className={`studio-tile ${selected ? "selected" : ""}`}>
       <button
         className="studio-tile-pick"
-        disabled={!tile.available}
+        disabled={!available}
         aria-label={
-          tile.available
-            ? `${tile.label} — selected`
+          available
+            ? `${tile.label} — ${selected ? "selected" : "available"}`
             : `${tile.label} — unavailable`
         }
-        aria-pressed={tile.available ? true : undefined}
-        onClick={() =>
-          c.setView({
-            activeGroup: "characters",
-            dockOpen: true,
-            dockCollapsed: false,
-          })
-        }
+        aria-pressed={available ? selected : undefined}
+        onClick={() => {
+          c.selectStyle(tile.id);
+          c.setView({ dockOpen: true, dockCollapsed: false });
+        }}
       >
         <span className="studio-tile-visual">
-          {tile.available ? (
-            <AcceptedThumbnail runtime={runtime} snapshot={s} />
+          {available && selected ? (
+            <AcceptedThumbnail
+              runtime={runtime}
+              snapshot={s}
+              label={tile.label}
+            />
           ) : (
             <span className="studio-placeholder" aria-hidden="true">
               ＋
             </span>
           )}
           <span className="studio-tile-badge">
-            {tile.available ? "Live Characters" : "Unavailable"}
+            {available
+              ? selected
+                ? "Live profile"
+                : "Available profile"
+              : "Unavailable"}
           </span>
         </span>
         <span className="studio-tile-title">{tile.label}</span>
@@ -143,6 +153,9 @@ export function Catalog({
   runtime: StudioRuntime;
   collapse: () => void;
 }) {
+  const availableIds = new Set(runtime.getAvailableStyleIds?.() ?? []);
+  const available = (tile: CatalogTile) =>
+    tile.available && availableIds.has(tile.id);
   const [category, setCategory] = useState("all"),
     [favorites, setFavorites] = useState(false);
   const filtered = CATALOG.filter(
@@ -155,14 +168,21 @@ export function Catalog({
   const suggested = [...CATALOG]
     .sort(
       (a, b) =>
-        Number(b.available) - Number(a.available) ||
+        Number(available(b)) - Number(available(a)) ||
         Number(s.view.favorites.includes(b.id)) -
           Number(s.view.favorites.includes(a.id)) ||
         a.order - b.order,
     )
     .slice(0, 3);
   const tile = (t: CatalogTile) => (
-    <Tile key={t.id} tile={t} controller={c} snapshot={s} runtime={runtime} />
+    <Tile
+      key={t.id}
+      tile={t}
+      controller={c}
+      snapshot={s}
+      runtime={runtime}
+      available={available(t)}
+    />
   );
   return (
     <>
@@ -242,8 +262,10 @@ export function Catalog({
           })
         )}
         <p className="studio-note">
-          105 styles · 96 modes. Only Characters is available. Other previews
-          are neutral placeholders.
+          {CATALOG.length} styles ·{" "}
+          {new Set(CATALOG.map((tile) => tile.mode)).size} modes.{" "}
+          {CATALOG.filter(available).length} implemented profiles available.
+          Other previews are neutral placeholders.
         </p>
       </div>
     </>

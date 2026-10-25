@@ -42,7 +42,7 @@ const commonRules: Record<string, ParameterRule> = {
   invert: { kind: "boolean" },
   charOpacity: { kind: "number", min: 0, max: 100 },
 };
-/** Numerical design declarations only; no engine binding or production readiness. */
+/** Independent bounded family contracts. Only production-smoked raster profiles bind. */
 export const initialFamilySchemas: StyleSchema[] = [
   [
     "braille",
@@ -76,12 +76,15 @@ export const initialFamilySchemas: StyleSchema[] = [
     },
     { kind: "select", values: ["square", "wide", "tall"] },
   ],
-].map(([id, name, , extra, rule]) => {
+].map(([id, name, dispatch, extra, rule]) => {
   const parameter = extra as ParameterDescriptor | null;
+  const accepted = id === "pixel" || id === "mosaic";
   return {
     evidence: "independent-contract",
     defaultsVersion: 1,
-    binding: null,
+    binding: accepted
+      ? { dispatchId: dispatch as number, backend: "rust-cpu" as const }
+      : null,
     rules: {
       ...commonRules,
       ...(parameter ? { [parameter.key]: rule as ParameterRule } : {}),
@@ -90,10 +93,10 @@ export const initialFamilySchemas: StyleSchema[] = [
       id: id as string,
       mode: id as string,
       name: name as string,
-      dispatchId: 0,
+      dispatchId: accepted ? (dispatch as number) : 0,
       category: "ASCII & Text",
       tags: [],
-      ready: false,
+      ready: accepted,
       output: "rgba",
       parameters: [...common, ...(parameter ? [parameter] : [])],
     },

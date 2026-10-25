@@ -58,7 +58,11 @@ it("publishes 105 canonical tiles in 96 modes and ten categories", () => {
     label: "Characters",
     available: true,
   });
-  expect(CATALOG.filter((t) => t.available)).toHaveLength(1);
+  expect(CATALOG.filter((t) => t.available).map((t) => t.id)).toEqual([
+    "characters",
+    "pixel",
+    "mosaic",
+  ]);
 });
 it("filters category, search and favorites independently from selecting", () => {
   const { controller } = setup();

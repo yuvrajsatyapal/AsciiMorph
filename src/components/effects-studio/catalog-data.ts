@@ -1,5 +1,6 @@
 /** Independently authored public catalog identity/order only. No renderer claims,
  * reference bundle imports, presets, or borrowed preview images. */
+import { initialCatalogRegistry } from "@/render/catalog/initial-schemas";
 export const CATEGORIES = [
   ["ascii", "ASCII & Text"],
   ["pixel", "Pixel & Blocks"],
@@ -119,6 +120,14 @@ oilpool|Petrol Sheen|material
 anodized|Heat Tint|material`;
 export const CATALOG = identities.split("\n").map((line, order) => {
   const [id, label, category, mode = id] = line.split("|");
-  return { id, label, category, mode, order, available: id === "characters" };
+  const schema = initialCatalogRegistry.getStyle(id);
+  return {
+    id,
+    label,
+    category,
+    mode,
+    order,
+    available: !!schema?.binding && schema.descriptor.ready,
+  };
 });
 export type CatalogTile = (typeof CATALOG)[number];

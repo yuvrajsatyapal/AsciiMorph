@@ -12,6 +12,6 @@ On this native host, the tiny 1×1 peak is 820 bytes, or 933 bytes with 113 byte
 
 Current release WASM SHA256: `dd5f8380a06617fed3e7fbed1a99561d5c7f02cc0dd791bedea2644e50eb2c2a`.
 
-Studio selection/history/resource discrimination, schema controls, captured browser exports, actual production-route smoke, and visual/reference comparison remain pending integration work. No GPU, p95, 4K or mobile parity claim is made.
+Studio selection/history/resource discrimination, schema controls, captured browser exports and a bounded actual production-route smoke are covered by the later [Task 18 initial renderer families slice](initial-renderer-families.md). Broader Task 20 fixtures, performance, visual/reference comparison and complete mobile parity remain pending. No GPU, p95 or 4K claim is made.
 
 Independent fix review accepted spec and quality with no open findings. Final parent verification passed all 116 native tests, the full JavaScript suite with two workers (755 passed, one existing skip), and the production Next build. The earlier default-concurrency run timed out in worker startup and an unchanged Studio test; affected files passed in isolation, and the bounded full run passed without code changes for that timeout.

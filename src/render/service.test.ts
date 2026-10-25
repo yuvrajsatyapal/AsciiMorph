@@ -166,6 +166,23 @@ function setup() {
   };
 }
 describe("persistent render service", () => {
+  it("publishes ready, idle worker failure and recovered capability transitions", async () => {
+    const h = setup();
+    const states: string[] = [];
+    const unsubscribe = h.service.subscribeStatus(() =>
+      states.push(h.service.state),
+    );
+    await h.service.initialize();
+    h.workers[0].emit("error", undefined);
+    expect(h.service.state).toBe("recoverable-error");
+    await h.service.initialize();
+    expect(states).toEqual(
+      expect.arrayContaining(["ready", "recoverable-error"]),
+    );
+    expect(states.filter((state) => state === "ready")).toHaveLength(2);
+    unsubscribe();
+    await h.service.dispose();
+  });
   it("one_worker_and_initialization_for_100_renders", async () => {
     const h = setup();
     await h.ready();
