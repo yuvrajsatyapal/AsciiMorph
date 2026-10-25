@@ -2,13 +2,13 @@
 import { readFileSync } from "node:fs";
 import { it, expect } from "vitest";
 import { createCharacterEngine } from "./wasm-character";
-it("discovers actual release style ABI without activating any family", async () => {
+it("discovers actual Pixel and Mosaic native families", async () => {
   const e = await createCharacterEngine(
     readFileSync("public/wasm/asciimorph_engine.wasm"),
   );
   try {
     expect(e.styleProfileVersion).toBe(1);
-    for (let id = 1; id <= 15; id++) expect(e.supportsStyle(id)).toBe(false);
+    for (let id = 1; id <= 15; id++) expect(e.supportsStyle(id)).toBe(id===10||id===11);
   } finally {
     e.dispose();
   }
@@ -102,17 +102,23 @@ it.each([
     e.dispose();
   }
 });
-it("rejects unsupported actual release style without producing a frame", async () => {
+it("reads positive real native Pixel and Mosaic frames", async () => {
   const e = await createCharacterEngine(bytes);
   try {
     e.setSource({
       ...f.source,
-      rgba: new Uint8ClampedArray(f.source.width * f.source.height * 4),
+      rgba: new Uint8ClampedArray(Array.from({length:f.source.width*f.source.height},()=>[128,128,128,255]).flat()),
     });
-    expect(() =>
-      e.beginStyle(validateStyleSettings(f.settings, f.source)),
-    ).toThrow(/unsupported/);
-    expect(() => e.takeStyleFrame(1)).toThrow();
+    for (const styleId of ["pixel","mosaic"] as const) {
+      const base=styleId==="pixel"?fixtures.cases[0]:fixtures.cases[1];
+      const settings=validateStyleSettings({...base.settings,parameters:{...base.settings.parameters,fontSize:11,brightness:0,contrast:20,invert:false,charOpacity:100,...(styleId==="mosaic"?{mosaicShape:"square"}:{} as object)}},f.source);
+      const id=e.beginStyle(settings);
+      while(e.step(id,4096)==="pending"){}
+      const frame=e.takeStyleFrame(id);
+      expect([frame.width,frame.height]).toEqual([17,13]);
+      expect([...frame.rgba.slice(0,4)]).toEqual(styleId==="pixel"?[153,153,153,255]:[128,128,128,255]);
+      expect(frame.rgba.every((v,i)=>v===(styleId==="pixel"?[153,153,153,255]:[128,128,128,255])[i%4])).toBe(true);
+    }
   } finally {
     e.dispose();
   }

@@ -37,7 +37,10 @@ fn settings() -> StyleSettings {
 fn style_discovery_is_additive_without_advertising_unimplemented_families() {
     assert_eq!(abi::render_style_profile_version(), 1);
     for dispatch in 0..=16 {
-        assert_eq!(abi::render_style_supported(dispatch), 0);
+        assert_eq!(
+            abi::render_style_supported(dispatch),
+            u32::from(matches!(dispatch, 10 | 11))
+        );
     }
     assert_eq!(abi::render_style_supported(u32::MAX), 0);
     assert_eq!(abi::render_abi_version(), 1);
@@ -57,7 +60,7 @@ fn native_style_begin_rejects_invalid_or_disposed_handles_without_reading_pointe
     assert_eq!(abi::render_error(h), 7);
 }
 #[test]
-fn exact_stage_ownership_and_unavailable_mode_fail_without_retained_allocations() {
+fn exact_stage_ownership_and_real_pixel_frame_release_without_retained_allocations() {
     let mut s = RenderSession::new(10000).unwrap();
     let mut source = Vec::new();
     for v in [1u32, 1, 1, 1, 0, 0, 0, 0] {
@@ -84,10 +87,18 @@ fn exact_stage_ownership_and_unavailable_mode_fail_without_retained_allocations(
         s.begin_style_staged(p, bytes.len() + 1),
         Err(RenderError::InvalidInput)
     );
+    let id = s.begin_style_staged(p, bytes.len()).unwrap();
+    while s.step(id, 7).unwrap() != asciimorph_engine::character::JobStatus::Complete {}
+    let frame = s.frame_output(id).unwrap();
     assert_eq!(
-        s.begin_style_staged(p, bytes.len()),
-        Err(RenderError::UnsupportedVersion)
+        &frame[..16],
+        &[1u32, 1, 1, 4]
+            .into_iter()
+            .flat_map(u32::to_le_bytes)
+            .collect::<Vec<_>>()
     );
+    assert_eq!(&frame[16..], [0, 0, 0, 255]);
+    s.release(id).unwrap();
     assert_eq!(s.storage_bytes(), before);
     s.unstage(p).unwrap();
     assert_eq!(

@@ -112,6 +112,19 @@ impl FrameComposer {
             + self.layer.as_ref().map_or(0, Vec::capacity)
             + self.frame.as_ref().map_or(0, |f| f.rgba.capacity())
     }
+    /// Family rasterizers may fill the moved layer before composition begins.
+    pub(crate) fn layer_mut(&mut self) -> &mut [u8] {
+        self.layer.as_mut().expect("uncomposed family layer")
+    }
+    /// Capacity above the exact layer and scratch sizes reserved by the estimator.
+    pub(crate) fn capacity_excess_bytes(&self) -> usize {
+        let pixels = self.width * self.height;
+        self.layer
+            .as_ref()
+            .map_or(0, |v| v.capacity().saturating_sub(pixels * 4))
+            + self.a.capacity().saturating_sub(pixels) * 16
+            + self.b.capacity().saturating_sub(pixels) * 16
+    }
     pub fn status(&self) -> JobStatus {
         match self.phase {
             Phase::Done => JobStatus::Complete,

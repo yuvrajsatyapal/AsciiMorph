@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "profile": "independent-initial-v1",
+  "fixtures": [
+    {"name": "pixel-baseline", "source": {"width": 17, "height": 13, "rgba": [128, 128, 128, 255]}, "settings": {"family": "pixel", "fontSize": 11, "brightness": 0, "contrast": 20, "invert": false, "opacity": 100, "scale": 1}, "expectedEveryPixel": [153, 153, 153, 255]},
+    {"name": "mosaic-baseline", "source": {"width": 17, "height": 13, "rgba": [128, 128, 128, 255]}, "settings": {"family": "mosaic", "shape": "square", "fontSize": 11, "brightness": 0, "contrast": 20, "invert": false, "opacity": 100, "scale": 1}, "expectedEveryPixel": [128, 128, 128, 255]},
+    {"name": "mosaic-wide-merged", "source": {"width": 6, "height": 5, "leftThreeColumns": [255, 0, 0, 255], "rightThreeColumns": [0, 0, 255, 255]}, "settings": {"family": "mosaic", "shape": "wide", "fontSize": 5, "brightness": 0, "contrast": 0, "invert": false, "opacity": 100, "scale": 1}, "expectedEveryPixel": [128, 0, 128, 255]},
+    {"name": "mosaic-tall-partial", "source": {"width": 17, "height": 13, "firstTenRows": [255, 0, 0, 255], "lastThreeRows": [0, 0, 255, 255]}, "settings": {"family": "mosaic", "shape": "tall", "fontSize": 5, "brightness": 0, "contrast": 0, "invert": false, "opacity": 100, "scale": 1}, "expectedPixels": {"0,9": [255, 0, 0, 255], "16,12": [0, 0, 255, 255]}},
+    {"name": "pixel-partial-alpha-with-blur", "source": {"width": 3, "height": 3, "rgba": [128, 0, 0, 128]}, "settings": {"family": "pixel", "fontSize": 5, "brightness": 0, "contrast": 0, "invert": false, "opacity": 100, "scale": 1}, "expectedEveryPixel": [145, 0, 0, 192]},
+    {"name": "zero-opacity-retains-blur", "source": {"width": 3, "height": 3, "rgba": [128, 0, 0, 128]}, "settings": {"family": "mosaic", "shape": "square", "fontSize": 5, "brightness": 0, "contrast": 0, "invert": false, "opacity": 0, "scale": 1}, "expectedEveryPixel": [128, 0, 0, 128]}
+  ]
+}

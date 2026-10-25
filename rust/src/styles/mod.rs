@@ -2,6 +2,8 @@ pub mod compose;
 pub mod contract;
 pub mod geometry;
 mod job;
+pub mod mosaic;
+pub mod pixel;
 pub mod sampling;
 pub mod wire;
 pub use job::{supports_style, StyleFrame, StyleJob};

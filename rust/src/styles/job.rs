@@ -1,5 +1,9 @@
 //! Native job boundary. A transport schema never registers a numerical renderer.
-use super::contract::StyleSettings;
+use super::{
+    contract::{Family, StyleSettings},
+    mosaic::MosaicJob,
+    pixel::PixelJob,
+};
 use crate::{
     character::{JobStatus, RenderError},
     reference_characters::ReferenceAtlas,
@@ -11,34 +15,56 @@ pub struct StyleFrame {
     pub height: u32,
     pub rgba: Vec<u8>,
 }
-/// No release family is registered yet. Unavailable cannot produce a successful frame.
+/// Numerical release jobs are registered separately from wire schema support.
 pub enum StyleJob {
     Unavailable,
+    Pixel(PixelJob),
+    Mosaic(MosaicJob),
     #[cfg(test)]
     Fixture(fixture::FixtureJob),
 }
-pub fn supports_style(_dispatch_id: u32) -> bool {
-    false
+pub fn supports_style(dispatch_id: u32) -> bool {
+    matches!(dispatch_id, 10 | 11)
 }
 impl StyleJob {
     pub fn new(
-        _source: &SourceImage,
-        _settings: StyleSettings,
-        _atlas: Option<&ReferenceAtlas>,
-        _other_bytes: usize,
+        source: &SourceImage,
+        settings: StyleSettings,
+        atlas: Option<&ReferenceAtlas>,
+        other_bytes: usize,
     ) -> Result<Self, RenderError> {
-        Err(RenderError::UnsupportedVersion)
+        match settings.family {
+            Family::Pixel if atlas.is_none() => {
+                PixelJob::new(source, settings, other_bytes).map(Self::Pixel)
+            }
+            Family::Mosaic { .. } => {
+                if atlas.is_some() {
+                    return Err(RenderError::InvalidInput);
+                }
+                MosaicJob::new(source, settings, other_bytes).map(Self::Mosaic)
+            }
+            Family::Pixel => Err(RenderError::InvalidInput),
+            _ => Err(RenderError::UnsupportedVersion),
+        }
     }
     /// Total session peak: retained source + other session reservations (including
     /// captured calibrations) + this job's dynamic storage and output serialization.
     /// Borrowed atlas allocations are already included in `other_bytes` exactly once.
     pub fn estimated_peak_bytes(
-        _source: &SourceImage,
-        _settings: &StyleSettings,
-        _atlas: Option<&ReferenceAtlas>,
-        _other_bytes: usize,
+        source: &SourceImage,
+        settings: &StyleSettings,
+        atlas: Option<&ReferenceAtlas>,
+        other_bytes: usize,
     ) -> Result<usize, RenderError> {
-        Err(RenderError::UnsupportedVersion)
+        match settings.family {
+            Family::Pixel | Family::Mosaic { .. } => {
+                if atlas.is_some() {
+                    return Err(RenderError::InvalidInput);
+                }
+                super::pixel::TileJob::peak(source, settings, other_bytes)
+            }
+            _ => Err(RenderError::UnsupportedVersion),
+        }
     }
     pub fn step(
         &mut self,
@@ -48,6 +74,8 @@ impl StyleJob {
     ) -> Result<JobStatus, RenderError> {
         match self {
             Self::Unavailable => Err(RenderError::UnsupportedVersion),
+            Self::Pixel(j) => j.tiles.step(_source, _max_work),
+            Self::Mosaic(j) => j.tiles.step(_source, _max_work),
             #[cfg(test)]
             Self::Fixture(j) => j.step(_source, _atlas, _max_work),
         }
@@ -55,6 +83,8 @@ impl StyleJob {
     pub fn storage_bytes(&self) -> usize {
         match self {
             Self::Unavailable => 0,
+            Self::Pixel(j) => j.tiles.storage_bytes(),
+            Self::Mosaic(j) => j.tiles.storage_bytes(),
             #[cfg(test)]
             Self::Fixture(j) => j.storage_bytes(),
         }
@@ -62,11 +92,18 @@ impl StyleJob {
     pub(crate) fn capacity_excess_bytes(&self) -> usize {
         match self {
             Self::Unavailable => 0,
+            Self::Pixel(j) => j.tiles.capacity_excess_bytes(),
+            Self::Mosaic(j) => j.tiles.capacity_excess_bytes(),
             #[cfg(test)]
             Self::Fixture(j) => j.capacity_excess_bytes(),
         }
     }
     pub fn cancel(&mut self) {
+        match self {
+            Self::Pixel(j) => j.tiles.cancel(),
+            Self::Mosaic(j) => j.tiles.cancel(),
+            _ => (),
+        }
         #[cfg(test)]
         if let Self::Fixture(j) = self {
             j.cancel();
@@ -75,6 +112,8 @@ impl StyleJob {
     pub fn take_frame(&mut self) -> Option<StyleFrame> {
         match self {
             Self::Unavailable => None,
+            Self::Pixel(j) => j.tiles.take_frame(),
+            Self::Mosaic(j) => j.tiles.take_frame(),
             #[cfg(test)]
             Self::Fixture(j) => j.take_frame(),
         }
