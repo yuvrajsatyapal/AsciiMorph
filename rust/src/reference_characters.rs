@@ -254,7 +254,23 @@ pub(crate) fn geometry(
     s: &ReferenceCharactersSettings,
 ) -> Result<Geometry, RenderError> {
     s.validate()?;
-    let c = s.crop;
+    crop_geometry(
+        source,
+        s.crop,
+        s.rotation,
+        s.frame_width,
+        s.frame_height,
+        s.render_scale,
+    )
+}
+pub(crate) fn crop_geometry(
+    source: &SourceImage,
+    c: Crop,
+    rotation: u16,
+    frame_width: u32,
+    frame_height: u32,
+    scale: u8,
+) -> Result<Geometry, RenderError> {
     let (iw, ih) = (source.width() as usize, source.height() as usize);
     let x = ((c.x * iw as f64).floor() as usize).min(iw);
     let y = ((c.y * ih as f64).floor() as usize).min(ih);
@@ -264,13 +280,13 @@ pub(crate) fn geometry(
         return Err(RenderError::InvalidInput);
     }
     let (crop_width, crop_height) = (right - x, bottom - y);
-    let (width, height) = if s.rotation == 90 || s.rotation == 270 {
+    let (width, height) = if rotation == 90 || rotation == 270 {
         (crop_height, crop_width)
     } else {
         (crop_width, crop_height)
     };
-    if s.frame_width as usize != width * s.render_scale as usize
-        || s.frame_height as usize != height * s.render_scale as usize
+    if frame_width as usize != width * scale as usize
+        || frame_height as usize != height * scale as usize
     {
         return Err(RenderError::InvalidInput);
     }

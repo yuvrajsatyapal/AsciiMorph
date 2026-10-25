@@ -234,69 +234,28 @@ impl CompleteCharactersJob {
         Ok(self.status())
     }
     fn resize_pixel(&mut self, source: &SourceImage) {
-        let w = self.settings.frame_width as usize;
-        let s = self.settings.render_scale as f64;
-        let (pw, ph) = self.geometry.extent();
-        let x = ((self.cursor % w) as f64 + 0.5) / s - 0.5;
-        let y = ((self.cursor / w) as f64 + 0.5) / s - 0.5;
-        let (ix, iy) = (x.floor(), y.floor());
-        let (fx, fy) = (x - ix, y - iy);
-        let mut p = [0.; 4];
-        for (dx, dy, weight) in [
-            (0., 0., (1. - fx) * (1. - fy)),
-            (1., 0., fx * (1. - fy)),
-            (0., 1., (1. - fx) * fy),
-            (1., 1., fx * fy),
-        ] {
-            let c = self.geometry.pixel(
-                source,
-                self.settings.rotation,
-                (ix + dx).clamp(0., (pw - 1) as f64) as usize,
-                (iy + dy).clamp(0., (ph - 1) as f64) as usize,
-            );
-            let alpha = c[3] as f64 / 255.;
-            for k in 0..3 {
-                p[k] += c[k] as f64 * alpha * weight;
-            }
-            p[3] += alpha * weight;
-        }
-        self.a[self.cursor] = p.map(|v| v as f32);
+        resize_pixel_into(
+            &mut self.a,
+            self.cursor,
+            source,
+            &self.geometry,
+            self.settings.rotation,
+            self.settings.render_scale,
+        );
     }
     fn blur_pixel(&mut self) {
-        let (w, h) = (
+        blur_pixel_into(
+            &mut self.a,
+            &mut self.b,
             self.settings.frame_width as usize,
             self.settings.frame_height as usize,
+            self.settings.render_scale,
+            self.pass,
+            self.cursor,
+            &mut self.sum,
         );
-        let horizontal = self.pass % 2 == 0;
-        let (length, lines) = if horizontal { (w, h) } else { (h, w) };
-        let (line, pos) = (self.cursor / length, self.cursor % length);
-        let radius = box_radii(self.settings.render_scale).unwrap()[self.pass / 2];
-        let at = |p: isize| {
-            let p = p.clamp(0, length as isize - 1) as usize;
-            if horizontal {
-                line * w + p
-            } else {
-                p * w + line
-            }
-        };
-        if pos == 0 {
-            self.sum = [0.; 4];
-            for d in -(radius as isize)..=radius as isize {
-                let p = self.a[at(d)];
-                for (k, v) in self.sum.iter_mut().enumerate() {
-                    *v += p[k] as f64;
-                }
-            }
-        } else {
-            let old = self.a[at(pos as isize - radius as isize - 1)];
-            let new = self.a[at(pos as isize + radius as isize)];
-            for k in 0..4 {
-                self.sum[k] += new[k] as f64 - old[k] as f64;
-            }
-        }
-        self.b[at(pos as isize)] = self.sum.map(|v| (v / (2 * radius + 1) as f64) as f32);
         self.cursor += 1;
-        if self.cursor == length * lines {
+        if self.cursor == self.a.len() {
             std::mem::swap(&mut self.a, &mut self.b);
             self.cursor = 0;
             self.pass += 1;
@@ -330,8 +289,85 @@ impl CompleteCharactersJob {
         }
     }
 }
+/// Original-source premultiplied bilinear interpolation; shared with style composition.
+pub(crate) fn resize_pixel_into(
+    a: &mut [[f32; 4]],
+    cursor: usize,
+    source: &SourceImage,
+    geometry: &Geometry,
+    rotation: u16,
+    scale: u8,
+) {
+    let (pw, ph) = geometry.extent();
+    let w = pw * scale as usize;
+    let s = scale as f64;
+    let x = ((cursor % w) as f64 + 0.5) / s - 0.5;
+    let y = ((cursor / w) as f64 + 0.5) / s - 0.5;
+    let (ix, iy) = (x.floor(), y.floor());
+    let (fx, fy) = (x - ix, y - iy);
+    let mut p = [0.; 4];
+    for (dx, dy, weight) in [
+        (0., 0., (1. - fx) * (1. - fy)),
+        (1., 0., fx * (1. - fy)),
+        (0., 1., (1. - fx) * fy),
+        (1., 1., fx * fy),
+    ] {
+        let c = geometry.pixel(
+            source,
+            rotation,
+            (ix + dx).clamp(0., (pw - 1) as f64) as usize,
+            (iy + dy).clamp(0., (ph - 1) as f64) as usize,
+        );
+        let alpha = c[3] as f64 / 255.;
+        for k in 0..3 {
+            p[k] += c[k] as f64 * alpha * weight;
+        }
+        p[3] += alpha * weight;
+    }
+    a[cursor] = p.map(|v| v as f32);
+}
+/// One fixed moving-window output; at most 65 initialization taps.
+pub(crate) fn blur_pixel_into(
+    a: &mut [[f32; 4]],
+    b: &mut [[f32; 4]],
+    w: usize,
+    h: usize,
+    scale: u8,
+    pass: usize,
+    cursor: usize,
+    sum: &mut [f64; 4],
+) {
+    let horizontal = pass % 2 == 0;
+    let (length, _) = if horizontal { (w, h) } else { (h, w) };
+    let (line, pos) = (cursor / length, cursor % length);
+    let radius = box_radii(scale).unwrap()[pass / 2];
+    let at = |p: isize| {
+        let p = p.clamp(0, length as isize - 1) as usize;
+        if horizontal {
+            line * w + p
+        } else {
+            p * w + line
+        }
+    };
+    if pos == 0 {
+        *sum = [0.; 4];
+        for d in -(radius as isize)..=radius as isize {
+            let p = a[at(d)];
+            for (k, v) in sum.iter_mut().enumerate() {
+                *v += p[k] as f64;
+            }
+        }
+    } else {
+        let old = a[at(pos as isize - radius as isize - 1)];
+        let new = a[at(pos as isize + radius as isize)];
+        for k in 0..4 {
+            sum[k] += new[k] as f64 - old[k] as f64;
+        }
+    }
+    b[at(pos as isize)] = sum.map(|v| (v / (2 * radius + 1) as f64) as f32);
+}
 /// BackdropRGB is already premultiplied in byte color units; alpha is0..1.
-fn source_over(glyph: &mut [u8], backdrop: [f32; 4]) {
+pub(crate) fn source_over(glyph: &mut [u8], backdrop: [f32; 4]) {
     let ga = glyph[3] as f64 / 255.;
     let ba = (backdrop[3] as f64).clamp(0., 1.);
     let a = ga + ba * (1. - ga);
