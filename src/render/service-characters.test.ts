@@ -781,6 +781,10 @@ it("aborting a pending capture frees its queue slot while the active capture sur
   const h = setup();
   try {
     await h.ready();
+    expect(h.service.atlasResourceUsage.selected).toEqual({
+      calibrationId: "a",
+      backingBytes: 82,
+    });
     const w = h.workers[0];
     w.delayCompletion = true;
     const active = h.service.renderCharactersExport({
@@ -812,6 +816,12 @@ it("aborting a pending capture frees its queue slot while the active capture sur
     b.calibration.id = "b";
     b.calibration.masks[0] = 255;
     await h.service.setAtlas(b);
+    expect(h.service.atlasResourceUsage.selected?.calibrationId).toBe("b");
+    expect(
+      h.service.atlasResourceUsage.inFlight.some(
+        (a) => a.calibrationId === "a",
+      ),
+    ).toBe(true);
     const replacement = h.service.renderCharactersExport({
       ...request("replacement"),
       calibrationId: "b",
@@ -820,6 +830,7 @@ it("aborting a pending capture frees its queue slot while the active capture sur
     });
     w.delayCompletion = false;
     const results = await Promise.all([active, replacement]);
+    expect(h.service.atlasResourceUsage.inFlight).toEqual([]);
     expect(results.map((r) => r.frame.grid?.calibrationId)).toEqual(["a", "b"]);
     expect(
       w.responses.some(

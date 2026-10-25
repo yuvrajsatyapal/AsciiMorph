@@ -49,11 +49,12 @@ function setup(
 }
 function preview(request: PreviewRequest) {
   return {
+    styleId: request.project.style.id,
     sourceId: request.project.source!.id,
     sourceRevision: request.project.source!.revision,
     projectId: request.project.id,
     revision: request.revision,
-    calibrationId: request.atlas.calibrationId,
+    calibrationId: request.resources.calibrationId,
   };
 }
 
@@ -65,8 +66,12 @@ describe("serialized source transactions", () => {
       adapters: {
         source: s.transaction,
         renderer: {
-          prepare: async () => ({ calibrationId: "atlas", generation: 1 }),
-          isCurrentAtlas: () => true,
+          prepare: async () => ({
+            kind: "atlas" as const,
+            calibrationId: "atlas",
+            generation: 1,
+          }),
+          isCurrentResources: () => true,
           preview: async (request) => {
             painted.push(s.worker()!.id);
             return preview(request);
@@ -212,8 +217,12 @@ describe("serialized source transactions", () => {
       adapters: {
         source,
         renderer: {
-          prepare: async () => ({ calibrationId: "atlas", generation: 1 }),
-          isCurrentAtlas: () => true,
+          prepare: async () => ({
+            kind: "atlas" as const,
+            calibrationId: "atlas",
+            generation: 1,
+          }),
+          isCurrentResources: () => true,
           preview: async (request) => {
             previews.push(s.worker()!.id);
             return preview(request);
@@ -312,8 +321,12 @@ describe("serialized source transactions", () => {
       adapters: {
         source: s.transaction,
         renderer: {
-          prepare: async () => ({ calibrationId: "atlas", generation: 1 }),
-          isCurrentAtlas: () => true,
+          prepare: async () => ({
+            kind: "atlas" as const,
+            calibrationId: "atlas",
+            generation: 1,
+          }),
+          isCurrentResources: () => true,
           preview: async (request) => {
             painted.push(s.worker()!.id);
             return preview(request);

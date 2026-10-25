@@ -34,18 +34,21 @@ import {
   createRenderService,
   type RenderService,
   type CharactersRenderRequest,
+  type StyleRenderRequest,
 } from "@/render/service";
+import type { RgbaFrameV1, StyleSettingsV1 } from "@/render/style-contract";
+import { bindStyleProject } from "./style-adapter";
 import {
   createStudioController,
   type StudioRequest,
-  type AtlasIdentity,
+  type PreparedResources,
   type PaintedIdentity,
   type StillExportOptions,
 } from "./controller";
 
 export type AcceptedStudioFrame = Readonly<{
   identity: PaintedIdentity;
-  frame: ReferenceCharactersFrameV1;
+  frame: RgbaFrameV1;
 }>;
 export type StudioRuntimeOptions = {
   project?: unknown;
@@ -84,13 +87,13 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
   let atlasGeneration = 0;
   let latestPrepare = 0;
   let latestPreview = 0;
-  let currentAtlas: AtlasIdentity | null = null;
+  let currentResources: PreparedResources | null = null;
   let measured: { key: string; atlas: ReferenceCharacterAtlasV1 } | undefined;
   let prepared:
     | {
         jobId: number;
-        atlas: ReferenceCharacterAtlasV1;
-        identity: AtlasIdentity;
+        atlas?: ReferenceCharacterAtlasV1;
+        identity: PreparedResources;
         service: RenderService;
         serviceGeneration: number;
       }
@@ -105,9 +108,12 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
   let downloadBytes = 0,
     downloadCount = 0;
   let captureAdmission: (() => void) | undefined;
+  // One captured Characters atlas can outlive preview selection through a
+  // noncancellable encoder. This slot follows the existing single capture lease.
+  let capturedAtlas: ReferenceCharacterAtlasV1 | undefined;
   let captureActive = false;
   let captureRelease: Promise<void> | undefined;
-  const captures = new Set<ReferenceCharactersFrameV1>();
+  const captures = new Set<RgbaFrameV1>();
   const canvases = new Set<{ width: number; height: number }>();
   const listeners = new Set<() => void>();
   const check = (signal?: AbortSignal) => {
@@ -118,12 +124,15 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
     for (const value of [accepted?.frame, staged?.frame, ...captures]) {
       if (!value) continue;
       backings.add(value.rgba.buffer);
-      if (value.grid)
+      if ("grid" in value && value.grid)
         for (const a of [
-          value.grid.glyphIndices,
-          value.grid.foreground,
-          value.grid.background,
-          value.grid.alpha,
+          (value.grid as NonNullable<ReferenceCharactersFrameV1["grid"]>)
+            .glyphIndices,
+          (value.grid as NonNullable<ReferenceCharactersFrameV1["grid"]>)
+            .foreground,
+          (value.grid as NonNullable<ReferenceCharactersFrameV1["grid"]>)
+            .background,
+          (value.grid as NonNullable<ReferenceCharactersFrameV1["grid"]>).alpha,
         ])
           backings.add(a.buffer);
     }
@@ -134,6 +143,65 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
       [...canvases].reduce((sum, c) => sum + c.width * c.height * 4, 0)
     );
   }
+  function atlasResourceBytes(extra?: ReferenceCharacterAtlasV1) {
+    const locals = [
+      ...new Set(
+        [measured?.atlas, extra].filter(
+          (a): a is ReferenceCharacterAtlasV1 => !!a,
+        ),
+      ),
+    ];
+    const originalBackings = new Set<ArrayBufferLike>();
+    const localSnapshots = new Map<string, number>();
+    for (const atlas of locals) {
+      const backings = new Set([
+        atlas.calibration.masks.buffer,
+        atlas.calibration.coverage.buffer,
+        atlas.calibration.shapes.buffer,
+      ]);
+      for (const backing of backings) originalBackings.add(backing);
+      // The service WeakMap owns a detached snapshot while this original key
+      // remains live. Same atlas identity shares one service snapshot.
+      localSnapshots.set(
+        atlas.calibration.id,
+        [...backings].reduce((sum, backing) => sum + backing.byteLength, 0),
+      );
+    }
+    const usage = service.atlasResourceUsage;
+    const selected = usage?.selected;
+    // Selected copy owners: service snapshot, worker transfer, wasm JS upload
+    // snapshot, native calibration. In-flight jobs can retain a previous atlas
+    // after a newer selection, even if their local waiter was aborted.
+    const selectedBytes = selected ? selected.backingBytes * 4 : 0;
+    const pendingBytes = (usage?.inFlight ?? []).reduce(
+      (sum, entry) => sum + entry.backingBytes * 4,
+      0,
+    );
+    const originalBytes = [...originalBackings].reduce(
+      (sum, backing) => sum + backing.byteLength,
+      0,
+    );
+    const unselectedSnapshotBytes = [...localSnapshots].reduce(
+      (sum, [id, bytes]) => sum + (selected?.calibrationId === id ? 0 : bytes),
+      0,
+    );
+    // Test adapters without the service accounting accessor have no independent
+    // ownership metadata. Charge the measured resource as all five owners.
+    const fallback =
+      !usage && localSnapshots.size
+        ? [...localSnapshots.values()].reduce(
+            (sum, bytes) => sum + bytes * 4,
+            0,
+          )
+        : 0;
+    return (
+      originalBytes +
+      unselectedSnapshotBytes +
+      selectedBytes +
+      pendingBytes +
+      fallback
+    );
+  }
   function discardStage() {
     staged?.release();
     staged = null;
@@ -141,7 +209,7 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
   async function reset() {
     serviceGeneration++;
     latestPrepare++;
-    currentAtlas = null;
+    currentResources = null;
     prepared = undefined;
     uploaded = null;
     discardStage();
@@ -244,6 +312,56 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
       timeUs: request.project.timeUs,
     };
   }
+  function styleJob(
+    request: StudioRequest,
+    settings: StyleSettingsV1,
+  ): StyleRenderRequest {
+    const ref = request.project.source;
+    if (!ref) throw new Error("A committed source is required");
+    return {
+      jobId: `studio-${request.generation}-${request.jobId}`,
+      revision: request.revision,
+      sourceId: ref.id,
+      sourceRevision: ref.revision,
+      calibrationId: "",
+      source: ref,
+      styleId: settings.styleId as "pixel" | "mosaic",
+      settings,
+      timeUs: request.project.timeUs,
+    };
+  }
+  function admitStyleExport(
+    request: StudioRequest,
+    format: StillExportOptions["format"],
+    settings: StyleSettingsV1,
+  ) {
+    if (
+      service.styleProfileVersion !== 1 ||
+      !service.supportedStyleIds.includes(settings.styleId)
+    )
+      throw new Error("Style export capability unavailable");
+    if (!service.atlasResourceUsage)
+      throw new Error("Style export resource accounting unavailable");
+    if (!source.isReady(request.project.source))
+      throw new Error("Source is not ready");
+    const pixels = settings.frameWidth * settings.frameHeight;
+    // Retained source copies, native raster scratch/output, captured frames,
+    // ImageData/canvas/codec reservation and retained downloads share 256 MiB.
+    const peak =
+      source.retainedSourceBytes * 3 +
+      pixels * 52 +
+      atlasResourceBytes() +
+      heldFrameBytes() +
+      encoderReservationBytes(
+        settings.frameWidth,
+        settings.frameHeight,
+        format,
+      );
+    if (peak > DEFAULT_MEMORY_BUDGET_BYTES)
+      throw new Error(
+        "Export exceeds the 256 MiB session budget; choose a smaller scale or source",
+      );
+  }
   function exportSettings(
     request: StudioRequest,
     settings: StillExportOptions,
@@ -295,15 +413,6 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
       throw new Error("Characters export capabilities are unavailable");
     if (!source.isReady(request.project.source))
       throw new Error("Source is not ready");
-    const backings = new Set<ArrayBufferLike>();
-    for (const a of [measured?.atlas, atlas])
-      if (a)
-        for (const view of [
-          a.calibration.masks,
-          a.calibration.coverage,
-          a.calibration.shapes,
-        ])
-          backings.add(view.buffer);
     const geometry = prepareCharactersGeometry(
       settings.fontSize,
       settings.renderScale,
@@ -317,7 +426,7 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
     const pixels = settings.frameWidth * settings.frameHeight;
     const peak =
       source.retainedSourceBytes * 3 +
-      [...backings].reduce((sum, b) => sum + b.byteLength, 0) +
+      atlasResourceBytes(atlas) +
       pixels * 52 +
       cells * 28 +
       4096 +
@@ -337,7 +446,10 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
     retainDownload(bytes) {
       if (
         downloadCount >= 32 ||
-        heldFrameBytes() + source.retainedSourceBytes * 3 + bytes >
+        heldFrameBytes() +
+          atlasResourceBytes(capturedAtlas) +
+          source.retainedSourceBytes * 3 +
+          bytes >
           DEFAULT_MEMORY_BUDGET_BYTES
       )
         throw new Error("Wait for previous downloads to finish");
@@ -360,7 +472,10 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
       // Actual result backing capacities are now held; preflight against them
       // before allocating any ImageData/canvas/opaque codec buffer.
       if (
-        heldFrameBytes() + source.retainedSourceBytes * 3 + bytes >
+        heldFrameBytes() +
+          atlasResourceBytes(capturedAtlas) +
+          source.retainedSourceBytes * 3 +
+          bytes >
         DEFAULT_MEMORY_BUDGET_BYTES
       )
         throw new Error("Encoder exceeds the 256 MiB session budget");
@@ -392,6 +507,33 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
             epoch = serviceGeneration;
           await current.initialize();
           check(signal);
+          if (request.project.style.id !== "characters") {
+            const settings = bindStyleProject(request.project, 1);
+            if (
+              current.styleProfileVersion !== 1 ||
+              !current.supportedStyleIds.includes(settings.styleId)
+            )
+              throw new Error("Studio raster style capability unavailable");
+            if (
+              current !== service ||
+              epoch !== serviceGeneration ||
+              sequence !== latestPrepare
+            )
+              throw cancelled();
+            const identity: PreparedResources = {
+              kind: "none",
+              calibrationId: "",
+              generation: ++atlasGeneration,
+            };
+            prepared = {
+              jobId: request.jobId,
+              identity,
+              service: current,
+              serviceGeneration: epoch,
+            };
+            currentResources = identity;
+            return identity;
+          }
           const atlas = await measure(request, 1, signal);
           check(signal);
           if (
@@ -421,6 +563,7 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
             atlas,
           };
           const identity = {
+            kind: "atlas" as const,
             calibrationId: atlas.calibration.id,
             generation: ++atlasGeneration,
           };
@@ -431,14 +574,15 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
             service: current,
             serviceGeneration: epoch,
           };
-          currentAtlas = identity;
+          currentResources = identity;
           return identity;
         },
-        isCurrentAtlas(identity) {
+        isCurrentResources(identity) {
           return (
             !disposed &&
-            currentAtlas?.generation === identity.generation &&
-            currentAtlas.calibrationId === identity.calibrationId
+            currentResources?.generation === identity.generation &&
+            currentResources.kind === identity.kind &&
+            currentResources.calibrationId === identity.calibrationId
           );
         },
         async preview(request, signal) {
@@ -448,11 +592,59 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
           if (
             !p ||
             p.jobId !== request.jobId ||
-            p.identity.generation !== request.atlas.generation ||
+            p.identity.generation !== request.resources.generation ||
+            p.identity.kind !== request.resources.kind ||
+            p.identity.calibrationId !== request.resources.calibrationId ||
             p.service !== service ||
             p.serviceGeneration !== serviceGeneration
           )
-            throw new Error("Prepared Characters atlas expired");
+            throw new Error("Prepared Studio resources expired");
+          if (request.project.style.id !== "characters") {
+            if (p.identity.kind !== "none")
+              throw new Error("Raster resource identity mismatch");
+            const settings = bindStyleProject(request.project, 1);
+            const r = styleJob(request, settings);
+            const result = await p.service.renderStylePreview(r, signal);
+            check(signal);
+            if (
+              sequence !== latestPreview ||
+              p.service !== service ||
+              p.serviceGeneration !== serviceGeneration
+            )
+              throw cancelled();
+            if (
+              result.jobId !== r.jobId ||
+              result.revision !== r.revision ||
+              result.sourceId !== r.sourceId ||
+              result.sourceRevision !== r.sourceRevision ||
+              result.styleId !== r.styleId ||
+              result.calibrationId !== ""
+            )
+              throw new Error("Raster result identity mismatch");
+            const identity: PaintedIdentity = {
+              styleId: result.styleId,
+              sourceId: result.sourceId,
+              sourceRevision: result.sourceRevision,
+              projectId: request.project.id,
+              revision: result.revision,
+              calibrationId: "",
+            };
+            discardStage();
+            const release = () => signal.removeEventListener("abort", abort);
+            const abort = () => {
+              if (staged?.jobId === request.jobId) discardStage();
+            };
+            staged = {
+              identity,
+              frame: result.frame,
+              jobId: request.jobId,
+              release,
+            };
+            signal.addEventListener("abort", abort, { once: true });
+            return identity;
+          }
+          if (p.identity.kind !== "atlas" || !p.atlas)
+            throw new Error("Characters atlas identity mismatch");
           const bound = bind(request, 1, p.atlas, p.service);
           const requestJob = job(request, bound);
           const result = await p.service.renderCharactersPreview(
@@ -476,6 +668,7 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
           )
             throw new Error("Characters result identity mismatch");
           const identity: PaintedIdentity = {
+            styleId: "characters",
             sourceId: result.sourceId,
             sourceRevision: result.sourceRevision,
             projectId: request.project.id,
@@ -498,11 +691,18 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
         },
       },
       exportStill: async (request, signal, progress) => {
-        admitExport(
-          request,
-          request.options.format,
-          exportSettings(request, request.options),
-        );
+        if (request.project.style.id === "characters")
+          admitExport(
+            request,
+            request.options.format,
+            exportSettings(request, request.options),
+          );
+        else
+          admitStyleExport(
+            request,
+            request.options.format,
+            bindStyleProject(request.project, request.options.scale),
+          );
         const captured = await runtime.renderCaptured(
           request,
           request.options.scale,
@@ -554,7 +754,7 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
         check();
         const snapshot = controller.getSnapshot();
         if (snapshot.loading || snapshot.status !== "ready")
-          throw new Error("Wait for a ready Characters source");
+          throw new Error("Wait for a ready Studio source");
         if (snapshot.exportBusy) throw new Error("An export is still settling");
         if (downloadCount >= 32)
           throw new Error("Wait for previous downloads to finish");
@@ -564,8 +764,18 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
           jobId: 0,
           generation: 0,
         };
-        const bound = exportSettings(request, settings);
-        admitExport(request, settings.format, bound);
+        const bound =
+          snapshot.project.style.id === "characters"
+            ? exportSettings(request, settings)
+            : bindStyleProject(request.project, settings.scale);
+        if (snapshot.project.style.id === "characters")
+          admitExport(
+            request,
+            settings.format,
+            bound as ReferenceCharactersSettingsV1,
+          );
+        else
+          admitStyleExport(request, settings.format, bound as StyleSettingsV1);
         return {
           available: true,
           reason: "",
@@ -622,6 +832,66 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
         const current = service,
           epoch = serviceGeneration;
         await current.initialize();
+        if (request.project.style.id !== "characters") {
+          const settings = bindStyleProject(request.project, scale);
+          if (
+            current.styleProfileVersion !== 1 ||
+            !current.supportedStyleIds.includes(settings.styleId)
+          )
+            throw new Error("Studio raster style capability unavailable");
+          if (format) admitStyleExport(request, format, settings);
+          const r = styleJob(request, settings);
+          const result = await current.renderStyleExport(
+            {
+              ...r,
+              outputWidth: settings.frameWidth,
+              outputHeight: settings.frameHeight,
+            },
+            signal,
+          );
+          check(signal);
+          if (
+            current !== service ||
+            epoch !== serviceGeneration ||
+            !source.isReady(request.project.source) ||
+            result.styleId !== r.styleId ||
+            result.sourceId !== r.sourceId ||
+            result.sourceRevision !== r.sourceRevision ||
+            result.revision !== r.revision ||
+            result.jobId !== r.jobId ||
+            result.calibrationId !== ""
+          )
+            throw cancelled();
+          captures.add(result.frame);
+          if (format) {
+            captureAdmission = () =>
+              admitStyleExport(request, format, settings);
+            try {
+              captureAdmission();
+            } catch (reason) {
+              captures.delete(result.frame);
+              captureAdmission = undefined;
+              throw reason;
+            }
+          }
+          let finishRelease!: () => void;
+          captureRelease = new Promise<void>((resolve) => {
+            finishRelease = resolve;
+          });
+          let released = false;
+          return {
+            result,
+            release() {
+              if (released) return;
+              released = true;
+              captures.delete(result.frame);
+              captureAdmission = undefined;
+              captureActive = false;
+              finishRelease();
+              captureRelease = undefined;
+            },
+          };
+        }
         const atlas = await measure(request, scale, signal);
         check(signal);
         if (current !== service || epoch !== serviceGeneration)
@@ -657,6 +927,7 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
             throw reason;
           }
         }
+        capturedAtlas = atlas;
         let finishRelease!: () => void;
         captureRelease = new Promise<void>((resolve) => {
           finishRelease = resolve;
@@ -669,6 +940,7 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
             released = true;
             captures.delete(result.frame);
             captureAdmission = undefined;
+            capturedAtlas = undefined;
             captureActive = false;
             finishRelease();
             captureRelease = undefined;
@@ -685,7 +957,7 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
       encoder.dispose();
       latestPrepare++;
       latestPreview++;
-      currentAtlas = null;
+      currentResources = null;
       prepared = undefined;
       measured = undefined;
       discardStage();

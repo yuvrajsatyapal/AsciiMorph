@@ -27,17 +27,22 @@ function deferred<T>() {
 }
 function identity(request: PreviewRequest) {
   return {
+    styleId: request.project.style.id,
     sourceId: request.project.source!.id,
     sourceRevision: request.project.source!.revision,
     projectId: request.project.id,
     revision: request.revision,
-    calibrationId: request.atlas.calibrationId,
+    calibrationId: request.resources.calibrationId,
   };
 }
 function renderer(): NonNullable<StudioAdapters["renderer"]> {
   return {
-    prepare: async () => ({ calibrationId: "atlas-1", generation: 1 }),
-    isCurrentAtlas: () => true,
+    prepare: async () => ({
+      kind: "atlas" as const,
+      calibrationId: "atlas-1",
+      generation: 1,
+    }),
+    isCurrentResources: () => true,
     preview: async (request) => identity(request),
   };
 }
@@ -465,7 +470,8 @@ describe("typed source and render adapters", () => {
     expect(c.getSnapshot().frame?.revision).toBe(1);
     expect(requests[0].project.style.parameters.brightness).toBe(0);
     expect(requests.at(-1)!.jobId).toBeGreaterThan(requests[0].jobId);
-    expect(requests[0].atlas).toEqual({
+    expect(requests[0].resources).toEqual({
+      kind: "atlas",
       calibrationId: "atlas-1",
       generation: 1,
     });
@@ -556,7 +562,7 @@ describe("typed source and render adapters", () => {
     const c = loaded({
       renderer: {
         ...renderer(),
-        isCurrentAtlas: () => current,
+        isCurrentResources: () => current,
         preview: (r) => {
           request = r;
           return pending.promise;

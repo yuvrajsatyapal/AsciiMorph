@@ -1,4 +1,5 @@
 import { initialCatalogRegistry } from "@/render/catalog/initial-schemas";
+import { switchStyle, isStudioStyleId } from "./style-adapter";
 import type {
   SourceCandidate,
   StudioSourceAdapter,
@@ -22,13 +23,17 @@ export type StudioView = {
   favorites: readonly string[];
 };
 export type PaintedIdentity = {
+  styleId: string;
   sourceId: string;
   sourceRevision: number;
   projectId: string;
   revision: number;
   calibrationId: string;
 };
-export type AtlasIdentity = { calibrationId: string; generation: number };
+export type PreparedResources =
+  | { kind: "atlas"; calibrationId: string; generation: number }
+  | { kind: "none"; calibrationId: ""; generation: number };
+export type AtlasIdentity = Extract<PreparedResources, { kind: "atlas" }>;
 export type StudioRequest = {
   /** Detached, immutable project; no worker request revision is stored in it. */
   project: RenderProjectV1;
@@ -36,7 +41,7 @@ export type StudioRequest = {
   jobId: number;
   generation: number;
 };
-export type PreviewRequest = StudioRequest & { atlas: AtlasIdentity };
+export type PreviewRequest = StudioRequest & { resources: PreparedResources };
 export type StillExportStage = "rendering" | "encoding" | "downloading";
 export type StillExportOptions = {
   format: "png" | "jpeg";
@@ -71,8 +76,8 @@ export interface StudioAdapters {
     prepare(
       request: StudioRequest,
       signal: AbortSignal,
-    ): Promise<AtlasIdentity>;
-    isCurrentAtlas(atlas: AtlasIdentity): boolean;
+    ): Promise<PreparedResources>;
+    isCurrentResources(resources: PreparedResources): boolean;
     preview(
       request: PreviewRequest,
       signal: AbortSignal,
@@ -108,13 +113,8 @@ function freeze<T>(value: T): T {
 }
 function validate(project: unknown): RenderProjectV1 {
   const result = validateRenderProject(project);
-  if (
-    result.style.id !== "characters" ||
-    result.effects.length ||
-    result.masks.length ||
-    result.text.length
-  )
-    throw new Error("Only the bound Characters look is available");
+  if (!isStudioStyleId(result.style.id))
+    throw new Error("Studio style unavailable");
   return freeze(result);
 }
 function draft(): RenderProjectV1 {
@@ -275,30 +275,38 @@ export function createStudioController(
       status = "rendering";
       clearError("render");
       publish();
-      const atlas = freeze({
+      const resources = freeze({
         ...(await adapters.renderer.prepare(request, abort.signal)),
       });
       if (!current()) return false;
       if (
-        !atlas.calibrationId ||
-        !Number.isSafeInteger(atlas.generation) ||
-        atlas.generation < 0 ||
-        !adapters.renderer.isCurrentAtlas(atlas)
+        !["atlas", "none"].includes(resources.kind) ||
+        (resources.kind === "atlas"
+          ? !resources.calibrationId
+          : resources.calibrationId !== "") ||
+        !Number.isSafeInteger(resources.generation) ||
+        resources.generation < 0 ||
+        !adapters.renderer.isCurrentResources(resources)
       )
-        throw new Error("Prepared atlas is no longer current");
+        throw new Error(
+          `Prepared ${resources.kind} resources are no longer current`,
+        );
       const result = await adapters.renderer.preview(
-        freeze({ ...request, atlas }),
+        freeze({ ...request, resources }),
         abort.signal,
       );
       if (!current()) return false;
-      if (!adapters.renderer.isCurrentAtlas(atlas))
-        throw new Error("Rendered atlas is no longer current");
+      if (!adapters.renderer.isCurrentResources(resources))
+        throw new Error(
+          `Rendered ${resources.kind} resources are no longer current`,
+        );
       const expected: PaintedIdentity = {
+        styleId: request.project.style.id,
         sourceId: request.project.source!.id,
         sourceRevision: request.project.source!.revision,
         projectId: request.project.id,
         revision: request.revision,
-        calibrationId: atlas.calibrationId,
+        calibrationId: resources.calibrationId,
       };
       if (
         Object.keys(expected).some(
@@ -499,6 +507,23 @@ export function createStudioController(
       }
       if (sameLook(look(project), look(next))) return false;
       if (!editStart) remember(look(project));
+      project = next;
+      clearError("parameter");
+      changed();
+      return true;
+    },
+    selectStyle(id: string): boolean {
+      if (!alive() || id === project.style.id) return false;
+      let next: RenderProjectV1;
+      try {
+        next = validate({ ...project, style: switchStyle(project.style, id) });
+      } catch (reason) {
+        fail("parameter", reason);
+        publish();
+        return false;
+      }
+      commitEdit();
+      remember(look(project));
       project = next;
       clearError("parameter");
       changed();

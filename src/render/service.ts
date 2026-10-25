@@ -52,6 +52,15 @@ export type RenderServiceState =
   | "disposed";
 export interface RenderService {
   readonly state: RenderServiceState;
+  /** Selected service snapshot, queued atlas inputs, and submitted atlas jobs
+   * through worker terminal response. Bytes deduplicate views of one backing. */
+  readonly atlasResourceUsage: Readonly<{
+    selected: Readonly<{ calibrationId: string; backingBytes: number }> | null;
+    inFlight: readonly Readonly<{
+      calibrationId: string;
+      backingBytes: number;
+    }>[];
+  }>;
   readonly styleProfileVersion: 1 | null;
   readonly supportedStyleIds: readonly InitialStyleId[];
   renderStylePreview(
@@ -143,6 +152,32 @@ export function createRenderService(
   let retainedSource: SourceUpload | undefined;
   let retainedCalibration: GlyphCalibrationV1 | undefined;
   let retainedAtlas: ReferenceCharacterAtlasV1 | undefined;
+  const atlasBackings = (atlas: ReferenceCharacterAtlasV1) =>
+    [
+      ...new Set([
+        atlas.calibration.masks.buffer,
+        atlas.calibration.coverage.buffer,
+        atlas.calibration.shapes.buffer,
+      ]),
+    ].reduce((sum, buffer) => sum + buffer.byteLength, 0);
+  // Metadata only: no extra atlas or ArrayBuffer ownership. A local abort does
+  // not release a worker/native request; its terminal reply or detach does.
+  const inFlightAtlases = new Map<
+    string,
+    { calibrationId: string; backingBytes: number }
+  >();
+  const pendingAtlasInputs = new Map<
+    symbol,
+    { calibrationId: string; backingBytes: number }
+  >();
+  function pendingAtlas(atlas: ReferenceCharacterAtlasV1) {
+    const token = Symbol("atlas-input");
+    pendingAtlasInputs.set(token, {
+      calibrationId: atlas.calibration.id,
+      backingBytes: atlasBackings(atlas),
+    });
+    return () => pendingAtlasInputs.delete(token);
+  }
   // Atlas IDs denote immutable calibration data. First capture snapshots bytes;
   // repeated calls with the same input object+metadata reuse that owned capture,
   // never the caller's mutable arrays. Weak keys do not form an atlas registry.
@@ -193,6 +228,8 @@ export function createRenderService(
   }
   function detach() {
     styleRequests.clear();
+    inFlightAtlases.clear();
+    pendingAtlasInputs.clear();
     const current = connection;
     connection = undefined;
     if (!current) return;
@@ -222,6 +259,17 @@ export function createRenderService(
       );
       return;
     }
+    if (
+      [
+        "charactersResult",
+        "styleResult",
+        "result",
+        "cancelled",
+        "error",
+        "charactersUnavailable",
+      ].includes(response.type)
+    )
+      inFlightAtlases.delete(response.requestId);
     // Fatal errors belong to this connection, even after a local abort removed
     // their waiter. The listener already rejected stale worker generations.
     if (
@@ -431,6 +479,18 @@ export function createRenderService(
         reject,
         cleanup: () => signal?.removeEventListener("abort", abort),
       });
+      if (
+        (message.type === "renderCharactersPreview" ||
+          message.type === "renderCharactersExport" ||
+          ((message.type === "renderStylePreview" ||
+            message.type === "renderStyleExport") &&
+            message.settings.styleId === "braille")) &&
+        retainedAtlas
+      )
+        inFlightAtlases.set(message.requestId, {
+          calibrationId: retainedAtlas.calibration.id,
+          backingBytes: atlasBackings(retainedAtlas),
+        });
       signal?.addEventListener("abort", abort, { once: true });
       try {
         current.worker.postMessage(message, transfer);
@@ -590,82 +650,89 @@ export function createRenderService(
     const atlasSnapshot = capturedAtlas
       ? snapshotAtlas(capturedAtlas)
       : undefined;
-    if (atlasSnapshot)
-      validateWorkerRequest({
-        ...envelope(),
-        type: "setAtlas",
-        atlas: atlasSnapshot,
+    const releasePendingAtlas = atlasSnapshot
+      ? pendingAtlas(atlasSnapshot)
+      : undefined;
+    try {
+      if (atlasSnapshot)
+        validateWorkerRequest({
+          ...envelope(),
+          type: "setAtlas",
+          atlas: atlasSnapshot,
+        });
+      const { response: pendingResponse } = await enqueueInput(async () => {
+        await initialize();
+        if (atlasSnapshot) await selectAtlas(atlasSnapshot);
+        if (
+          !retainedSource ||
+          retainedSource.id !== message.sourceId ||
+          retainedSource.revision !== message.sourceRevision
+        )
+          throw new RenderError(
+            "MissingSource",
+            "Requested Characters source is not retained",
+          );
+        const source = {
+          id: retainedSource.id,
+          revision: retainedSource.revision,
+          width: retainedSource.width,
+          height: retainedSource.height,
+        };
+        if (
+          message.source.width !== source.width ||
+          message.source.height !== source.height
+        )
+          throw new RenderError(
+            "InvalidInput",
+            "Characters retained source geometry mismatch",
+          );
+        try {
+          validateReferenceCharactersSettings(
+            message.settings,
+            source,
+            memoryBudgetBytes,
+          );
+        } catch (cause) {
+          throw new RenderError(
+            "InvalidInput",
+            cause instanceof Error
+              ? cause.message
+              : "Invalid Characters settings",
+          );
+        }
+        if (
+          message.settings.backdrop !== "none" &&
+          charactersContextVersion !== 1
+        )
+          throw new RenderError(
+            "CapabilityUnavailable",
+            "Complete Characters context version1 is unavailable",
+          );
+        if (
+          !retainedAtlas ||
+          retainedAtlas.calibration.id !== message.calibrationId
+        )
+          throw new RenderError(
+            "MissingCalibration",
+            "Requested Characters atlas is not selected",
+          );
+        return { response: send(message, [], signal) };
       });
-    const { response: pendingResponse } = await enqueueInput(async () => {
-      await initialize();
-      if (atlasSnapshot) await selectAtlas(atlasSnapshot);
-      if (
-        !retainedSource ||
-        retainedSource.id !== message.sourceId ||
-        retainedSource.revision !== message.sourceRevision
-      )
+      const response = await pendingResponse;
+      if (response.type !== "charactersResult")
         throw new RenderError(
-          "MissingSource",
-          "Requested Characters source is not retained",
+          "WorkerFailure",
+          "Worker did not return a Characters frame",
         );
-      const source = {
-        id: retainedSource.id,
-        revision: retainedSource.revision,
-        width: retainedSource.width,
-        height: retainedSource.height,
+      return {
+        ...renderIdentity(response),
+        frame: response.frame,
+        backend: response.backend,
+        timings: response.timings,
       };
-      if (
-        message.source.width !== source.width ||
-        message.source.height !== source.height
-      )
-        throw new RenderError(
-          "InvalidInput",
-          "Characters retained source geometry mismatch",
-        );
-      try {
-        validateReferenceCharactersSettings(
-          message.settings,
-          source,
-          memoryBudgetBytes,
-        );
-      } catch (cause) {
-        throw new RenderError(
-          "InvalidInput",
-          cause instanceof Error
-            ? cause.message
-            : "Invalid Characters settings",
-        );
-      }
-      if (
-        message.settings.backdrop !== "none" &&
-        charactersContextVersion !== 1
-      )
-        throw new RenderError(
-          "CapabilityUnavailable",
-          "Complete Characters context version1 is unavailable",
-        );
-      if (
-        !retainedAtlas ||
-        retainedAtlas.calibration.id !== message.calibrationId
-      )
-        throw new RenderError(
-          "MissingCalibration",
-          "Requested Characters atlas is not selected",
-        );
-      return { response: send(message, [], signal) };
-    });
-    const response = await pendingResponse;
-    if (response.type !== "charactersResult")
-      throw new RenderError(
-        "WorkerFailure",
-        "Worker did not return a Characters frame",
-      );
-    return {
-      ...renderIdentity(response),
-      frame: response.frame,
-      backend: response.backend,
-      timings: response.timings,
-    };
+    } finally {
+      releasePendingAtlas?.();
+    }
   }
   async function renderStyle(
     type: StyleRenderType,
@@ -691,67 +758,75 @@ export function createRenderService(
       );
     const capture =
       usesAtlas && capturedAtlas ? snapshotAtlas(capturedAtlas) : undefined;
-    const { response: pending } = await enqueueInput(async () => {
-      await initialize();
-      if (
-        styleProfileVersion !== 1 ||
-        !supportedStyleIds.includes(message.styleId)
-      )
+    const releasePendingAtlas = capture ? pendingAtlas(capture) : undefined;
+    try {
+      const { response: pending } = await enqueueInput(async () => {
+        await initialize();
+        if (
+          styleProfileVersion !== 1 ||
+          !supportedStyleIds.includes(message.styleId)
+        )
+          throw new RenderError(
+            "CapabilityUnavailable",
+            "Style is unsupported by native renderer",
+          );
+        if (
+          !retainedSource ||
+          retainedSource.id !== message.sourceId ||
+          retainedSource.revision !== message.sourceRevision
+        )
+          throw new RenderError(
+            "MissingSource",
+            "Style source is not retained",
+          );
+        if (
+          retainedSource.width !== message.source.width ||
+          retainedSource.height !== message.source.height
+        )
+          throw new RenderError(
+            "InvalidInput",
+            "Style retained source geometry mismatch",
+          );
+        const exactAtlas = capture ?? retainedAtlas;
+        if (
+          usesAtlas &&
+          (!exactAtlas || exactAtlas.calibration.id !== message.calibrationId)
+        )
+          throw new RenderError(
+            "MissingCalibration",
+            "Style requires exact captured atlas",
+          );
+        try {
+          encodeStyleSettings(
+            settings,
+            message.source,
+            usesAtlas ? exactAtlas : undefined,
+          );
+        } catch (cause) {
+          throw new RenderError(
+            "InvalidInput",
+            cause instanceof Error ? cause.message : "Invalid style resource",
+          );
+        }
+        if (capture) await selectAtlas(capture);
+        return { response: send(message, [], signal) };
+      });
+      const response = await pending;
+      if (response.type !== "styleResult")
         throw new RenderError(
-          "CapabilityUnavailable",
-          "Style is unsupported by native renderer",
+          "WorkerFailure",
+          "Worker did not return style frame",
         );
-      if (
-        !retainedSource ||
-        retainedSource.id !== message.sourceId ||
-        retainedSource.revision !== message.sourceRevision
-      )
-        throw new RenderError("MissingSource", "Style source is not retained");
-      if (
-        retainedSource.width !== message.source.width ||
-        retainedSource.height !== message.source.height
-      )
-        throw new RenderError(
-          "InvalidInput",
-          "Style retained source geometry mismatch",
-        );
-      const exactAtlas = capture ?? retainedAtlas;
-      if (
-        usesAtlas &&
-        (!exactAtlas || exactAtlas.calibration.id !== message.calibrationId)
-      )
-        throw new RenderError(
-          "MissingCalibration",
-          "Style requires exact captured atlas",
-        );
-      try {
-        encodeStyleSettings(
-          settings,
-          message.source,
-          usesAtlas ? exactAtlas : undefined,
-        );
-      } catch (cause) {
-        throw new RenderError(
-          "InvalidInput",
-          cause instanceof Error ? cause.message : "Invalid style resource",
-        );
-      }
-      if (capture) await selectAtlas(capture);
-      return { response: send(message, [], signal) };
-    });
-    const response = await pending;
-    if (response.type !== "styleResult")
-      throw new RenderError(
-        "WorkerFailure",
-        "Worker did not return style frame",
-      );
-    return {
-      ...renderIdentity(response),
-      styleId: response.styleId,
-      frame: response.frame,
-      backend: response.backend,
-      timings: response.timings,
-    };
+      return {
+        ...renderIdentity(response),
+        styleId: response.styleId,
+        frame: response.frame,
+        backend: response.backend,
+        timings: response.timings,
+      };
+    } finally {
+      releasePendingAtlas?.();
+    }
   }
   async function selectAtlas(atlas: ReferenceCharacterAtlasV1): Promise<void> {
     await initialize();
@@ -778,6 +853,20 @@ export function createRenderService(
     retainedCalibration = undefined;
   }
   return {
+    get atlasResourceUsage() {
+      return {
+        selected: retainedAtlas
+          ? {
+              calibrationId: retainedAtlas.calibration.id,
+              backingBytes: atlasBackings(retainedAtlas),
+            }
+          : null,
+        inFlight: [
+          ...inFlightAtlases.values(),
+          ...pendingAtlasInputs.values(),
+        ].map((entry) => ({ ...entry })),
+      };
+    },
     get styleProfileVersion() {
       return state === "ready" ? styleProfileVersion : null;
     },
@@ -882,7 +971,10 @@ export function createRenderService(
       } catch (cause) {
         return Promise.reject(cause);
       }
-      return enqueueInput(() => selectAtlas(snapshot));
+      const releasePendingAtlas = pendingAtlas(snapshot);
+      return enqueueInput(() => selectAtlas(snapshot)).finally(
+        releasePendingAtlas,
+      );
     },
     renderCharactersPreview: (request, signal, atlas) =>
       renderCharacters("renderCharactersPreview", request, signal, atlas),

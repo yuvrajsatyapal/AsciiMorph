@@ -90,7 +90,7 @@ it("runs real Rust bytes through the source/controller adapter and resets a muta
       source = runtime.getOriginal()!;
     expect(old.frame.width).toBe(3);
     expect(old.frame.height).toBe(2);
-    expect(old.frame.grid).toBeNull();
+    expect("grid" in old.frame && old.frame.grid).toBeNull();
     expect(old.frame.rgba).toHaveLength(24);
     workers[0].failSourceAck = true;
     expect(await runtime.controller.loadFile(new File(["2"], "bad"))).toBe(

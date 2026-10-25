@@ -1,8 +1,8 @@
 import { MAX_BACKING_PIXELS, MAX_BACKING_SIDE } from "@/core/render";
-import type { ReferenceCharactersFrameV1 } from "@/render/reference-characters";
+import type { RgbaFrameV1 } from "@/render/style-contract";
 export type StillFormat = "png" | "jpeg";
 export type CapturedStill = {
-  frame: ReferenceCharactersFrameV1;
+  frame: RgbaFrameV1;
   release(): void;
 };
 export type StillImageBoundaries = {
