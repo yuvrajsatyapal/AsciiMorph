@@ -1,4 +1,12 @@
 import {
+  STYLE_DISPATCH_IDS,
+  validateStyleSettings,
+  validateStyleFrame,
+  type StyleSettingsV1,
+  type RgbaFrameV1,
+} from "./style-contract";
+import { encodeStyleSettings } from "./style-wire";
+import {
   DEFAULT_MEMORY_BUDGET_BYTES,
   validateCharacterSettings,
   validateGlyphCalibration,
@@ -96,6 +104,10 @@ interface CharacterWasm extends WebAssembly.Exports {
 }
 export type CharacterStepStatus = "pending" | "complete" | "cancelled";
 export interface CharacterEngine {
+  readonly styleProfileVersion: 1 | null;
+  supportsStyle(dispatchId: number): boolean;
+  beginStyle(settings: StyleSettingsV1): number;
+  takeStyleFrame(jobId: number): RgbaFrameV1;
   readonly charactersProfileAvailable: boolean;
   readonly charactersContextVersion: 1 | null;
   readonly charactersAtlasRetentionVersion: 1 | null;
@@ -171,6 +183,15 @@ export async function createCharacterEngine(
   const profileAvailable =
     profileNames.every((name) => typeof wasm[name] === "function") &&
     (wasm.render_characters_profile_version as NumericExport)() === 1;
+  const styleAvailable =
+    [
+      "render_style_profile_version",
+      "render_style_supported",
+      "render_begin_style_v1",
+      "render_frame_output_ptr",
+      "render_frame_output_len",
+    ].every((name) => typeof wasm[name] === "function") &&
+    (wasm.render_style_profile_version as NumericExport)() === 1;
   const contextVersion =
     profileAvailable &&
     typeof wasm.render_characters_context_version === "function" &&
@@ -195,6 +216,11 @@ export async function createCharacterEngine(
         kind: "legacy";
         settings: CharacterSettingsV1;
         calibration?: CalibrationIdentity;
+      }
+    | {
+        kind: "style";
+        settings: StyleSettingsV1;
+        atlas?: ReferenceCharacterAtlasV1;
       }
     | {
         kind: "characters";
@@ -262,6 +288,97 @@ export async function createCharacterEngine(
     return value;
   }
   const engine: CharacterEngine = {
+    styleProfileVersion: styleAvailable ? 1 : null,
+    supportsStyle(dispatchId) {
+      alive();
+      return (
+        styleAvailable &&
+        Number.isInteger(dispatchId) &&
+        dispatchId >= 1 &&
+        dispatchId <= 15 &&
+        (wasm.render_style_supported as NumericExport)(dispatchId) === 1
+      );
+    },
+    beginStyle(input) {
+      alive();
+      if (!styleAvailable)
+        throw new CharacterEngineError(
+          "CapabilityUnavailable",
+          "Style profile ABI unavailable",
+        );
+      if (!source)
+        throw new CharacterEngineError("MissingSource", "Missing style source");
+      const settings = validateInput(input, (v) =>
+        validateStyleSettings(v, source!),
+      );
+      if (!engine.supportsStyle(STYLE_DISPATCH_IDS[settings.styleId]))
+        throw new CharacterEngineError(
+          "CapabilityUnavailable",
+          "Style is unsupported by native renderer",
+        );
+      const capture = settings.styleId === "braille" ? atlas : undefined;
+      if (
+        settings.styleId === "braille" &&
+        (!capture || capture.calibration.id !== calibration?.id)
+      )
+        throw new CharacterEngineError(
+          "MissingCalibration",
+          "Missing style atlas",
+        );
+      const bytes = validateInput(settings, (v) =>
+        encodeStyleSettings(v as StyleSettingsV1, source!, capture),
+      );
+      const id = transfer(
+        bytes.length,
+        (_v, b) => b.set(bytes),
+        (ptr) =>
+          (wasm.render_begin_style_v1 as NumericExport)(
+            handle,
+            ptr,
+            bytes.length,
+          ),
+      );
+      jobs.set(id, { kind: "style", settings, atlas: capture });
+      return id;
+    },
+    takeStyleFrame(id) {
+      const metadata = job(id);
+      if (metadata.kind !== "style")
+        throw new CharacterEngineError("InvalidInput", "Not a style frame job");
+      try {
+        const ptr = check(
+          (wasm.render_frame_output_ptr as NumericExport)(handle, id),
+        );
+        const length = check(
+          (wasm.render_frame_output_len as NumericExport)(handle, id),
+        );
+        span(ptr, length);
+        if (length < 16) throw new Error("Invalid style frame header");
+        const view = new DataView(wasm.memory.buffer, ptr, length);
+        const version = view.getUint32(0, true),
+          width = view.getUint32(4, true),
+          height = view.getUint32(8, true),
+          size = view.getUint32(12, true);
+        if (
+          version !== 1 ||
+          size !== width * height * 4 ||
+          length !== 16 + size
+        )
+          throw new Error("Invalid style frame span");
+        return validateStyleFrame(
+          {
+            version: 1,
+            width,
+            height,
+            rgba: new Uint8Array(wasm.memory.buffer, ptr + 16, size).slice(),
+          },
+          metadata.settings,
+        );
+      } finally {
+        check(wasm.render_release(handle, id));
+        jobs.delete(id);
+      }
+    },
     charactersProfileAvailable: profileAvailable,
     charactersContextVersion: contextVersion,
     charactersAtlasRetentionVersion: retentionVersion,

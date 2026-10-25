@@ -86,6 +86,14 @@ class TestWorker {
   next = 0;
   counts = new Map<number, number>();
   engine: CharacterEngine = {
+    styleProfileVersion: null,
+    supportsStyle: () => false,
+    beginStyle: () => {
+      throw new Error("Style unavailable in legacy fixture");
+    },
+    takeStyleFrame: () => {
+      throw new Error("Style unavailable in legacy fixture");
+    },
     charactersProfileAvailable: false,
     charactersContextVersion: null,
     charactersAtlasRetentionVersion: null,

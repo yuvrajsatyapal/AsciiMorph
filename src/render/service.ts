@@ -1,3 +1,13 @@
+import { validateStyleSettings, validateStyleFrame } from "./style-contract";
+import { encodeStyleSettings } from "./style-wire";
+import {
+  validateStyleRenderRequest,
+  type InitialStyleId,
+  type StyleRenderType,
+  type StyleRenderRequest,
+  type StyleRenderResult,
+} from "./style-protocol";
+export type { StyleRenderRequest, StyleRenderResult } from "./style-protocol";
 import {
   DEFAULT_MEMORY_BUDGET_BYTES,
   type GlyphCalibrationV1,
@@ -42,6 +52,18 @@ export type RenderServiceState =
   | "disposed";
 export interface RenderService {
   readonly state: RenderServiceState;
+  readonly styleProfileVersion: 1 | null;
+  readonly supportedStyleIds: readonly InitialStyleId[];
+  renderStylePreview(
+    request: StyleRenderRequest,
+    signal?: AbortSignal,
+    capturedAtlas?: ReferenceCharacterAtlasV1,
+  ): Promise<StyleRenderResult>;
+  renderStyleExport(
+    request: StyleRenderRequest,
+    signal?: AbortSignal,
+    capturedAtlas?: ReferenceCharacterAtlasV1,
+  ): Promise<StyleRenderResult>;
   readonly charactersProfileVersion: 1 | null;
   readonly charactersContextVersion: 1 | null;
   readonly charactersAtlasRetentionVersion: 1 | null;
@@ -110,6 +132,8 @@ export function createRenderService(
         type: "module",
       }));
   let state: RenderServiceState = "idle";
+  let styleProfileVersion: 1 | null = null;
+  let supportedStyleIds: readonly InitialStyleId[] = Object.freeze([]);
   let charactersProfileVersion: 1 | null = null;
   let charactersContextVersion: 1 | null = null;
   let charactersAtlasRetentionVersion: 1 | null = null;
@@ -142,6 +166,9 @@ export function createRenderService(
   let failureEpoch = 0;
   let lastFailure: RenderError | undefined;
   const waiters = new Map<string, Waiter>();
+  // Keep lane identity through local abort until the worker's terminal response.
+  // This lets late unsupported-style errors remain recoverable.
+  const styleRequests = new Set<string>();
   const envelope = () => ({
     version: 1 as const,
     requestId: String(++counter),
@@ -165,6 +192,7 @@ export function createRenderService(
     else waiter.resolve(response!);
   }
   function detach() {
+    styleRequests.clear();
     const current = connection;
     connection = undefined;
     if (!current) return;
@@ -199,7 +227,8 @@ export function createRenderService(
     if (
       response.type === "error" &&
       (response.error.code === "WorkerFailure" ||
-        response.error.code === "CapabilityUnavailable")
+        (response.error.code === "CapabilityUnavailable" &&
+          !("jobId" in response && styleRequests.has(response.requestId))))
     ) {
       fail(
         new RenderError(
@@ -210,6 +239,8 @@ export function createRenderService(
       );
       return;
     }
+    if (["error", "cancelled", "styleResult"].includes(response.type))
+      styleRequests.delete(response.requestId);
     const waiter = waiters.get(response.requestId);
     if (!waiter) return;
     const request = waiter.message;
@@ -257,7 +288,9 @@ export function createRenderService(
       (request.type === "renderPreview" ||
         request.type === "renderExport" ||
         request.type === "renderCharactersPreview" ||
-        request.type === "renderCharactersExport") &&
+        request.type === "renderCharactersExport" ||
+        request.type === "renderStylePreview" ||
+        request.type === "renderStyleExport") &&
       response.type === "cancelled"
     )
       settle(
@@ -265,6 +298,25 @@ export function createRenderService(
         new RenderError("Cancelled", "Render cancelled"),
       );
     else if (
+      (request.type === "renderStylePreview" ||
+        request.type === "renderStyleExport") &&
+      response.type === "styleResult"
+    ) {
+      try {
+        if (response.styleId !== request.styleId)
+          throw new Error("Style result identity mismatch");
+        validateStyleFrame(response.frame, request.settings);
+      } catch {
+        fail(
+          new RenderError(
+            "WorkerFailure",
+            "Worker style frame does not match requested style/settings",
+          ),
+        );
+        return;
+      }
+      settle(response.requestId, undefined, response);
+    } else if (
       (request.type === "renderCharactersPreview" ||
         request.type === "renderCharactersExport") &&
       response.type === "charactersResult"
@@ -361,10 +413,18 @@ export function createRenderService(
           );
         }
       };
+      if (
+        message.type === "renderStylePreview" ||
+        message.type === "renderStyleExport"
+      )
+        styleRequests.add(message.requestId);
       waiters.set(message.requestId, {
         message,
         ...(message.type === "renderCharactersPreview" ||
-        message.type === "renderCharactersExport"
+        message.type === "renderCharactersExport" ||
+        ((message.type === "renderStylePreview" ||
+          message.type === "renderStyleExport") &&
+          message.settings.styleId === "braille")
           ? { atlas: retainedAtlas }
           : {}),
         resolve,
@@ -411,6 +471,8 @@ export function createRenderService(
     // Assign before any asynchronous boundary; all concurrent callers share one attempt.
     const attempt = async () => {
       state = "initializing";
+      styleProfileVersion = null;
+      supportedStyleIds = Object.freeze([]);
       charactersProfileVersion = null;
       charactersContextVersion = null;
       charactersAtlasRetentionVersion = null;
@@ -442,6 +504,8 @@ export function createRenderService(
         });
         if (ready.type !== "ready")
           throw new RenderError("WorkerFailure", "Worker did not initialize");
+        styleProfileVersion = ready.styleProfileVersion ?? null;
+        supportedStyleIds = Object.freeze([...(ready.supportedStyleIds ?? [])]);
         charactersProfileVersion = ready.charactersProfileVersion ?? null;
         charactersContextVersion = ready.charactersContextVersion ?? null;
         charactersAtlasRetentionVersion =
@@ -603,6 +667,92 @@ export function createRenderService(
       timings: response.timings,
     };
   }
+  async function renderStyle(
+    type: StyleRenderType,
+    request: StyleRenderRequest,
+    signal?: AbortSignal,
+    capturedAtlas?: ReferenceCharacterAtlasV1,
+  ): Promise<StyleRenderResult> {
+    alive();
+    validateStyleRenderRequest(request, type);
+    const settings = validateStyleSettings(request.settings, request.source);
+    const message = {
+      ...envelope(),
+      ...request,
+      type,
+      source: { ...request.source },
+      settings,
+    };
+    const usesAtlas = settings.styleId === "braille";
+    if (!usesAtlas && capturedAtlas)
+      throw new RenderError(
+        "InvalidInput",
+        "Raster style cannot capture atlas",
+      );
+    const capture =
+      usesAtlas && capturedAtlas ? snapshotAtlas(capturedAtlas) : undefined;
+    const { response: pending } = await enqueueInput(async () => {
+      await initialize();
+      if (
+        styleProfileVersion !== 1 ||
+        !supportedStyleIds.includes(message.styleId)
+      )
+        throw new RenderError(
+          "CapabilityUnavailable",
+          "Style is unsupported by native renderer",
+        );
+      if (
+        !retainedSource ||
+        retainedSource.id !== message.sourceId ||
+        retainedSource.revision !== message.sourceRevision
+      )
+        throw new RenderError("MissingSource", "Style source is not retained");
+      if (
+        retainedSource.width !== message.source.width ||
+        retainedSource.height !== message.source.height
+      )
+        throw new RenderError(
+          "InvalidInput",
+          "Style retained source geometry mismatch",
+        );
+      const exactAtlas = capture ?? retainedAtlas;
+      if (
+        usesAtlas &&
+        (!exactAtlas || exactAtlas.calibration.id !== message.calibrationId)
+      )
+        throw new RenderError(
+          "MissingCalibration",
+          "Style requires exact captured atlas",
+        );
+      try {
+        encodeStyleSettings(
+          settings,
+          message.source,
+          usesAtlas ? exactAtlas : undefined,
+        );
+      } catch (cause) {
+        throw new RenderError(
+          "InvalidInput",
+          cause instanceof Error ? cause.message : "Invalid style resource",
+        );
+      }
+      if (capture) await selectAtlas(capture);
+      return { response: send(message, [], signal) };
+    });
+    const response = await pending;
+    if (response.type !== "styleResult")
+      throw new RenderError(
+        "WorkerFailure",
+        "Worker did not return style frame",
+      );
+    return {
+      ...renderIdentity(response),
+      styleId: response.styleId,
+      frame: response.frame,
+      backend: response.backend,
+      timings: response.timings,
+    };
+  }
   async function selectAtlas(atlas: ReferenceCharacterAtlasV1): Promise<void> {
     await initialize();
     if (retainedAtlas?.calibration.id === atlas.calibration.id) {
@@ -628,6 +778,16 @@ export function createRenderService(
     retainedCalibration = undefined;
   }
   return {
+    get styleProfileVersion() {
+      return state === "ready" ? styleProfileVersion : null;
+    },
+    get supportedStyleIds() {
+      return state === "ready" ? supportedStyleIds : Object.freeze([]);
+    },
+    renderStylePreview: (request, signal, atlas) =>
+      renderStyle("renderStylePreview", request, signal, atlas),
+    renderStyleExport: (request, signal, atlas) =>
+      renderStyle("renderStyleExport", request, signal, atlas),
     get charactersProfileVersion() {
       return state === "ready" ? charactersProfileVersion : null;
     },

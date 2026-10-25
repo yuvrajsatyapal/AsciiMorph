@@ -1,3 +1,5 @@
+import { STYLE_DISPATCH_IDS } from "./style-contract";
+import { encodeStyleSettings } from "./style-wire";
 import {
   RenderError,
   calibrationIdentityKey,
@@ -27,7 +29,9 @@ type RenderMessage = Extract<
       | "renderPreview"
       | "renderExport"
       | "renderCharactersPreview"
-      | "renderCharactersExport";
+      | "renderCharactersExport"
+      | "renderStylePreview"
+      | "renderStyleExport";
   }
 >;
 interface Task {
@@ -78,6 +82,12 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
     { type: "renderCharactersPreview" | "renderCharactersExport" }
   > =>
     m.type === "renderCharactersPreview" || m.type === "renderCharactersExport";
+  const style = (
+    m: RenderMessage,
+  ): m is Extract<
+    RenderMessage,
+    { type: "renderStylePreview" | "renderStyleExport" }
+  > => m.type === "renderStylePreview" || m.type === "renderStyleExport";
   const envelope = (requestId: string) => ({ version: 1 as const, requestId });
   const tasks = () =>
     [preview, exporting, pendingExport].filter((t): t is Task => !!t);
@@ -194,7 +204,7 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
       if (
         profile(task.message)
           ? engine!.charactersAtlasRetentionVersion !== 1
-          : task.message.settings.mapping === "glyph"
+          : !style(task.message) && task.message.settings.mapping === "glyph"
       )
         // Setters may deduplicate without invalidating native handles. Release a
         // still-live handle; only an actual upload's already-absent status is safe.
@@ -258,8 +268,10 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
     const m = task.message;
     try {
       if (task.handle === undefined) {
-        if (profile(m)) selectAtlas(task.atlas!, task);
+        if (profile(m) || (style(m) && m.settings.styleId === "braille"))
+          selectAtlas(task.atlas!, task);
         else if (
+          !style(m) &&
           m.settings.mapping === "glyph" &&
           selectedCalibrationKey !== calibrationIdentityKey(logicalCalibration!)
         ) {
@@ -269,9 +281,11 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
           settleUploadInvalidations(task);
         }
         task.startedAt = now();
-        task.handle = profile(m)
-          ? engine.beginCharacters(m.settings)
-          : engine.begin(m.settings);
+        task.handle = style(m)
+          ? engine.beginStyle(m.settings)
+          : profile(m)
+            ? engine.beginCharacters(m.settings)
+            : engine.begin(m.settings);
       }
       const status = engine.step(task.handle, 4096);
       task.slices++;
@@ -291,15 +305,26 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
         // Readback owns release, including its failure path; don't cancel a
         // numeric handle that its readback already dropped.
         task.handle = undefined;
-        const result = profile(m)
+        const result = style(m)
           ? {
-              type: "charactersResult" as const,
-              frame: engine.takeFrame(handle),
+              type: "styleResult" as const,
+              styleId: m.styleId,
+              frame: engine.takeStyleFrame(handle),
             }
-          : { type: "result" as const, grid: engine.takeGrid(handle) };
+          : profile(m)
+            ? {
+                type: "charactersResult" as const,
+                frame: engine.takeFrame(handle),
+              }
+            : { type: "result" as const, grid: engine.takeGrid(handle) };
         const finishedAt = now();
         remove(task);
-        const grid = "grid" in result ? result.grid : result.frame.grid;
+        const grid =
+          result.type === "result"
+            ? result.grid
+            : result.type === "charactersResult"
+              ? result.frame.grid
+              : null;
         const transfer = grid
           ? [
               grid.glyphIndices.buffer,
@@ -308,7 +333,7 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
               grid.alpha.buffer,
             ]
           : [];
-        if (result.type === "charactersResult")
+        if (result.type === "charactersResult" || result.type === "styleResult")
           transfer.push(result.frame.rgba.buffer);
         options.postMessage(
           {
@@ -332,7 +357,7 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
       if (
         !(cause instanceof RenderError) ||
         cause.code === "WorkerFailure" ||
-        (cause.code === "CapabilityUnavailable" && !profile(m))
+        (cause.code === "CapabilityUnavailable" && !profile(m) && !style(m))
       ) {
         fatal(m.requestId, cause, m);
         return;
@@ -415,6 +440,13 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
               options.postMessage({
                 ...envelope(m.requestId),
                 type: "ready",
+                styleProfileVersion: engine?.styleProfileVersion ?? null,
+                supportedStyleIds:
+                  engine?.styleProfileVersion === 1
+                    ? (["braille", "pixel", "mosaic"] as const).filter((id) =>
+                        engine!.supportsStyle(STYLE_DISPATCH_IDS[id]),
+                      )
+                    : [],
                 charactersProfileVersion: engine?.charactersProfileAvailable
                   ? 1
                   : null,
@@ -571,7 +603,46 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
           "MissingSource",
           "Requested source identity is not uploaded",
         );
-      if (profile(m)) {
+      if (style(m)) {
+        if (
+          engine.styleProfileVersion !== 1 ||
+          !engine.supportsStyle(STYLE_DISPATCH_IDS[m.settings.styleId])
+        )
+          throw new RenderError(
+            "CapabilityUnavailable",
+            "Style is unsupported by native renderer",
+          );
+        if (
+          m.source.width !== source.width ||
+          m.source.height !== source.height
+        )
+          throw new RenderError(
+            "InvalidInput",
+            "Style retained source geometry mismatch",
+          );
+        if (m.settings.frameWidth * m.settings.frameHeight * 4 > budget!)
+          throw new RenderError("BudgetExceeded", "Style frame exceeds budget");
+        if (
+          m.settings.styleId === "braille" &&
+          (!atlas || atlas.calibration.id !== m.calibrationId)
+        )
+          throw new RenderError(
+            "MissingCalibration",
+            "Style requires exact captured atlas",
+          );
+        try {
+          encodeStyleSettings(
+            m.settings,
+            source,
+            m.settings.styleId === "braille" ? atlas : undefined,
+          );
+        } catch (cause) {
+          throw new RenderError(
+            "InvalidInput",
+            cause instanceof Error ? cause.message : "Invalid style resources",
+          );
+        }
+      } else if (profile(m)) {
         if (
           !engine.charactersProfileAvailable ||
           (m.settings.backdrop !== "none" &&
@@ -633,9 +704,15 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
         message: m,
         queuedAt: now(),
         slices: 0,
-        ...(profile(m) ? { atlas } : {}),
+        ...(profile(m) || (style(m) && m.settings.styleId === "braille")
+          ? { atlas }
+          : {}),
       };
-      if (m.type === "renderPreview" || m.type === "renderCharactersPreview") {
+      if (
+        m.type === "renderPreview" ||
+        m.type === "renderCharactersPreview" ||
+        m.type === "renderStylePreview"
+      ) {
         if (preview) cancel(preview);
         preview = task;
       } else {

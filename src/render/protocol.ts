@@ -1,3 +1,10 @@
+import { validateStyleSettings, validateStyleFrame } from "./style-contract";
+import type {
+  InitialStyleId,
+  StyleRenderRequest,
+  StyleRenderResult,
+  StyleRenderType,
+} from "./style-protocol";
 import {
   DEFAULT_MEMORY_BUDGET_BYTES,
   validateCharacterSettings,
@@ -97,6 +104,7 @@ export type WorkerRequest =
   | Envelope<{ type: "setSource"; source: SourceUpload }>
   | Envelope<{ type: "setCalibration"; calibration: GlyphCalibrationV1 }>
   | Envelope<{ type: "setAtlas"; atlas: ReferenceCharacterAtlasV1 }>
+  | Envelope<StyleRenderRequest & { type: StyleRenderType }>
   | Envelope<CharactersRenderRequest & { type: CharactersRenderType }>
   | Envelope<RenderRequest & { type: "renderPreview" | "renderExport" }>
   | Envelope<RenderIdentity & { type: "cancel"; targetRequestId: string }>
@@ -104,6 +112,8 @@ export type WorkerRequest =
 export type WorkerResponse =
   | Envelope<{
       type: "ready";
+      styleProfileVersion?: 1 | null;
+      supportedStyleIds?: readonly InitialStyleId[];
       charactersProfileVersion?: 1 | null;
       charactersContextVersion?: 1 | null;
       charactersAtlasRetentionVersion?: 1 | null;
@@ -123,7 +133,11 @@ export type WorkerResponse =
   | Envelope<
       RenderIdentity & {
         type: "accepted";
-        operation: "renderPreview" | "renderExport" | CharactersRenderType;
+        operation:
+          | "renderPreview"
+          | "renderExport"
+          | CharactersRenderType
+          | StyleRenderType;
       }
     >
   | Envelope<
@@ -135,6 +149,7 @@ export type WorkerResponse =
       }
     >
   | Envelope<RenderResult & { type: "result" }>
+  | Envelope<StyleRenderResult & { type: "styleResult" }>
   | Envelope<CharactersRenderResult & { type: "charactersResult" }>
   | Envelope<RenderIdentity & { type: "cancelled" }>
   | Envelope<
@@ -248,6 +263,37 @@ export function validateWorkerRequest(value: unknown): WorkerRequest {
       version(record(m.calibration));
       contract(m.calibration, validateGlyphCalibration);
       break;
+    case "renderStylePreview":
+    case "renderStyleExport": {
+      exact(m, [
+        ...base,
+        ...identityKeys,
+        "source",
+        "styleId",
+        "settings",
+        "timeUs",
+        ...(m.type === "renderStyleExport"
+          ? ["outputWidth", "outputHeight"]
+          : []),
+      ]);
+      identity(m);
+      const src = record(m.source);
+      if (src.id !== m.sourceId || src.revision !== m.sourceRevision)
+        invalid("Style source identity mismatch");
+      const s = contract(m.settings, (v) =>
+        validateStyleSettings(v, m.source as SourceRef),
+      );
+      if (m.styleId !== s.styleId || m.timeUs !== s.timeUs)
+        invalid("Style request identity/time mismatch");
+      if (s.styleId === "braille" ? !m.calibrationId : m.calibrationId !== "")
+        invalid("Style resource identity mismatch");
+      if (
+        m.type === "renderStyleExport" &&
+        (m.outputWidth !== s.frameWidth || m.outputHeight !== s.frameHeight)
+      )
+        invalid("Style export dimensions mismatch");
+      break;
+    }
     case "renderCharactersPreview":
     case "renderCharactersExport": {
       exact(m, [
@@ -318,6 +364,8 @@ export function validateWorkerResponse(value: unknown): WorkerResponse {
     case "ready":
       exact(m, [
         ...base,
+        ...("styleProfileVersion" in m ? ["styleProfileVersion"] : []),
+        ...("supportedStyleIds" in m ? ["supportedStyleIds"] : []),
         ...("charactersProfileVersion" in m
           ? ["charactersProfileVersion"]
           : []),
@@ -328,6 +376,23 @@ export function validateWorkerResponse(value: unknown): WorkerResponse {
           ? ["charactersContextVersion"]
           : []),
       ]);
+      if (
+        "styleProfileVersion" in m &&
+        m.styleProfileVersion !== 1 &&
+        m.styleProfileVersion !== null
+      )
+        invalid("Invalid style capability");
+      if ("supportedStyleIds" in m) {
+        if (
+          !Array.isArray(m.supportedStyleIds) ||
+          m.supportedStyleIds.some(
+            (id) => !["braille", "pixel", "mosaic"].includes(id),
+          ) ||
+          new Set(m.supportedStyleIds).size !== m.supportedStyleIds.length ||
+          (m.supportedStyleIds.length > 0 && m.styleProfileVersion !== 1)
+        )
+          invalid("Invalid supported styles");
+      }
       for (const key of [
         "charactersProfileVersion",
         "charactersContextVersion",
@@ -361,7 +426,9 @@ export function validateWorkerResponse(value: unknown): WorkerResponse {
         m.operation === "renderPreview" ||
         m.operation === "renderExport" ||
         m.operation === "renderCharactersPreview" ||
-        m.operation === "renderCharactersExport"
+        m.operation === "renderCharactersExport" ||
+        m.operation === "renderStylePreview" ||
+        m.operation === "renderStyleExport"
       ) {
         exact(m, [...base, "operation", ...identityKeys]);
         identity(m);
@@ -378,12 +445,14 @@ export function validateWorkerResponse(value: unknown): WorkerResponse {
       exact(m, [...base, ...identityKeys]);
       identity(m);
       break;
+    case "styleResult":
     case "charactersResult":
     case "result": {
       exact(m, [
         ...base,
         ...identityKeys,
         m.type === "result" ? "grid" : "frame",
+        ...(m.type === "styleResult" ? ["styleId"] : []),
         "backend",
         "timings",
       ]);
@@ -391,7 +460,19 @@ export function validateWorkerResponse(value: unknown): WorkerResponse {
       if (m.backend !== "rust-cpu") invalid("Invalid backend");
       if (m.type === "result")
         contract(m.grid, (v) => validateGrid(v as PackedGlyphGrid));
-      else {
+      else if (m.type === "styleResult") {
+        if (!["braille", "pixel", "mosaic"].includes(m.styleId as string))
+          invalid("Invalid style result identity");
+        if (m.styleId === "braille" ? !m.calibrationId : m.calibrationId !== "")
+          invalid("Invalid style resource identity");
+        const f = record(m.frame);
+        contract(m.frame, (v) =>
+          validateStyleFrame(v, {
+            frameWidth: f.width,
+            frameHeight: f.height,
+          } as import("./style-contract").StyleSettingsV1),
+        );
+      } else {
         const f = record(m.frame);
         exact(f, ["version", "width", "height", "rgba", "grid"]);
         version(f);

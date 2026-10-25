@@ -113,6 +113,14 @@ function harness(
     active = new Set<number>();
   let next = 0;
   const engine: CharacterEngine = {
+    styleProfileVersion: null,
+    supportsStyle: () => false,
+    beginStyle: () => {
+      throw new Error("Style unavailable in legacy fixture");
+    },
+    takeStyleFrame: () => {
+      throw new Error("Style unavailable in legacy fixture");
+    },
     charactersProfileAvailable: true,
     charactersContextVersion: 1,
     charactersAtlasRetentionVersion: null,
