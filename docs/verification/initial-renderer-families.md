@@ -1,24 +1,73 @@
-# Initial renderer families: first raster acceptance slice
+# Task 19 thumbnail and hover verification
 
-Task 18 exposes the independently implemented Pixel Art and Mosaic profiles beside the existing Characters profile. This is an **initial Task 20 browser slice**, not completion of Task 20 or reference-output parity. Braille and every other catalog mode remain unavailable. The catalog keeps all 105 tile IDs, 96 mode IDs, ordering, search and favorites; availability is the intersection of a reviewed registry binding and the current negotiated worker capability. The production source requests a module worker, while the accepted webpack build emits a classic worker artifact; the tests exercised that emitted artifact.
+The current-source catalog requests actual Characters, Pixel Art, and Mosaic
+profiles through the single production Worker/WASM session. Only reviewed
+bindings intersected with current service capability may request thumbnails.
+Inactive looks use registry defaults; the selected look uses its current
+validated settings. Rust renders the full source-scale profile and performs
+the 192-pixel-longest-side conversion. The JavaScript path does no numerical
+resize.
 
-| Profile | Binding | Browser evidence | Open acceptance |
-| --- | --- | --- | --- |
-| Characters | Rust CPU dispatch 1, existing version gates | Existing production regression and Task 18 style/history transitions | Full reference behavior, visual equivalence |
-| Pixel Art | Rust CPU dispatch 10 | Built Worker/WASM 17×13 RGBA, `/app` selection, Brightness pixel change, undo/redo, full-frame PNG and JPEG signature/dimensions | More source fixtures, alpha/matte/scale comparisons, resource/performance extent, human visual reference comparison |
-| Mosaic | Rust CPU dispatch 11 | Built Worker/WASM 17×13 RGBA, `/app` selection, Tile Shape pixel change, cross-style history, full-frame PNG and JPEG signature/dimensions | More source fixtures, alpha/matte/scale comparisons, resource/performance extent, human visual reference comparison |
-| Braille | Null binding, dispatch 0 | Unavailable tile remains disabled | Numerical and browser admission/controls |
+The scheduler admits one native job and at most six pending requests. Exact
+keys include source ID/revision, style, canonical settings, seed, time,
+output dimensions, and atlas identity. It coalesces identical requests and
+retains at most 24 frames and 4 MiB of actual ArrayBuffer capacity, evicting
+least recently used frames. Source, settings, capability, resource changes,
+and retirement invalidate cached work. An aborted active request remains
+reserved until the worker sends its terminal result or the worker is retired.
 
-The raster controls are Cell Size (established step 1), Brightness, Contrast, Invert Mapping and Opacity; Mosaic adds Tile Shape square/wide/tall. Brightness/Contrast/Opacity UI step 0.1 is a local interaction precision choice, not a captured reference step. Advanced raster controls are explicitly unavailable. Characters keeps its existing Font Size/Character Set and brightness/contrast behavior. Selection retains the Color group when applicable and shares canonical controller state between desktop dock and compact sheets.
+Hover paints a separate bounded canvas over the stage. It does not publish
+to the accepted frame or controller project/history. Pointer leave, focus
+loss, source/style changes, capability loss, and disposal clear it. Touch
+still selects a style directly. PNG/JPEG exports capture the canonical
+project and accepted pipeline, including while hover is displayed.
 
-## Executed verification
+## Ownership and 1000×1000 observation
 
-- Before binding activation, `ASCIIMORPH_E2E_PRODUCTION=1 npx playwright test tests/e2e/initial-renderer-families.spec.ts --project=desktop` failed on the disabled Pixel Art catalog button **after** the test directly drove both Pixel and Mosaic through the built production Worker/WASM: ready capability, source upload and 17×13 RGBA readback.
-- After activation, the production spec passed three scenarios each on desktop Chromium, Firefox, WebKit and iPhone 13 Chromium. The first four-project matrix was 11/12 because the mobile history test expected an open Controls sheet after Menu closed it; the corrected test passed 3/3 on mobile. This was a test visibility assumption, not a renderer failure.
-- Fresh Task 18 review required two corrections. Idle worker error/recovery now publishes a distinct external-store snapshot with `capabilityRevision`; a real service/React subscriber test verifies the catalog capability can drop and return without a forced rerender. The control browser test now waits for the accepted selected-style/current-revision Worker result before capturing Pixel and Mosaic default frames; it compares Brightness to Pixel baseline, Tile Shape wide to Mosaic square, and undo to Mosaic square. Temporarily disabling the Brightness callback caused this strengthened production test to fail at the expected missing newer result; restoring it returned the test to GREEN.
-- An explicit Chromium layout test passed at 1440×900, 1920×1080, 1024×768 coarse touch tablet and 780×900 fine narrow. It selected Mosaic, edited Tile Shape, verified the full 17×13 frame and compact sheet focus/state retention. Screenshots were visually inspected from Playwright output. The 1440/1920 desktop dock and tablet/narrow sheets show all raster controls; the initial screenshot revealed crowded Invert Mapping status text, corrected in scoped CSS afterward.
-- After both review fixes, the production browser matrix passed 16/16 across desktop Chromium, Firefox, WebKit and mobile Chromium. The final restored source passed the complete JavaScript suite: 777 tests, one existing skip. The final production Next build (including TypeScript) and scoped ESLint passed. Independent scoped re-review approved specification and quality with both P2 findings addressed and no new blocking findings. No native source or WASM artifact changed in this slice.
+Before starting native work, the runtime checks the existing 256 MiB combined
+policy with three retained source copies, actual accepted/staged/captured and
+cached frame backings, atlas originals/snapshots/selected/in-flight copies,
+all retained canvas capacities, and the full source-scale native profile plus
+conversion/readback reservation. Canvas paint separately admits its next
+backing before changing canvas dimensions. The source decoder's separate
+192 MiB source-pipeline policy also reads these held bytes. The native 256 MiB
+session policy remains in force.
 
-## Remaining Task 20 work
+For the original 1000×1000 source, the final built `/app` run measured mounted
+canvas capacity **8,147,456 bytes**: 4,000,000 each for the selected stage
+and original comparison, plus 147,456 for the completed visible Pixel tile.
+An earlier run sampled after Mosaic also completed and measured **8,294,912
+bytes** with two tile canvases. The selected 1000-square RGBA frame contributes
+at least 4,000,000 bytes; one or two cached thumbnails contribute 147,456 or
+294,912 bytes respectively; three
+conservatively charged source copies contribute 12,000,000 bytes. An active
+1000-square raster thumbnail reserves **53,626,112 bytes** for its full
+52-byte-per-pixel profile policy, 44-byte-per-thumbnail-pixel
+conversion/readback/canvas peak, and 4096 bytes overhead. Those named owners
+sum to **77,921,024–78,215,936 bytes** for the one/two-tile samples before variable measured atlas/grid resources and
+any other live outputs. The check uses actual backing capacities at runtime,
+not this example sum. Task 19a's actual WASM fixture observed **45,481,984
+bytes** of linear-memory allocator capacity after the full 1000-square frame,
+unchanged by thumbnail conversion. Allocator capacity is distinct from the
+conservative combined-owner reservation and must not be added as another
+independent source copy.
 
-Portrait, transparency, diagonal-edge, flat-color and grayscale-ramp production browser fixtures; normalized 2× preview/export comparison; explicit PNG alpha/JPEG black matte; export during style/atlas change; denied admission, font fallback, worker failure/retry; rapid upload/style races and route unmount/remount; measured 512², 1000², 1920×1080, portrait and 4K admission; cold/warm timing and peak ownership; and human reference comparison are still open. No GPU, p95, 4K success, complete-reference or all-family parity claim follows from this slice.
+Production Playwright acceptance is in `tests/e2e/thumbnails.spec.ts`. It
+checks distinct actual Worker/WASM result styles and current-source pixels,
+hover/restore and stale rejection, changed source/selected parameter pixels,
+canonical PNG pixels and JPEG dimensions during hover, touch selection,
+desktop/Firefox/WebKit/mobile paths, and coarse-tablet/fine-narrow layouts.
+The 1000-square run verifies bounded 192-square tiles and reports canvas
+capacities. The full-source render is intentionally idle work; these tests
+make no latency, GPU, or reference-parity claim.
+
+Task 19 review closure: coalesced callers abort independently, and the last
+live caller cancels shared native work while its reservation lasts through
+terminal settlement. Budget-denied work releases its input owner. Translucent
+hover hides the accepted canvas visually while retaining its backing; an
+alpha-128 production browser fixture checks isolated composition, detects the
+incorrect stacked control, verifies canonical PNG export, and restores the
+selected frame. Independent scoped review approved both fix rounds. Final
+unit verification: **809 passed, one existing skip**; focused TypeScript/lint
+and production build passed. The browser evidence above remains scoped to
+these profiles and does not establish full-site parity.

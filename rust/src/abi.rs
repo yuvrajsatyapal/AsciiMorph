@@ -153,3 +153,11 @@ pub extern "C" fn render_style_supported(dispatch_id: u32) -> u32 {
 pub extern "C" fn render_begin_style_v1(h: u32, ptr: u32, len: u32) -> u32 {
     with(h, |s| s.begin_style_staged(ptr as usize, len as usize))
 }
+#[no_mangle]
+pub extern "C" fn render_thumbnail_profile_version() -> u32 {
+    1
+}
+#[no_mangle]
+pub extern "C" fn render_frame_thumbnail_v1(h: u32, job: u32, max_side: u32) -> u32 {
+    with(h, |s| s.frame_thumbnail(job, max_side).map(|_| 1))
+}

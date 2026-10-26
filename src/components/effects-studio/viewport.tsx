@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import { DEFAULT_MEMORY_BUDGET_BYTES } from "@/render/character-contract";
 import type { StudioSnapshot } from "./controller";
 import type { StudioRuntime } from "./runtime";
@@ -59,16 +59,21 @@ export function StudioViewport({
   onPaintError?: (reason: unknown) => void;
 }) {
   const output = useRef<HTMLCanvasElement>(null),
-    source = useRef<HTMLCanvasElement>(null);
+    source = useRef<HTMLCanvasElement>(null),
+    hover = useRef<HTMLCanvasElement>(null);
+  const hoverRevision = useSyncExternalStore(runtime.subscribe, runtime.getHoverRevision, () => 0);
   useEffect(() => {
     const a = output.current!,
       b = source.current!;
+    const c = hover.current!;
     const releaseA = runtime.retainCanvas(a),
-      releaseB = runtime.retainCanvas(b);
+      releaseB = runtime.retainCanvas(b),
+      releaseC = runtime.retainCanvas(c);
     return () => {
-      a.width = a.height = b.width = b.height = 0;
+      a.width = a.height = b.width = b.height = c.width = c.height = 0;
       releaseA();
       releaseB();
+      releaseC();
     };
   }, [runtime]);
   useEffect(() => {
@@ -84,6 +89,17 @@ export function StudioViewport({
       onPaintError(reason);
     }
   }, [runtime, snapshot.frame, snapshot.project.source, onPaintError]);
+  useEffect(() => {
+    const target = hover.current!;
+    try {
+      const frame = runtime.getHoverFrame();
+      if (frame) {
+        runtime.admitThumbnailPaint(target, frame);
+        paintStudioFrame(target, frame);
+      }
+      else target.width = target.height = 0;
+    } catch (reason) { onPaintError(reason); }
+  }, [runtime, hoverRevision, onPaintError]);
   const style = {
     position: "absolute" as const,
     inset: 0,
@@ -91,6 +107,7 @@ export function StudioViewport({
     height: "100%",
     objectFit: "contain" as const,
   };
+  const showHover = !!runtime.getHoverFrame() && !snapshot.view.compare;
   return (
     <div
       className={className}
@@ -114,8 +131,17 @@ export function StudioViewport({
           aria-label="Rendered Characters preview"
           style={{
             ...style,
-            visibility: snapshot.view.compare ? "hidden" : "visible",
+            visibility: snapshot.view.compare || showHover ? "hidden" : "visible",
           }}
+        />
+        <canvas
+          ref={hover}
+          width={0}
+          height={0}
+          aria-label="Transient style hover preview"
+          aria-hidden={!showHover}
+          style={{ ...style, pointerEvents: "none", visibility:
+            showHover ? "visible" : "hidden" }}
         />
         <canvas
           ref={source}

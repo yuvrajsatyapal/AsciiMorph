@@ -1,4 +1,9 @@
-import { validateStyleSettings, validateStyleFrame } from "./style-contract";
+import {
+  validateStyleSettings,
+  validateStyleFrame,
+  type StyleSettingsV1,
+  type RgbaFrameV1,
+} from "./style-contract";
 import type {
   InitialStyleId,
   StyleRenderRequest,
@@ -98,6 +103,20 @@ export interface RenderResult extends RenderIdentity {
   backend: "rust-cpu";
   timings: RenderTimings;
 }
+export interface ThumbnailRenderRequest extends RenderIdentity {
+  source: SourceRef;
+  profile:
+    | { kind: "characters"; settings: ReferenceCharactersSettingsV1 }
+    | { kind: "style"; settings: StyleSettingsV1 };
+  timeUs: number;
+  maxSide: number;
+}
+export interface ThumbnailRenderResult extends RenderIdentity {
+  styleId: "characters" | InitialStyleId;
+  frame: RgbaFrameV1;
+  backend: "rust-cpu";
+  timings: RenderTimings;
+}
 type Envelope<T> = RenderMessageEnvelope & T;
 export type WorkerRequest =
   | Envelope<{ type: "initialize"; memoryBudgetBytes: number }>
@@ -105,6 +124,7 @@ export type WorkerRequest =
   | Envelope<{ type: "setCalibration"; calibration: GlyphCalibrationV1 }>
   | Envelope<{ type: "setAtlas"; atlas: ReferenceCharacterAtlasV1 }>
   | Envelope<StyleRenderRequest & { type: StyleRenderType }>
+  | Envelope<ThumbnailRenderRequest & { type: "renderThumbnail" }>
   | Envelope<CharactersRenderRequest & { type: CharactersRenderType }>
   | Envelope<RenderRequest & { type: "renderPreview" | "renderExport" }>
   | Envelope<RenderIdentity & { type: "cancel"; targetRequestId: string }>
@@ -117,6 +137,7 @@ export type WorkerResponse =
       charactersProfileVersion?: 1 | null;
       charactersContextVersion?: 1 | null;
       charactersAtlasRetentionVersion?: 1 | null;
+      thumbnailProfileVersion?: 1 | null;
     }>
   | Envelope<{ type: "disposed" }>
   | Envelope<{
@@ -137,7 +158,8 @@ export type WorkerResponse =
           | "renderPreview"
           | "renderExport"
           | CharactersRenderType
-          | StyleRenderType;
+          | StyleRenderType
+          | "renderThumbnail";
       }
     >
   | Envelope<
@@ -150,6 +172,7 @@ export type WorkerResponse =
     >
   | Envelope<RenderResult & { type: "result" }>
   | Envelope<StyleRenderResult & { type: "styleResult" }>
+  | Envelope<ThumbnailRenderResult & { type: "thumbnailResult" }>
   | Envelope<CharactersRenderResult & { type: "charactersResult" }>
   | Envelope<RenderIdentity & { type: "cancelled" }>
   | Envelope<
@@ -294,6 +317,42 @@ export function validateWorkerRequest(value: unknown): WorkerRequest {
         invalid("Style export dimensions mismatch");
       break;
     }
+    case "renderThumbnail": {
+      exact(m, [
+        ...base,
+        ...identityKeys,
+        "source",
+        "profile",
+        "timeUs",
+        "maxSide",
+      ]);
+      identity(m);
+      integer(m.maxSide, 192, 1);
+      integer(m.timeUs);
+      const src = record(m.source);
+      if (src.id !== m.sourceId || src.revision !== m.sourceRevision)
+        invalid("Thumbnail source identity mismatch");
+      const profile = record(m.profile);
+      exact(profile, ["kind", "settings"]);
+      if (profile.kind === "style") {
+        const s = contract(profile.settings, (v) =>
+          validateStyleSettings(v, m.source as SourceRef),
+        );
+        if (
+          s.renderScale !== 1 ||
+          s.timeUs !== m.timeUs ||
+          (s.styleId === "braille" ? !m.calibrationId : m.calibrationId !== "")
+        )
+          invalid("Thumbnail style identity or scale mismatch");
+      } else if (profile.kind === "characters") {
+        const s = contract(profile.settings, (v) =>
+          validateReferenceCharactersSettings(v, m.source as SourceRef),
+        );
+        if (s.renderScale !== 1 || !m.calibrationId)
+          invalid("Thumbnail Characters identity or scale mismatch");
+      } else invalid("Unknown thumbnail profile");
+      break;
+    }
     case "renderCharactersPreview":
     case "renderCharactersExport": {
       exact(m, [
@@ -375,6 +434,7 @@ export function validateWorkerResponse(value: unknown): WorkerResponse {
         ...("charactersContextVersion" in m
           ? ["charactersContextVersion"]
           : []),
+        ...("thumbnailProfileVersion" in m ? ["thumbnailProfileVersion"] : []),
       ]);
       if (
         "styleProfileVersion" in m &&
@@ -407,6 +467,12 @@ export function validateWorkerResponse(value: unknown): WorkerResponse {
         invalid("Atlas retention requires profile version1");
       if (m.charactersContextVersion === 1 && m.charactersProfileVersion !== 1)
         invalid("Complete context requires profile version1");
+      if (
+        "thumbnailProfileVersion" in m &&
+        m.thumbnailProfileVersion !== null &&
+        m.thumbnailProfileVersion !== 1
+      )
+        invalid("Invalid thumbnail capability");
       break;
     case "disposed":
       exact(m, base);
@@ -428,7 +494,8 @@ export function validateWorkerResponse(value: unknown): WorkerResponse {
         m.operation === "renderCharactersPreview" ||
         m.operation === "renderCharactersExport" ||
         m.operation === "renderStylePreview" ||
-        m.operation === "renderStyleExport"
+        m.operation === "renderStyleExport" ||
+        m.operation === "renderThumbnail"
       ) {
         exact(m, [...base, "operation", ...identityKeys]);
         identity(m);
@@ -445,6 +512,7 @@ export function validateWorkerResponse(value: unknown): WorkerResponse {
       exact(m, [...base, ...identityKeys]);
       identity(m);
       break;
+    case "thumbnailResult":
     case "styleResult":
     case "charactersResult":
     case "result": {
@@ -452,7 +520,9 @@ export function validateWorkerResponse(value: unknown): WorkerResponse {
         ...base,
         ...identityKeys,
         m.type === "result" ? "grid" : "frame",
-        ...(m.type === "styleResult" ? ["styleId"] : []),
+        ...(m.type === "styleResult" || m.type === "thumbnailResult"
+          ? ["styleId"]
+          : []),
         "backend",
         "timings",
       ]);
@@ -460,7 +530,30 @@ export function validateWorkerResponse(value: unknown): WorkerResponse {
       if (m.backend !== "rust-cpu") invalid("Invalid backend");
       if (m.type === "result")
         contract(m.grid, (v) => validateGrid(v as PackedGlyphGrid));
-      else if (m.type === "styleResult") {
+      else if (m.type === "thumbnailResult") {
+        if (
+          !["characters", "braille", "pixel", "mosaic"].includes(
+            m.styleId as string,
+          )
+        )
+          invalid("Invalid thumbnail style identity");
+        if (
+          m.styleId === "characters" || m.styleId === "braille"
+            ? !m.calibrationId
+            : m.calibrationId !== ""
+        )
+          invalid("Invalid thumbnail resource identity");
+        const f = record(m.frame);
+        exact(f, ["version", "width", "height", "rgba"]);
+        version(f);
+        integer(f.width, 192, 1);
+        integer(f.height, 192, 1);
+        if (
+          !(f.rgba instanceof Uint8Array) ||
+          f.rgba.length !== (f.width as number) * (f.height as number) * 4
+        )
+          invalid("Invalid thumbnail frame");
+      } else if (m.type === "styleResult") {
         if (!["braille", "pixel", "mosaic"].includes(m.styleId as string))
           invalid("Invalid style result identity");
         if (m.styleId === "braille" ? !m.calibrationId : m.calibrationId !== "")

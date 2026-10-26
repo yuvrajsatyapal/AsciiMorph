@@ -86,6 +86,13 @@ class TestWorker {
   next = 0;
   counts = new Map<number, number>();
   engine: CharacterEngine = {
+    thumbnailProfileVersion: null,
+    beginThumbnail: () => {
+      throw new Error("Thumbnail unavailable in legacy fixture");
+    },
+    takeThumbnail: () => {
+      throw new Error("Thumbnail unavailable in legacy fixture");
+    },
     styleProfileVersion: null,
     supportsStyle: () => false,
     beginStyle: () => {

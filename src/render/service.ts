@@ -30,6 +30,8 @@ import {
   type RenderResult,
   type WorkerRequest,
   type WorkerResponse,
+  type ThumbnailRenderRequest,
+  type ThumbnailRenderResult,
 } from "./protocol";
 
 import {
@@ -65,6 +67,16 @@ export interface RenderService {
   }>;
   readonly styleProfileVersion: 1 | null;
   readonly supportedStyleIds: readonly InitialStyleId[];
+  readonly thumbnailProfileVersion: 1 | null;
+  /** A submitted native thumbnail retains its budget until terminal reply. */
+  readonly thumbnailResourceUsage: Readonly<{ inFlight: boolean }>;
+  /** Includes callers waiting for input admission, not only worker jobs. */
+  readonly highPriorityBusy: boolean;
+  renderThumbnail(
+    request: ThumbnailRenderRequest,
+    signal?: AbortSignal,
+    capturedAtlas?: ReferenceCharacterAtlasV1,
+  ): Promise<ThumbnailRenderResult>;
   renderStylePreview(
     request: StyleRenderRequest,
     signal?: AbortSignal,
@@ -112,6 +124,7 @@ interface Waiter {
   resolve(response: WorkerResponse): void;
   reject(error: RenderError): void;
   cleanup(): void;
+  aborted?: boolean;
 }
 interface Connection {
   worker: Worker;
@@ -148,6 +161,7 @@ export function createRenderService(
     for (const listener of statusListeners) listener();
   };
   let styleProfileVersion: 1 | null = null;
+  let thumbnailProfileVersion: 1 | null = null;
   let supportedStyleIds: readonly InitialStyleId[] = Object.freeze([]);
   let charactersProfileVersion: 1 | null = null;
   let charactersContextVersion: 1 | null = null;
@@ -210,6 +224,13 @@ export function createRenderService(
   // Keep lane identity through local abort until the worker's terminal response.
   // This lets late unsupported-style errors remain recoverable.
   const styleRequests = new Set<string>();
+  const thumbnailRequests = new Set<string>();
+  let highPriorityRequests = 0;
+  async function highPriority<T>(work: () => Promise<T>): Promise<T> {
+    highPriorityRequests++;
+    try { return await work(); }
+    finally { highPriorityRequests--; }
+  }
   const envelope = () => ({
     version: 1 as const,
     requestId: String(++counter),
@@ -234,6 +255,7 @@ export function createRenderService(
   }
   function detach() {
     styleRequests.clear();
+    thumbnailRequests.clear();
     inFlightAtlases.clear();
     pendingAtlasInputs.clear();
     const current = connection;
@@ -270,6 +292,7 @@ export function createRenderService(
       [
         "charactersResult",
         "styleResult",
+        "thumbnailResult",
         "result",
         "cancelled",
         "error",
@@ -277,6 +300,8 @@ export function createRenderService(
       ].includes(response.type)
     )
       inFlightAtlases.delete(response.requestId);
+    if (["thumbnailResult", "cancelled", "error"].includes(response.type))
+      thumbnailRequests.delete(response.requestId);
     // Fatal errors belong to this connection, even after a local abort removed
     // their waiter. The listener already rejected stale worker generations.
     if (
@@ -294,11 +319,22 @@ export function createRenderService(
       );
       return;
     }
-    if (["error", "cancelled", "styleResult"].includes(response.type))
+    if (
+      ["error", "cancelled", "styleResult", "thumbnailResult"].includes(
+        response.type,
+      )
+    )
       styleRequests.delete(response.requestId);
     const waiter = waiters.get(response.requestId);
     if (!waiter) return;
     const request = waiter.message;
+    if (
+      waiter.aborted &&
+      ["thumbnailResult", "cancelled", "error"].includes(response.type)
+    ) {
+      settle(response.requestId, new RenderError("Cancelled", "Render cancelled"));
+      return;
+    }
     if ("jobId" in request) {
       if (
         !("jobId" in response) ||
@@ -345,7 +381,8 @@ export function createRenderService(
         request.type === "renderCharactersPreview" ||
         request.type === "renderCharactersExport" ||
         request.type === "renderStylePreview" ||
-        request.type === "renderStyleExport") &&
+        request.type === "renderStyleExport" ||
+        request.type === "renderThumbnail") &&
       response.type === "cancelled"
     )
       settle(
@@ -353,6 +390,28 @@ export function createRenderService(
         new RenderError("Cancelled", "Render cancelled"),
       );
     else if (
+      request.type === "renderThumbnail" &&
+      response.type === "thumbnailResult"
+    ) {
+      const expectedStyle =
+        request.profile.kind === "characters"
+          ? "characters"
+          : request.profile.settings.styleId;
+      if (
+        response.styleId !== expectedStyle ||
+        response.frame.width > request.maxSide ||
+        response.frame.height > request.maxSide
+      ) {
+        fail(
+          new RenderError(
+            "WorkerFailure",
+            "Thumbnail result identity or size mismatch",
+          ),
+        );
+        return;
+      }
+      settle(response.requestId, undefined, response);
+    } else if (
       (request.type === "renderStylePreview" ||
         request.type === "renderStyleExport") &&
       response.type === "styleResult"
@@ -450,10 +509,15 @@ export function createRenderService(
       return Promise.reject(new RenderError("Cancelled", "Render cancelled"));
     return new Promise((resolve, reject) => {
       const abort = () => {
-        settle(
-          message.requestId,
-          new RenderError("Cancelled", "Render cancelled"),
-        );
+        if (message.type === "renderThumbnail") {
+          const waiter = waiters.get(message.requestId);
+          if (waiter) waiter.aborted = true;
+        } else {
+          settle(
+            message.requestId,
+            new RenderError("Cancelled", "Render cancelled"),
+          );
+        }
         if (connection !== current || !("jobId" in message)) return;
         try {
           current.worker.postMessage({
@@ -473,10 +537,17 @@ export function createRenderService(
         message.type === "renderStyleExport"
       )
         styleRequests.add(message.requestId);
+      if (message.type === "renderThumbnail")
+        styleRequests.add(message.requestId);
+      if (message.type === "renderThumbnail")
+        thumbnailRequests.add(message.requestId);
       waiters.set(message.requestId, {
         message,
         ...(message.type === "renderCharactersPreview" ||
         message.type === "renderCharactersExport" ||
+        (message.type === "renderThumbnail" &&
+          (message.profile.kind === "characters" ||
+            message.profile.settings.styleId === "braille")) ||
         ((message.type === "renderStylePreview" ||
           message.type === "renderStyleExport") &&
           message.settings.styleId === "braille")
@@ -489,6 +560,9 @@ export function createRenderService(
       if (
         (message.type === "renderCharactersPreview" ||
           message.type === "renderCharactersExport" ||
+          (message.type === "renderThumbnail" &&
+            (message.profile.kind === "characters" ||
+              message.profile.settings.styleId === "braille")) ||
           ((message.type === "renderStylePreview" ||
             message.type === "renderStyleExport") &&
             message.settings.styleId === "braille")) &&
@@ -540,6 +614,7 @@ export function createRenderService(
       state = "initializing";
       notifyStatus();
       styleProfileVersion = null;
+      thumbnailProfileVersion = null;
       supportedStyleIds = Object.freeze([]);
       charactersProfileVersion = null;
       charactersContextVersion = null;
@@ -573,6 +648,7 @@ export function createRenderService(
         if (ready.type !== "ready")
           throw new RenderError("WorkerFailure", "Worker did not initialize");
         styleProfileVersion = ready.styleProfileVersion ?? null;
+        thumbnailProfileVersion = ready.thumbnailProfileVersion ?? null;
         supportedStyleIds = Object.freeze([...(ready.supportedStyleIds ?? [])]);
         charactersProfileVersion = ready.charactersProfileVersion ?? null;
         charactersContextVersion = ready.charactersContextVersion ?? null;
@@ -837,6 +913,122 @@ export function createRenderService(
       releasePendingAtlas?.();
     }
   }
+  async function renderThumbnail(
+    request: ThumbnailRenderRequest,
+    signal?: AbortSignal,
+    capturedAtlas?: ReferenceCharacterAtlasV1,
+  ): Promise<ThumbnailRenderResult> {
+    alive();
+    const message = {
+      ...envelope(),
+      ...request,
+      type: "renderThumbnail" as const,
+      source: { ...request.source },
+      profile:
+        request.profile.kind === "characters"
+          ? {
+              kind: "characters" as const,
+              settings: {
+                ...request.profile.settings,
+                crop: { ...request.profile.settings.crop },
+              },
+            }
+          : {
+              kind: "style" as const,
+              settings: {
+                ...request.profile.settings,
+                crop: { ...request.profile.settings.crop },
+                parameters: { ...request.profile.settings.parameters },
+              },
+            },
+    };
+    validateWorkerRequest(message);
+    const needsAtlas =
+      message.profile.kind === "characters" ||
+      message.profile.settings.styleId === "braille";
+    if (!needsAtlas && capturedAtlas)
+      throw new RenderError(
+        "InvalidInput",
+        "Raster thumbnail cannot capture atlas",
+      );
+    const capture =
+      needsAtlas && capturedAtlas ? snapshotAtlas(capturedAtlas) : undefined;
+    const releasePendingAtlas = capture ? pendingAtlas(capture) : undefined;
+    try {
+      const { response: pending } = await enqueueInput(async () => {
+        if (highPriorityRequests)
+          throw new RenderError("Cancelled", "Higher-priority render is queued");
+        await initialize();
+        if (thumbnailProfileVersion !== 1)
+          throw new RenderError(
+            "CapabilityUnavailable",
+            "Native thumbnail conversion is unavailable",
+          );
+        if (
+          !retainedSource ||
+          retainedSource.id !== message.sourceId ||
+          retainedSource.revision !== message.sourceRevision
+        )
+          throw new RenderError(
+            "MissingSource",
+            "Thumbnail source is not retained",
+          );
+        if (
+          retainedSource.width !== message.source.width ||
+          retainedSource.height !== message.source.height
+        )
+          throw new RenderError(
+            "InvalidInput",
+            "Thumbnail source geometry mismatch",
+          );
+        const styleId =
+          message.profile.kind === "characters"
+            ? "characters"
+            : message.profile.settings.styleId;
+        if (
+          styleId === "characters"
+            ? charactersProfileVersion !== 1
+            : styleProfileVersion !== 1 || !supportedStyleIds.includes(styleId)
+        )
+          throw new RenderError(
+            "CapabilityUnavailable",
+            "Thumbnail profile is unavailable",
+          );
+        const exactAtlas = capture ?? retainedAtlas;
+        if (
+          needsAtlas &&
+          (!exactAtlas || exactAtlas.calibration.id !== message.calibrationId)
+        )
+          throw new RenderError(
+            "MissingCalibration",
+            "Thumbnail requires exact atlas",
+          );
+        if (message.profile.kind === "style")
+          encodeStyleSettings(
+            message.profile.settings,
+            message.source,
+            needsAtlas ? exactAtlas : undefined,
+          );
+        if (capture) await selectAtlas(capture);
+        return { response: send(message, [], signal) };
+      });
+      const response = await pending;
+      if (response.type !== "thumbnailResult")
+        throw new RenderError(
+          "WorkerFailure",
+          "Worker did not return thumbnail",
+        );
+      return {
+        ...renderIdentity(response),
+        styleId: response.styleId,
+        frame: response.frame,
+        backend: response.backend,
+        timings: response.timings,
+      };
+    } finally {
+      releasePendingAtlas?.();
+    }
+  }
   async function selectAtlas(atlas: ReferenceCharacterAtlasV1): Promise<void> {
     await initialize();
     if (retainedAtlas?.calibration.id === atlas.calibration.id) {
@@ -883,13 +1075,23 @@ export function createRenderService(
     get styleProfileVersion() {
       return state === "ready" ? styleProfileVersion : null;
     },
+    get thumbnailProfileVersion() {
+      return state === "ready" ? thumbnailProfileVersion : null;
+    },
+    get thumbnailResourceUsage() {
+      return { inFlight: thumbnailRequests.size > 0 };
+    },
+    get highPriorityBusy() {
+      return highPriorityRequests > 0;
+    },
+    renderThumbnail,
     get supportedStyleIds() {
       return state === "ready" ? supportedStyleIds : Object.freeze([]);
     },
     renderStylePreview: (request, signal, atlas) =>
-      renderStyle("renderStylePreview", request, signal, atlas),
+      highPriority(() => renderStyle("renderStylePreview", request, signal, atlas)),
     renderStyleExport: (request, signal, atlas) =>
-      renderStyle("renderStyleExport", request, signal, atlas),
+      highPriority(() => renderStyle("renderStyleExport", request, signal, atlas)),
     get charactersProfileVersion() {
       return state === "ready" ? charactersProfileVersion : null;
     },
@@ -990,12 +1192,12 @@ export function createRenderService(
       );
     },
     renderCharactersPreview: (request, signal, atlas) =>
-      renderCharacters("renderCharactersPreview", request, signal, atlas),
+      highPriority(() => renderCharacters("renderCharactersPreview", request, signal, atlas)),
     renderCharactersExport: (request, signal, atlas) =>
-      renderCharacters("renderCharactersExport", request, signal, atlas),
+      highPriority(() => renderCharacters("renderCharactersExport", request, signal, atlas)),
     renderPreview: (request, signal) =>
-      render("renderPreview", request, signal),
-    renderExport: (request, signal) => render("renderExport", request, signal),
+      highPriority(() => render("renderPreview", request, signal)),
+    renderExport: (request, signal) => highPriority(() => render("renderExport", request, signal)),
     async dispose() {
       if (state === "disposed") return;
       state = "disposed";

@@ -62,6 +62,72 @@ struct RetainedJob {
     output_bytes: usize,
     uses_calibration: bool,
     reserved_bytes: usize,
+    thumbnail: Option<ThumbnailJob>,
+    is_thumbnail: bool,
+    frame_rgba_offset: usize,
+}
+struct ThumbnailJob {
+    source_width: usize,
+    source_height: usize,
+    source_offset: usize,
+    width: usize,
+    height: usize,
+    cursor: usize,
+    finish_cursor: usize,
+    accum: Vec<[f64; 4]>,
+    wire: Vec<u8>,
+}
+impl ThumbnailJob {
+    fn storage_bytes(&self) -> usize {
+        self.accum.capacity() * std::mem::size_of::<[f64; 4]>() + self.wire.capacity()
+    }
+    fn step(&mut self, source: &[u8], work: u32) -> bool {
+        let mut left = work as usize;
+        let total = self.source_width * self.source_height;
+        while left > 0 && self.cursor < total {
+            let x = self.cursor % self.source_width;
+            let y = self.cursor / self.source_width;
+            let pixel = self.source_offset + self.cursor * 4;
+            let alpha = source[pixel + 3] as f64 / 255.;
+            let first_x = x * self.width / self.source_width;
+            let last_x = ((x + 1) * self.width - 1) / self.source_width;
+            let first_y = y * self.height / self.source_height;
+            let last_y = ((y + 1) * self.height - 1) / self.source_height;
+            for dy in first_y..=last_y {
+                let top = (dy * self.source_height) as f64 / self.height as f64;
+                let bottom = ((dy + 1) * self.source_height) as f64 / self.height as f64;
+                let wy = ((y + 1) as f64).min(bottom) - (y as f64).max(top);
+                for dx in first_x..=last_x {
+                    let left_edge = (dx * self.source_width) as f64 / self.width as f64;
+                    let right = ((dx + 1) * self.source_width) as f64 / self.width as f64;
+                    let wx = ((x + 1) as f64).min(right) - (x as f64).max(left_edge);
+                    let weight = wx * wy * alpha;
+                    let a = &mut self.accum[dy * self.width + dx];
+                    for c in 0..3 {
+                        a[c] += source[pixel + c] as f64 * weight;
+                    }
+                    a[3] += weight;
+                }
+            }
+            self.cursor += 1;
+            left -= 1;
+        }
+        let area =
+            (self.source_width * self.source_height) as f64 / (self.width * self.height) as f64;
+        while left > 0 && self.cursor == total && self.finish_cursor < self.accum.len() {
+            let a = self.accum[self.finish_cursor];
+            let offset = 16 + self.finish_cursor * 4;
+            if a[3] > 0. {
+                for c in 0..3 {
+                    self.wire[offset + c] = (a[c] / a[3]).round().clamp(0., 255.) as u8;
+                }
+            }
+            self.wire[offset + 3] = (255. * a[3] / area).round().clamp(0., 255.) as u8;
+            self.finish_cursor += 1;
+            left -= 1;
+        }
+        self.finish_cursor == self.accum.len()
+    }
 }
 pub struct RenderSession {
     budget: usize,
@@ -95,7 +161,11 @@ impl RenderSession {
             + self
                 .jobs
                 .values()
-                .map(|j| j.numeric.as_ref().map_or(0, |v| v.storage_bytes()) + j.output.capacity())
+                .map(|j| {
+                    j.numeric.as_ref().map_or(0, |v| v.storage_bytes())
+                        + j.output.capacity()
+                        + j.thumbnail.as_ref().map_or(0, ThumbnailJob::storage_bytes)
+                })
                 .sum::<usize>()
     }
     // At most current plus two active captures. Count actual allocations once, never
@@ -143,8 +213,9 @@ impl RenderSession {
                 .jobs
                 .values()
                 .map(|j| {
-                    let actual =
-                        j.numeric.as_ref().map_or(0, |v| v.storage_bytes()) + j.output.capacity();
+                    let actual = j.numeric.as_ref().map_or(0, |v| v.storage_bytes())
+                        + j.output.capacity()
+                        + j.thumbnail.as_ref().map_or(0, ThumbnailJob::storage_bytes);
                     j.reserved_bytes.saturating_sub(actual)
                 })
                 .sum::<usize>()
@@ -361,6 +432,9 @@ impl RenderSession {
                 output_bytes,
                 uses_calibration,
                 reserved_bytes: job_bytes + output_bytes,
+                thumbnail: None,
+                is_thumbnail: false,
+                frame_rgba_offset: 0,
             },
         );
         Ok(id)
@@ -420,6 +494,9 @@ impl RenderSession {
                 output_bytes,
                 uses_calibration: true,
                 reserved_bytes,
+                thumbnail: None,
+                is_thumbnail: false,
+                frame_rgba_offset: 32,
             },
         );
         Ok(id)
@@ -512,12 +589,25 @@ impl RenderSession {
                 output_bytes,
                 uses_calibration: atlas.is_some(),
                 reserved_bytes,
+                thumbnail: None,
+                is_thumbnail: false,
+                frame_rgba_offset: 16,
             },
         );
         Ok(id)
     }
     pub fn step(&mut self, id: u32, work: u32) -> Result<JobStatus, RenderError> {
         let j = self.jobs.get_mut(&id).ok_or(RenderError::InvalidInput)?;
+        if let Some(thumbnail) = j.thumbnail.as_mut() {
+            if !thumbnail.step(&j.output, work) {
+                return Ok(JobStatus::Pending);
+            }
+            let mut completed = j.thumbnail.take().ok_or(RenderError::InvalidInput)?;
+            std::mem::swap(&mut j.output, &mut completed.wire);
+            j.reserved_bytes = j.output.capacity();
+            j.is_thumbnail = true;
+            return Ok(JobStatus::Complete);
+        }
         let Some(job) = j.numeric.as_mut() else {
             return Ok(JobStatus::Complete);
         };
@@ -602,6 +692,79 @@ impl RenderSession {
             .filter(|j| j.numeric.is_none() && j.is_profile)
             .map(|j| j.output.as_slice())
             .ok_or(RenderError::InvalidInput)
+    }
+    pub fn frame_thumbnail(&mut self, id: u32, max_side: u32) -> Result<(), RenderError> {
+        if !(1..=192).contains(&max_side) {
+            return Err(RenderError::InvalidInput);
+        }
+        let j = self.jobs.get(&id).ok_or(RenderError::InvalidInput)?;
+        if !j.is_profile || j.numeric.is_some() || j.thumbnail.is_some() || j.is_thumbnail {
+            return Err(RenderError::InvalidInput);
+        }
+        let source_offset = j.frame_rgba_offset;
+        let width = u32_at(&j.output, 4)? as usize;
+        let height = u32_at(&j.output, 8)? as usize;
+        let bytes = width
+            .checked_mul(height)
+            .and_then(|n| n.checked_mul(4))
+            .ok_or(RenderError::InvalidInput)?;
+        if width == 0
+            || height == 0
+            || source_offset
+                .checked_add(bytes)
+                .is_none_or(|end| j.output.len() < end)
+        {
+            return Err(RenderError::InvalidInput);
+        }
+        let longest = width.max(height);
+        let tw = if longest <= max_side as usize {
+            width
+        } else {
+            (width * max_side as usize + longest / 2) / longest
+        }
+        .max(1);
+        let th = if longest <= max_side as usize {
+            height
+        } else {
+            (height * max_side as usize + longest / 2) / longest
+        }
+        .max(1);
+        let count = tw.checked_mul(th).ok_or(RenderError::BudgetExceeded)?;
+        let scratch_bytes = count
+            .checked_mul(std::mem::size_of::<[f64; 4]>())
+            .ok_or(RenderError::BudgetExceeded)?;
+        let wire_bytes = count
+            .checked_mul(4)
+            .and_then(|n| n.checked_add(16))
+            .ok_or(RenderError::BudgetExceeded)?;
+        let extra = scratch_bytes
+            .checked_add(wire_bytes)
+            .ok_or(RenderError::BudgetExceeded)?;
+        self.preflight(extra)?;
+        let accum = vec![[0.; 4]; count];
+        let mut wire = vec![0; wire_bytes];
+        for (i, value) in [1u32, tw as u32, th as u32, (count * 4) as u32]
+            .into_iter()
+            .enumerate()
+        {
+            wire[i * 4..i * 4 + 4].copy_from_slice(&value.to_le_bytes());
+        }
+        let actual = accum.capacity() * std::mem::size_of::<[f64; 4]>() + wire.capacity();
+        self.preflight(actual)?;
+        let j = self.jobs.get_mut(&id).ok_or(RenderError::InvalidInput)?;
+        j.reserved_bytes = j.output.capacity() + actual;
+        j.thumbnail = Some(ThumbnailJob {
+            source_width: width,
+            source_height: height,
+            source_offset,
+            width: tw,
+            height: th,
+            cursor: 0,
+            finish_cursor: 0,
+            accum,
+            wire,
+        });
+        Ok(())
     }
     pub fn release(&mut self, id: u32) -> Result<(), RenderError> {
         if self.jobs.get(&id).is_none_or(|j| j.numeric.is_some()) {

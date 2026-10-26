@@ -437,6 +437,73 @@ function finishFrame(
   return e.takeFrame(id);
 }
 describe("additive Characters WASM profile", () => {
+  it("releases compatibility-invalidated conversion ownership before a recycled Characters job", async () => {
+    const memory = new WebAssembly.Memory({ initial: 2 });
+    const exports = {
+      memory,
+      render_abi_version: () => 1,
+      render_create: () => 1,
+      render_drop: () => 1,
+      render_stage: () => 64,
+      render_unstage: () => 1,
+      render_upload: () => 1,
+      render_begin: () => 1,
+      render_step: () => 2,
+      render_cancel: () => 3,
+      render_release: () => 1,
+      render_output_ptr: () => 64,
+      render_output_len: () => 32,
+      render_error: () => 1,
+      render_characters_profile_version: () => 1,
+      render_begin_characters_v1: () => 1,
+      render_frame_output_ptr: () => 64,
+      render_frame_output_len: () => 32,
+      render_thumbnail_profile_version: () => 1,
+      render_frame_thumbnail_v1: () => 1,
+    };
+    vi.spyOn(WebAssembly, "instantiate").mockImplementation((async () => ({
+      module: {} as WebAssembly.Module,
+      instance: { exports } as unknown as WebAssembly.Instance,
+    })) as unknown as typeof WebAssembly.instantiate);
+    const e = await createCharacterEngine(bytes);
+    try {
+      e.setSource(pSource());
+      e.setAtlas(pAtlas());
+      const first = e.beginCharacters(pSettings);
+      expect(e.step(first, 1)).toBe("complete");
+      e.beginThumbnail(first, 2);
+      expect(e.step(first, 1)).toBe("complete");
+      e.setAtlas({
+        ...pAtlas(),
+        calibration: { ...pAtlas().calibration, id: "replacement-atlas" },
+      });
+      const next = e.beginCharacters(pSettings);
+      expect(next).toBe(first);
+      expect(e.step(next, 1)).toBe("complete");
+      expect(() => e.beginThumbnail(next, 2)).not.toThrow();
+    } finally {
+      e.dispose();
+      expect(() => e.beginThumbnail(1, 2)).toThrow(expect.objectContaining({ code: "Disposed" }));
+    }
+  });
+  it("converts a real finished Characters frame through the generic thumbnail wire", async () => {
+    const e = await createCharacterEngine(bytes);
+    try {
+      e.setSource(pSource());
+      e.setAtlas(pAtlas());
+      const id = e.beginCharacters(pSettings);
+      while (e.step(id, 1) === "pending") {}
+      e.beginThumbnail(id, 2);
+      expect(() => e.takeFrame(id)).toThrow(/Thumbnail/);
+      while (e.step(id, 1) === "pending") {}
+      const frame = e.takeThumbnail(id);
+      expect([frame.width, frame.height]).toEqual([2, 1]);
+      expect([...frame.rgba]).toEqual(Array(8).fill(0));
+      expect(() => e.takeThumbnail(id)).toThrow();
+    } finally {
+      e.dispose();
+    }
+  });
   it("returns independent native fixture exact empty-dot vs literal space and reuses retained uploads", async () => {
     const observed = instrument(),
       e = await createCharacterEngine(bytes);

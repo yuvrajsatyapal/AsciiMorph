@@ -108,6 +108,169 @@ fn style_fixture_is_cooperative_and_retains_full_frame_until_release() {
     assert_eq!(s.storage_bytes(), base);
 }
 #[test]
+fn finished_profile_thumbnail_is_cooperative_and_preserves_full_output_until_success() {
+    let mut s = session();
+    let id = begin(&mut s, settings(false)).unwrap();
+    let original = finish(&mut s, id);
+    s.frame_thumbnail(id, 2).unwrap();
+    assert_eq!(s.frame_output(id).unwrap(), original);
+    assert_eq!(s.step(id, 0).unwrap(), JobStatus::Pending);
+    assert_eq!(s.step(id, 1).unwrap(), JobStatus::Pending);
+    assert_eq!(s.frame_output(id).unwrap(), original);
+    while s.step(id, 1).unwrap() != JobStatus::Complete {}
+    let thumbnail = s.frame_output(id).unwrap();
+    assert_eq!(
+        &thumbnail[..16],
+        &[1u32, 2, 1, 8]
+            .into_iter()
+            .flat_map(u32::to_le_bytes)
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(thumbnail.len(), 24);
+}
+#[test]
+fn thumbnail_rejects_incomplete_legacy_released_and_invalid_size() {
+    let mut s = session();
+    let id = begin(&mut s, settings(false)).unwrap();
+    assert_eq!(s.frame_thumbnail(id, 2), Err(RenderError::InvalidInput));
+    finish(&mut s, id);
+    for max_side in [0, 193, u32::MAX] {
+        assert_eq!(
+            s.frame_thumbnail(id, max_side),
+            Err(RenderError::InvalidInput)
+        );
+    }
+    s.release(id).unwrap();
+    assert_eq!(s.frame_thumbnail(id, 2), Err(RenderError::InvalidInput));
+}
+fn synthetic_profile(
+    s: &mut RenderSession,
+    width: u32,
+    height: u32,
+    pixels: &[u8],
+    characters: bool,
+) -> u32 {
+    let offset = if characters { 32 } else { 16 };
+    let mut output = vec![0; offset + pixels.len()];
+    output[0..4].copy_from_slice(&1u32.to_le_bytes());
+    output[4..8].copy_from_slice(&width.to_le_bytes());
+    output[8..12].copy_from_slice(&height.to_le_bytes());
+    output[offset..].copy_from_slice(pixels);
+    let id = s.next_job;
+    s.next_job += 1;
+    s.jobs.insert(
+        id,
+        RetainedJob {
+            numeric: None,
+            is_profile: true,
+            frame_columns: 0,
+            frame_rows: 0,
+            output_bytes: output.len(),
+            reserved_bytes: output.capacity(),
+            output,
+            uses_calibration: false,
+            thumbnail: None,
+            is_thumbnail: false,
+            frame_rgba_offset: offset,
+        },
+    );
+    id
+}
+fn rgba(s: &RenderSession, id: u32) -> &[u8] {
+    &s.frame_output(id).unwrap()[16..]
+}
+#[test]
+fn thumbnail_area_average_ignores_transparent_colors_and_handles_nondivisible_extents() {
+    let mut s = RenderSession::new(1_000_000).unwrap();
+    let pixels = [
+        255, 0, 0, 0, 20, 80, 140, 255, 20, 80, 140, 255, 20, 80, 140, 255, 20, 80, 140, 255, 0,
+        255, 0, 0,
+    ];
+    let id = synthetic_profile(&mut s, 3, 2, &pixels, false);
+    s.frame_thumbnail(id, 1).unwrap();
+    while s.step(id, 1).unwrap() != JobStatus::Complete {}
+    assert_eq!(rgba(&s, id), &[20, 80, 140, 170]);
+    let transparent = [255, 0, 0, 0, 0, 255, 0, 0, 0, 0, 255, 0, 200, 30, 40, 0];
+    let id = synthetic_profile(&mut s, 2, 2, &transparent, true);
+    s.frame_thumbnail(id, 1).unwrap();
+    while s.step(id, 1).unwrap() != JobStatus::Complete {}
+    assert_eq!(rgba(&s, id), &[0, 0, 0, 0]);
+}
+#[test]
+fn thumbnail_splits_multicolor_source_pixels_across_fractional_bins() {
+    let mut s = RenderSession::new(1_000_000).unwrap();
+    let id = synthetic_profile(
+        &mut s,
+        3,
+        1,
+        &[255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255],
+        false,
+    );
+    s.frame_thumbnail(id, 2).unwrap();
+    while s.step(id, 1).unwrap() != JobStatus::Complete {}
+    assert_eq!(rgba(&s, id), &[170, 85, 0, 255, 0, 85, 170, 255]);
+}
+#[test]
+fn thumbnail_no_upscale_and_exact_budget_accounting() {
+    let mut s = RenderSession::new(1_000_000).unwrap();
+    let id = synthetic_profile(&mut s, 2, 1, &[7, 8, 9, 255, 7, 8, 9, 255], true);
+    let base = s.storage_bytes();
+    let peak = base + 2 * std::mem::size_of::<[f64; 4]>() + 16 + 8;
+    s.budget = peak - 1;
+    assert_eq!(s.frame_thumbnail(id, 192), Err(RenderError::BudgetExceeded));
+    assert_eq!(s.storage_bytes(), base);
+    assert_eq!(s.frame_output(id).unwrap().len(), 40);
+    s.budget = peak;
+    s.frame_thumbnail(id, 192).unwrap();
+    assert_eq!(s.storage_bytes(), peak);
+    while s.step(id, 1).unwrap() != JobStatus::Complete {}
+    assert_eq!(rgba(&s, id), &[7, 8, 9, 255, 7, 8, 9, 255]);
+    assert_eq!(s.storage_bytes(), 24);
+    s.release(id).unwrap();
+    assert_eq!(s.storage_bytes(), 0);
+}
+#[test]
+fn thousand_square_thumbnail_has_measured_peak_and_bounded_source_work() {
+    let mut s = RenderSession::new(20_000_000).unwrap();
+    let pixels = vec![25u8; 1000 * 1000 * 4];
+    let id = synthetic_profile(&mut s, 1000, 1000, &pixels, false);
+    let base = s.storage_bytes();
+    let expected_peak = base + 192 * 192 * std::mem::size_of::<[f64; 4]>() + 16 + 192 * 192 * 4;
+    s.budget = expected_peak - 1;
+    assert_eq!(s.frame_thumbnail(id, 192), Err(RenderError::BudgetExceeded));
+    s.budget = expected_peak;
+    s.frame_thumbnail(id, 192).unwrap();
+    assert_eq!(s.storage_bytes(), expected_peak);
+    let mut previous = 0;
+    for _ in 0..100 {
+        assert_eq!(s.step(id, 1).unwrap(), JobStatus::Pending);
+        let current = s.jobs.get(&id).unwrap().thumbnail.as_ref().unwrap().cursor;
+        assert!(current - previous <= 1);
+        previous = current;
+    }
+    while s.step(id, 4096).unwrap() != JobStatus::Complete {}
+    assert_eq!(rgba(&s, id)[0..4], [25, 25, 25, 25]);
+    assert!(s.storage_bytes() < expected_peak);
+}
+#[test]
+fn thumbnail_cancel_and_source_replacement_release_all_conversion_storage() {
+    let mut s = session();
+    let baseline = s.storage_bytes();
+    let id = begin(&mut s, settings(false)).unwrap();
+    finish(&mut s, id);
+    s.frame_thumbnail(id, 1).unwrap();
+    assert_eq!(s.step(id, 1).unwrap(), JobStatus::Pending);
+    s.cancel(id).unwrap();
+    assert_eq!(s.storage_bytes(), baseline);
+    assert!(s.frame_output(id).is_err());
+    let id = begin(&mut s, settings(false)).unwrap();
+    finish(&mut s, id);
+    s.frame_thumbnail(id, 1).unwrap();
+    source_upload(&mut s, 200).unwrap();
+    assert_eq!(s.storage_bytes(), s.source().unwrap().storage_bytes());
+    assert!(s.step(id, 1).is_err());
+}
+#[test]
 fn style_future_peak_accepts_exact_budget_and_rejects_one_byte_short() {
     let mut s = session();
     let cfg = settings(false);

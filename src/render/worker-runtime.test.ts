@@ -113,6 +113,13 @@ function harness(
     active = new Set<number>();
   let next = 0;
   const engine: CharacterEngine = {
+    thumbnailProfileVersion: null,
+    beginThumbnail: () => {
+      throw new Error("Thumbnail unavailable in legacy fixture");
+    },
+    takeThumbnail: () => {
+      throw new Error("Thumbnail unavailable in legacy fixture");
+    },
     styleProfileVersion: null,
     supportsStyle: () => false,
     beginStyle: () => {

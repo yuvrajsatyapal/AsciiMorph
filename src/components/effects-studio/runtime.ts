@@ -38,6 +38,9 @@ import {
   type StyleRenderRequest,
 } from "@/render/service";
 import type { RgbaFrameV1, StyleSettingsV1 } from "@/render/style-contract";
+import type { ThumbnailRenderRequest } from "@/render/protocol";
+import type { RenderProjectV1 } from "@/render/project";
+import { createThumbnailScheduler, type ThumbnailKey } from "@/render/thumbnail-scheduler";
 import { bindStyleProject } from "./style-adapter";
 import {
   createStudioController,
@@ -103,6 +106,21 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
   let original: SourceUpload | null = null;
   let uploaded: SourceUpload | null = null;
   let accepted: AcceptedStudioFrame | null = null;
+  let hoverFrame: RgbaFrameV1 | null = null;
+  let hoverStyleId: string | null = null;
+  let hoverSequence = 0;
+  let hoverAbort: AbortController | undefined;
+  let hoverRevision = 0;
+  let thumbnailSequence = 0;
+  let lastThumbnailSignature = "";
+  let thumbnailReservation = 0;
+  const thumbnailInputs = new Map<string, {
+    request: ThumbnailRenderRequest;
+    atlas?: ReferenceCharacterAtlasV1;
+    live: number;
+    retired: boolean;
+    started: boolean;
+  }>();
   let staged:
     | (AcceptedStudioFrame & { jobId: number; release(): void })
     | null = null;
@@ -123,7 +141,7 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
   };
   function heldFrameBytes() {
     const backings = new Set<ArrayBufferLike>();
-    for (const value of [accepted?.frame, staged?.frame, ...captures]) {
+    for (const value of [accepted?.frame, staged?.frame, hoverFrame, ...captures]) {
       if (!value) continue;
       backings.add(value.rgba.buffer);
       if ("grid" in value && value.grid)
@@ -141,6 +159,8 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
     return (
       encoderBytes +
       downloadBytes +
+      thumbnailReservation +
+      (thumbnailScheduler?.usage().cachedBytes ?? 0) +
       [...backings].reduce((sum, b) => sum + b.byteLength, 0) +
       [...canvases].reduce((sum, c) => sum + c.width * c.height * 4, 0)
     );
@@ -148,7 +168,8 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
   function atlasResourceBytes(extra?: ReferenceCharacterAtlasV1) {
     const locals = [
       ...new Set(
-        [measured?.atlas, extra].filter(
+        [measured?.atlas, capturedAtlas, extra,
+          ...[...thumbnailInputs.values()].map((entry) => entry.atlas)].filter(
           (a): a is ReferenceCharacterAtlasV1 => !!a,
         ),
       ),
@@ -209,6 +230,8 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
     staged = null;
   }
   async function reset() {
+    clearHover();
+    thumbnailScheduler?.invalidateAll();
     unsubscribeCapability();
     serviceGeneration++;
     latestPrepare++;
@@ -220,9 +243,14 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
     await closeService(old);
     if (!disposed) {
       service = createService();
-      unsubscribeCapability =
-        service.subscribeStatus?.(() => controller.refreshAvailability()) ??
-        (() => {});
+      unsubscribeCapability = service.subscribeStatus?.(() => {
+        if (service.thumbnailProfileVersion !== 1) {
+          clearHover();
+          thumbnailScheduler.invalidateAll();
+        }
+        controller.refreshAvailability();
+        thumbnailScheduler?.resume();
+      }) ?? (() => {});
       controller.refreshAvailability();
     }
   }
@@ -248,6 +276,63 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
       uploaded = value;
     },
     resetUploadedSource: reset,
+  });
+  function publishHover() {
+    hoverRevision++;
+    for (const listener of listeners) listener();
+  }
+  function clearHover() {
+    hoverSequence++;
+    hoverAbort?.abort();
+    hoverAbort = undefined;
+    if (hoverFrame || hoverStyleId) {
+      hoverFrame = null;
+      hoverStyleId = null;
+      publishHover();
+    }
+  }
+  const thumbnailId = (key: ThumbnailKey) => JSON.stringify(key);
+  const thumbnailMaxBytes = 192 * 192 * 4;
+  const thumbnailScheduler = createThumbnailScheduler({
+    maxBytes: 4 * 1024 * 1024,
+    maxFrames: 24,
+    maxPending: 6,
+    release: () => {},
+    canStart: () => !disposed && !service.highPriorityBusy && !controller.getSnapshot().loading &&
+      controller.getSnapshot().status === "ready" && !controller.getSnapshot().exportBusy,
+    async render(key, signal) {
+      const input = thumbnailInputs.get(thumbnailId(key));
+      if (!input || signal.aborted) throw cancelled();
+      const pixels = key.width * key.height;
+      const thumbWidth = Math.max(1, Math.round(key.width * Math.min(1, 192 / Math.max(key.width, key.height))));
+      const thumbHeight = Math.max(1, Math.round(key.height * Math.min(1, 192 / Math.max(key.width, key.height))));
+      const thumbPixels = thumbWidth * thumbHeight;
+      // Full native profile + retained wire, conversion accumulator/generic wire,
+      // detached readback and one pending canvas. Existing source/atlas/outputs
+      // are charged separately by the shared ownership ledger.
+      const geometry = input.request.profile.kind === "characters"
+        ? prepareCharactersGeometry(input.request.profile.settings.fontSize, 1)
+        : null;
+      const cells = geometry ? Math.floor(key.width / geometry.cellWidth) *
+        Math.floor(key.height / geometry.cellHeight) : 0;
+      const reservation = pixels * 52 + cells * 28 + thumbPixels * 44 + 4096;
+      if (source.retainedSourceBytes * 3 + atlasResourceBytes(input.atlas) + heldFrameBytes() + reservation > DEFAULT_MEMORY_BUDGET_BYTES)
+        throw new Error("Thumbnail exceeds the 256 MiB session budget");
+      thumbnailReservation = reservation;
+      input.started = true;
+      try {
+        const result = await service.renderThumbnail(input.request, signal, input.atlas);
+        if (signal.aborted || result.styleId !== key.styleId || result.sourceId !== key.sourceId ||
+          result.sourceRevision !== key.sourceRevision || result.revision !== input.request.revision ||
+          result.calibrationId !== input.request.calibrationId || !source.isReady(input.request.source))
+          throw cancelled();
+        return result.frame;
+      } finally {
+        thumbnailReservation = 0;
+        if (thumbnailInputs.get(thumbnailId(key)) === input)
+          thumbnailInputs.delete(thumbnailId(key));
+      }
+    },
   });
   function acceptCandidate(candidate: SourceCandidate): SourceCandidate {
     return {
@@ -732,12 +817,130 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
     },
   });
   unsubscribeCapability =
-    service.subscribeStatus?.(() => controller.refreshAvailability()) ??
+    service.subscribeStatus?.(() => {
+      if (service.thumbnailProfileVersion !== 1) {
+        clearHover();
+        thumbnailScheduler.invalidateAll();
+      }
+      controller.refreshAvailability();
+      thumbnailScheduler?.resume();
+    }) ??
     (() => {});
+  async function requestThumbnail(styleId: string, signal?: AbortSignal): Promise<RgbaFrameV1 | null> {
+    check();
+    if (signal?.aborted) throw cancelled();
+    const snapshot = controller.getSnapshot();
+    const ref = snapshot.project.source;
+    if (!ref || !source.isReady(ref) || service.thumbnailProfileVersion !== 1 ||
+      !runtime.getAvailableStyleIds().includes(styleId)) return null;
+    const project: RenderProjectV1 = {
+      ...snapshot.project,
+      style: styleId === snapshot.project.style.id
+        ? snapshot.project.style
+        : { id: styleId, parameters: initialCatalogRegistry.styleDefaults(styleId) },
+    };
+    let atlas: ReferenceCharacterAtlasV1 | undefined;
+    let profile: ThumbnailRenderRequest["profile"];
+    let resourceId = "none";
+    if (styleId === "characters") {
+      const request: StudioRequest = { project, revision: snapshot.revision, jobId: 0, generation: 0 };
+      atlas = await measure(request, 1, new AbortController().signal);
+      check();
+      if (signal?.aborted) throw cancelled();
+      if (controller.getSnapshot().project.source !== ref &&
+        JSON.stringify(controller.getSnapshot().project.source) !== JSON.stringify(ref)) return null;
+      const bound = prepareCharactersProject(project, 1, atlas, {
+        source: ref,
+        calibrationId: atlas.calibration.id,
+        fontFamily: REFERENCE_MONOSPACE_STACK,
+        fontRevision: FONT_REVISION,
+        charactersProfileVersion: service.charactersProfileVersion,
+        charactersContextVersion: service.charactersContextVersion,
+        memoryBudgetBytes: DEFAULT_MEMORY_BUDGET_BYTES,
+      });
+      profile = { kind: "characters", settings: bound.settings };
+      resourceId = atlas.calibration.id;
+    } else {
+      profile = { kind: "style", settings: bindStyleProject(project, 1) };
+    }
+    if (snapshot.project.source?.id !== controller.getSnapshot().project.source?.id ||
+      snapshot.project.source?.revision !== controller.getSnapshot().project.source?.revision)
+      return null;
+    const settings = profile.settings;
+    const key: ThumbnailKey = {
+      sourceId: ref.id, sourceRevision: ref.revision, styleId,
+      parameterKey: JSON.stringify([settings, project.seed, project.timeUs]),
+      seed: project.seed, timeUs: project.timeUs,
+      width: settings.frameWidth, height: settings.frameHeight, resourceId,
+    };
+    const input: ThumbnailRenderRequest = {
+      jobId: `thumbnail-${++thumbnailSequence}`,
+      revision: snapshot.revision,
+      sourceId: ref.id, sourceRevision: ref.revision,
+      calibrationId: atlas?.calibration.id ?? "",
+      source: ref, profile, timeUs: project.timeUs, maxSide: 192,
+    };
+    const id = thumbnailId(key);
+    let holder = thumbnailInputs.get(id);
+    if (!holder || holder.retired) {
+      holder = { request: input, atlas, live: 0, retired: false, started: false };
+      thumbnailInputs.set(id, holder);
+    }
+    holder.live++;
+    const owner = holder;
+    return new Promise<RgbaFrameV1>((resolve, reject) => {
+      let settled = false;
+      const settle = (outcome: () => void, aborted: boolean) => {
+        if (settled) return;
+        settled = true;
+        signal?.removeEventListener("abort", onAbort);
+        owner.live--;
+        if (aborted && owner.live === 0 && !owner.retired) {
+          owner.retired = true;
+          thumbnailScheduler.cancel(key);
+        }
+        // An active native request keeps its input/atlas owner through terminal.
+        if (owner.live === 0 && !owner.started && thumbnailInputs.get(id) === owner)
+          thumbnailInputs.delete(id);
+        outcome();
+      };
+      const onAbort = () => settle(() => reject(cancelled()), true);
+      signal?.addEventListener("abort", onAbort, { once: true });
+      if (signal?.aborted) { onAbort(); return; }
+      thumbnailScheduler.request(key).then(
+        (frame) => settle(() => resolve(frame), false),
+        (reason) => settle(() => reject(reason), false),
+      );
+    });
+  }
+  async function hoverStyle(styleId: string) {
+    clearHover();
+    const sequence = hoverSequence;
+    const abort = new AbortController();
+    hoverAbort = abort;
+    hoverStyleId = styleId;
+    try {
+      const frame = await requestThumbnail(styleId, abort.signal);
+      if (sequence !== hoverSequence || !frame || !hoverStyleId || disposed) return;
+      hoverFrame = frame;
+      publishHover();
+    } catch {
+      if (sequence === hoverSequence) clearHover();
+    }
+  }
   // Registered before any consumer: publication and identity acceptance form one
   // synchronous notification boundary. Stale/export results never enter staging.
   const unsubscribe = controller.subscribe(() => {
     const snapshot = controller.getSnapshot();
+    const signature = JSON.stringify([snapshot.project.source, snapshot.project.style,
+      snapshot.project.crop, snapshot.project.rotation, snapshot.project.seed, snapshot.project.timeUs]);
+    if (signature !== lastThumbnailSignature) {
+      lastThumbnailSignature = signature;
+      clearHover();
+      thumbnailScheduler?.invalidateAll();
+      thumbnailInputs.clear();
+    }
+    thumbnailScheduler?.resume();
     if (
       snapshot.frame &&
       staged &&
@@ -756,6 +959,13 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
   });
   const runtime = {
     controller,
+    canRenderThumbnail: () => service.thumbnailProfileVersion === 1 && !disposed,
+    requestThumbnail,
+    hoverStyle,
+    clearHover,
+    getHoverFrame: () => hoverFrame,
+    getHoverRevision: () => hoverRevision,
+    get thumbnailUsage() { return thumbnailScheduler?.usage(); },
     /** Current negotiated worker capability intersected with reviewed bindings. */
     getAvailableStyleIds(): readonly string[] {
       const ids: string[] = [];
@@ -839,6 +1049,17 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
       return () => {
         canvases.delete(canvas);
       };
+    },
+    admitThumbnailPaint(canvas: { width: number; height: number }, frame: RgbaFrameV1) {
+      const next = frame.width * frame.height * 4;
+      if (Math.max(frame.width, frame.height) > 192 ||
+        !Number.isSafeInteger(next) || next > thumbnailMaxBytes ||
+        frame.rgba.byteLength !== next)
+        throw new Error("Invalid thumbnail canvas frame");
+      const prior = canvases.has(canvas) ? canvas.width * canvas.height * 4 : 0;
+      if (source.retainedSourceBytes * 3 + atlasResourceBytes() +
+        heldFrameBytes() - prior + next > DEFAULT_MEMORY_BUDGET_BYTES)
+        throw new Error("Thumbnail canvas exceeds the 256 MiB session budget");
     },
     async retry() {
       check();
@@ -985,6 +1206,9 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
     dispose(): Promise<void> {
       if (disposal) return disposal;
       disposed = true;
+      clearHover();
+      thumbnailScheduler?.dispose();
+      thumbnailInputs.clear();
       encoder.dispose();
       latestPrepare++;
       latestPreview++;

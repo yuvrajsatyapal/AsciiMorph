@@ -21,6 +21,9 @@ function setup(frameFailure = false, project?: RenderProjectV1) {
   const runtime = {
     controller,
     getSnapshot: controller.getSnapshot,
+    subscribe: controller.subscribe,
+    getHoverRevision: () => 0,
+    getHoverFrame: () => null,
     getFrame: () => (frameFailure ? accepted : null),
     getOriginal: () => null,
     exportAvailability: () => ({

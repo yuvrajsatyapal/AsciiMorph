@@ -104,6 +104,9 @@ interface CharacterWasm extends WebAssembly.Exports {
 }
 export type CharacterStepStatus = "pending" | "complete" | "cancelled";
 export interface CharacterEngine {
+  readonly thumbnailProfileVersion: 1 | null;
+  beginThumbnail(jobId: number, maxSide: number): void;
+  takeThumbnail(jobId: number): RgbaFrameV1;
   readonly styleProfileVersion: 1 | null;
   supportsStyle(dispatchId: number): boolean;
   beginStyle(settings: StyleSettingsV1): number;
@@ -192,6 +195,14 @@ export async function createCharacterEngine(
       "render_frame_output_len",
     ].every((name) => typeof wasm[name] === "function") &&
     (wasm.render_style_profile_version as NumericExport)() === 1;
+  const thumbnailAvailable =
+    [
+      "render_thumbnail_profile_version",
+      "render_frame_thumbnail_v1",
+      "render_frame_output_ptr",
+      "render_frame_output_len",
+    ].every((name) => typeof wasm[name] === "function") &&
+    (wasm.render_thumbnail_profile_version as NumericExport)() === 1;
   const contextVersion =
     profileAvailable &&
     typeof wasm.render_characters_context_version === "function" &&
@@ -212,7 +223,7 @@ export async function createCharacterEngine(
   let calibrationIdentity = "";
   const jobs = new Map<
     number,
-    | {
+    ({
         kind: "legacy";
         settings: CharacterSettingsV1;
         calibration?: CalibrationIdentity;
@@ -227,7 +238,7 @@ export async function createCharacterEngine(
         settings: ReferenceCharactersSettingsV1;
         atlas: ReferenceCharacterAtlasV1;
         source: SourceRef;
-      }
+      }) & { thumbnailMaxSide?: number }
   >();
   function alive() {
     if (disposed)
@@ -288,6 +299,64 @@ export async function createCharacterEngine(
     return value;
   }
   const engine: CharacterEngine = {
+    thumbnailProfileVersion: thumbnailAvailable ? 1 : null,
+    beginThumbnail(id, maxSide) {
+      const metadata = job(id);
+      uint(maxSide, "maxSide", 1);
+      if (maxSide > 192 || metadata.kind === "legacy" || metadata.thumbnailMaxSide !== undefined)
+        throw new CharacterEngineError(
+          "InvalidInput",
+          "Invalid thumbnail job or size",
+        );
+      if (!thumbnailAvailable)
+        throw new CharacterEngineError(
+          "CapabilityUnavailable",
+          "Thumbnail ABI unavailable",
+        );
+      check(
+        (wasm.render_frame_thumbnail_v1 as NumericExport)(handle, id, maxSide),
+      );
+      metadata.thumbnailMaxSide = maxSide;
+    },
+    takeThumbnail(id) {
+      const maxSide = job(id).thumbnailMaxSide;
+      if (maxSide === undefined)
+        throw new CharacterEngineError("InvalidInput", "Not a thumbnail job");
+      try {
+        const ptr = check(
+          (wasm.render_frame_output_ptr as NumericExport)(handle, id),
+        );
+        const length = check(
+          (wasm.render_frame_output_len as NumericExport)(handle, id),
+        );
+        span(ptr, length);
+        if (length < 16) throw new Error("Invalid thumbnail header");
+        const view = new DataView(wasm.memory.buffer, ptr, length);
+        const version = view.getUint32(0, true),
+          width = view.getUint32(4, true),
+          height = view.getUint32(8, true),
+          size = view.getUint32(12, true);
+        if (
+          version !== 1 ||
+          !width ||
+          !height ||
+          width > maxSide ||
+          height > maxSide ||
+          size !== width * height * 4 ||
+          length !== 16 + size
+        )
+          throw new Error("Invalid thumbnail span");
+        return {
+          version: 1,
+          width,
+          height,
+          rgba: new Uint8Array(wasm.memory.buffer, ptr + 16, size).slice(),
+        };
+      } finally {
+        check(wasm.render_release(handle, id));
+        jobs.delete(id);
+      }
+    },
     styleProfileVersion: styleAvailable ? 1 : null,
     supportsStyle(dispatchId) {
       alive();
@@ -343,6 +412,11 @@ export async function createCharacterEngine(
     },
     takeStyleFrame(id) {
       const metadata = job(id);
+      if (metadata.thumbnailMaxSide !== undefined)
+        throw new CharacterEngineError(
+          "InvalidInput",
+          "Thumbnail needs distinct readback",
+        );
       if (metadata.kind !== "style")
         throw new CharacterEngineError("InvalidInput", "Not a style frame job");
       try {
@@ -460,6 +534,11 @@ export async function createCharacterEngine(
     },
     takeFrame(id) {
       const metadata = job(id);
+      if (metadata.thumbnailMaxSide !== undefined)
+        throw new CharacterEngineError(
+          "InvalidInput",
+          "Thumbnail needs distinct readback",
+        );
       if (metadata.kind !== "characters")
         throw new CharacterEngineError(
           "InvalidInput",

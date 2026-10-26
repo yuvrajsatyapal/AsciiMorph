@@ -75,6 +75,10 @@ class StyleWorker {
   listeners = new Map<string, Set<(e: { data: unknown }) => void>>();
   sent: Array<Record<string, unknown>> = [];
   turns: Array<() => void> = [];
+  events: string[] = [];
+  holdConversion = false;
+  holdCancel = false;
+  cancelMessages: unknown[] = [];
   old = false;
   support = true;
   hook?: (m: WorkerResponse) => WorkerResponse;
@@ -85,18 +89,42 @@ class StyleWorker {
       );
       let next = 10000;
       const jobs = new Map<number, StyleRenderRequest["settings"]>();
+      const converting = new Set<number>();
       return {
         ...e,
+        thumbnailProfileVersion: this.old ? null : 1,
+        beginThumbnail: (id, maxSide) => {
+          expect(jobs.has(id)).toBe(true);
+          expect(maxSide).toBe(8);
+          this.events.push(`beginThumbnail:${id}`);
+          converting.add(id);
+        },
+        takeThumbnail: (id) => {
+          converting.delete(id);
+          jobs.delete(id);
+          return {
+            version: 1 as const,
+            width: 8,
+            height: 6,
+            rgba: new Uint8Array(8 * 6 * 4).fill(73),
+          };
+        },
         styleProfileVersion: this.old ? null : 1,
         supportsStyle: () => this.support,
         // Test-only fixed frame diagnostics verify transport; no JS family implementation.
         beginStyle: (s) => {
           const id = next++;
+          this.events.push(`beginStyle:${id}`);
           jobs.set(id, s);
           return id;
         },
-        step: (id, w) => (jobs.has(id) ? "complete" : e.step(id, w)),
+        step: (id, w) =>
+          converting.has(id) && this.holdConversion
+            ? "pending"
+            : jobs.has(id) ? "complete" : e.step(id, w),
         cancel: (id) => {
+          this.events.push(`cancel:${id}`);
+          converting.delete(id);
           if (!jobs.delete(id)) e.cancel(id);
         },
         takeStyleFrame: (id) => {
@@ -125,9 +153,15 @@ class StyleWorker {
     },
     postMessage: (m, transfer = []) => {
       if (this.old && m.type === "ready") {
-        const { styleProfileVersion: _, supportedStyleIds: __, ...legacy } = m;
+        const {
+          styleProfileVersion: _,
+          supportedStyleIds: __,
+          thumbnailProfileVersion: ___,
+          ...legacy
+        } = m;
         expect(_).toBeNull();
         expect(__).toEqual([]);
+        expect(___).toBeNull();
         m = legacy;
       }
       const data = structuredClone(this.hook ? this.hook(m) : m, { transfer });
@@ -137,7 +171,15 @@ class StyleWorker {
   postMessage(m: Record<string, unknown>, transfer: Transferable[] = []) {
     this.sent.push(m);
     const data = structuredClone(m, { transfer });
+    if (this.holdCancel && m.type === "cancel") {
+      this.cancelMessages.push(data);
+      return;
+    }
     queueMicrotask(() => this.runtime.receive(data));
+  }
+  releaseCancels() {
+    for (const data of this.cancelMessages.splice(0))
+      queueMicrotask(() => this.runtime.receive(data));
   }
   terminate = vi.fn(() => this.runtime.dispose());
   addEventListener(type: string, cb: (e: { data: unknown }) => void) {
@@ -224,10 +266,30 @@ it("old capability sets and unsupported native IDs reject recoverably", async ()
     try {
       await s.setSource(source());
       expect(s.styleProfileVersion).toBe(old ? null : 1);
+      expect(s.thumbnailProfileVersion).toBe(old ? null : 1);
       expect(s.supportedStyleIds).toEqual([]);
       await expect(s.renderStylePreview(request())).rejects.toMatchObject({
         code: "CapabilityUnavailable",
       });
+      if (old) {
+        const r = request("old-thumbnail");
+        await expect(
+          s.renderThumbnail({
+            jobId: r.jobId,
+            revision: r.revision,
+            sourceId: r.sourceId,
+            sourceRevision: r.sourceRevision,
+            calibrationId: r.calibrationId,
+            source: r.source,
+            timeUs: r.timeUs,
+            profile: { kind: "style", settings: r.settings },
+            maxSide: 8,
+          }),
+        ).rejects.toMatchObject({ code: "CapabilityUnavailable" });
+        expect(workers[0].sent.some((m) => m.type === "renderThumbnail")).toBe(
+          false,
+        );
+      }
       expect(s.state).toBe("ready");
       expect(workers[0].sent.some((m) => m.type === "renderStylePreview")).toBe(
         false,
@@ -235,6 +297,216 @@ it("old capability sets and unsupported native IDs reject recoverably", async ()
     } finally {
       await s.dispose();
     }
+  }
+});
+it("uses a distinct thumbnail request and result without changing style preview", async () => {
+  const { s, workers } = setup();
+  try {
+    await s.setSource(source());
+    const r = request("thumb");
+    const pending = s.renderThumbnail({
+      jobId: r.jobId,
+      revision: r.revision,
+      sourceId: r.sourceId,
+      sourceRevision: r.sourceRevision,
+      calibrationId: r.calibrationId,
+      source: r.source,
+      timeUs: r.timeUs,
+      profile: { kind: "style", settings: r.settings },
+      maxSide: 8,
+    });
+    await queued(workers[0], "renderThumbnail");
+    workers[0].flush();
+    const result = await pending;
+    expect(result.styleId).toBe("pixel");
+    expect(result.frame.width).toBeLessThanOrEqual(8);
+    expect(workers[0].sent.some((m) => m.type === "renderStylePreview")).toBe(
+      false,
+    );
+  } finally {
+    await s.dispose();
+  }
+});
+it("holds an aborted thumbnail request until its worker terminal response", async () => {
+  const { s, workers } = setup((w) => { w.holdConversion = true; w.holdCancel = true; });
+  try {
+    await s.setSource(source());
+    const r = request("terminal-thumb");
+    const abort = new AbortController();
+    let settled = false;
+    const pending = s.renderThumbnail({
+      jobId: r.jobId, revision: r.revision, sourceId: r.sourceId,
+      sourceRevision: r.sourceRevision, calibrationId: r.calibrationId,
+      source: r.source, timeUs: r.timeUs,
+      profile: { kind: "style", settings: r.settings }, maxSide: 8,
+    }, abort.signal).catch((e) => e).finally(() => { settled = true; });
+    const worker = workers[0];
+    await queued(worker, "renderThumbnail");
+    worker.turns.shift()!();
+    abort.abort();
+    await tick();
+    expect(settled).toBe(false);
+    expect(s.thumbnailResourceUsage.inFlight).toBe(true);
+    worker.releaseCancels();
+    await tick();
+    worker.flush();
+    expect(await pending).toMatchObject({ code: "Cancelled" });
+    expect(s.thumbnailResourceUsage.inFlight).toBe(false);
+  } finally {
+    await s.dispose();
+  }
+});
+it("does not start queued thumbnail while preview is present and cancels it for preview", async () => {
+  const { s, workers } = setup();
+  try {
+    await s.setSource(source());
+    const r = request("thumb-priority");
+    const thumbnail = s
+      .renderThumbnail({
+        jobId: r.jobId,
+        revision: r.revision,
+        sourceId: r.sourceId,
+        sourceRevision: r.sourceRevision,
+        calibrationId: r.calibrationId,
+        source: r.source,
+        timeUs: r.timeUs,
+        profile: { kind: "style", settings: r.settings },
+        maxSide: 8,
+      })
+      .catch((e) => e);
+    await queued(workers[0], "renderThumbnail");
+    const preview = s.renderStylePreview(request("priority-preview"));
+    await queued(workers[0], "renderStylePreview");
+    workers[0].flush();
+    expect(await thumbnail).toMatchObject({ code: "Cancelled" });
+    expect((await preview).jobId).toBe("priority-preview");
+  } finally {
+    await s.dispose();
+  }
+});
+it("refuses thumbnail admission when a preview enters the service queue in the same turn", async () => {
+  const { s, workers } = setup();
+  try {
+    await s.setSource(source());
+    const r = request("same-turn-thumbnail");
+    const thumbnail = s.renderThumbnail({
+      jobId: r.jobId, revision: r.revision, sourceId: r.sourceId,
+      sourceRevision: r.sourceRevision, calibrationId: r.calibrationId,
+      source: r.source, timeUs: r.timeUs,
+      profile: { kind: "style", settings: r.settings }, maxSide: 8,
+    }).catch((error) => error);
+    const preview = s.renderStylePreview(request("same-turn-preview"));
+    await queued(workers[0], "renderStylePreview");
+    workers[0].flush();
+    expect(await thumbnail).toMatchObject({ code: "Cancelled" });
+    expect(workers[0].sent.some((message) => message.type === "renderThumbnail")).toBe(false);
+    expect((await preview).jobId).toBe("same-turn-preview");
+  } finally { await s.dispose(); }
+});
+it.each(["preview", "export"] as const)(
+  "cancels active thumbnail conversion before %s begins rendering",
+  async (lane) => {
+    const { s, workers } = setup((w) => { w.holdConversion = true; });
+    try {
+      await s.setSource(source());
+      const r = request(`active-thumb-${lane}`);
+      const thumbnail = s.renderThumbnail({
+        jobId: r.jobId,
+        revision: r.revision,
+        sourceId: r.sourceId,
+        sourceRevision: r.sourceRevision,
+        calibrationId: r.calibrationId,
+        source: r.source,
+        timeUs: r.timeUs,
+        profile: { kind: "style", settings: r.settings },
+        maxSide: 8,
+      }).catch((e) => e);
+      const w = workers[0];
+      await queued(w, "renderThumbnail");
+      w.turns.shift()!();
+      expect(w.events).toContain("beginThumbnail:10000");
+      const next = request(`after-thumb-${lane}`);
+      const priority = (lane === "preview"
+        ? s.renderStylePreview(next)
+        : s.renderStyleExport({
+            ...next,
+            outputWidth: next.settings.frameWidth,
+            outputHeight: next.settings.frameHeight,
+          })).catch((e) => e);
+      await queued(w, lane === "preview" ? "renderStylePreview" : "renderStyleExport");
+      expect(w.events.indexOf("cancel:10000")).toBeGreaterThan(w.events.indexOf("beginThumbnail:10000"));
+      w.flush();
+      expect(await thumbnail).toMatchObject({ code: "Cancelled" });
+      expect((await priority).jobId).toBe(next.jobId);
+      expect(w.events.indexOf("cancel:10000")).toBeLessThan(w.events.indexOf("beginStyle:10001"));
+    } finally {
+      await s.dispose();
+    }
+  },
+);
+it("cancels an unfinished thumbnail on source replacement", async () => {
+  const { s, workers } = setup();
+  try {
+    await s.setSource(source());
+    const r = request("source-invalidated-thumb");
+    const pending = s
+      .renderThumbnail({
+        jobId: r.jobId,
+        revision: r.revision,
+        sourceId: r.sourceId,
+        sourceRevision: r.sourceRevision,
+        calibrationId: r.calibrationId,
+        source: r.source,
+        timeUs: r.timeUs,
+        profile: { kind: "style", settings: r.settings },
+        maxSide: 8,
+      })
+      .catch((e) => e);
+    await queued(workers[0], "renderThumbnail");
+    await s.setSource({ ...source(), revision: 2 });
+    workers[0].flush();
+    expect(await pending).toMatchObject({ code: "Cancelled" });
+  } finally {
+    await s.dispose();
+  }
+});
+it("cancels an unfinished captured Braille thumbnail on atlas replacement", async () => {
+  const { s, workers } = setup();
+  try {
+    const b = fixtures.cases[2],
+      atlas = brailleAtlas();
+    await s.setSource({
+      ...b.source,
+      rgba: new Uint8ClampedArray(b.source.width * b.source.height * 4),
+    });
+    const pending = s
+      .renderThumbnail(
+        {
+          jobId: "atlas-thumb",
+          revision: 1,
+          sourceId: b.source.id,
+          sourceRevision: b.source.revision,
+          calibrationId: atlas.calibration.id,
+          source: { ...b.source },
+          timeUs: b.settings.timeUs,
+          profile: {
+            kind: "style",
+            settings: validateStyleSettings(b.settings, b.source),
+          },
+          maxSide: 8,
+        },
+        undefined,
+        atlas,
+      )
+      .catch((e) => e);
+    await queued(workers[0], "renderThumbnail");
+    const replacement = brailleAtlas();
+    replacement.calibration.id = "new-atlas";
+    await s.setAtlas(replacement);
+    workers[0].flush();
+    expect(await pending).toMatchObject({ code: "Cancelled" });
+  } finally {
+    await s.dispose();
   }
 });
 it("glyph mode requires exact captured atlas and caller bytes remain immutable after admission", async () => {

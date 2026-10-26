@@ -31,7 +31,8 @@ type RenderMessage = Extract<
       | "renderCharactersPreview"
       | "renderCharactersExport"
       | "renderStylePreview"
-      | "renderStyleExport";
+      | "renderStyleExport"
+      | "renderThumbnail";
   }
 >;
 interface Task {
@@ -41,6 +42,7 @@ interface Task {
   handle?: number;
   slices: number;
   atlas?: ReferenceCharacterAtlasV1;
+  converting?: boolean;
 }
 export interface WorkerRuntimeOptions {
   createEngine(memoryBudgetBytes: number): Promise<CharacterEngine>;
@@ -70,6 +72,7 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
   let preview: Task | undefined;
   let exporting: Task | undefined;
   let pendingExport: Task | undefined;
+  let thumbnail: Task | undefined;
   let lastLane: "preview" | "export" = "export";
   let cancelTurn: (() => void) | undefined;
   const scheduler = options.scheduler ?? createTimerScheduler();
@@ -90,7 +93,9 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
   > => m.type === "renderStylePreview" || m.type === "renderStyleExport";
   const envelope = (requestId: string) => ({ version: 1 as const, requestId });
   const tasks = () =>
-    [preview, exporting, pendingExport].filter((t): t is Task => !!t);
+    [preview, exporting, pendingExport, thumbnail].filter(
+      (t): t is Task => !!t,
+    );
   function error(requestId: string, cause: unknown, identity?: RenderIdentity) {
     const e =
       cause instanceof RenderError
@@ -126,6 +131,7 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
       });
   }
   function remove(task: Task) {
+    if (thumbnail === task) thumbnail = undefined;
     if (preview === task) preview = undefined;
     if (pendingExport === task) pendingExport = undefined;
     if (exporting === task) {
@@ -147,6 +153,7 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
     preview = undefined;
     exporting = undefined;
     pendingExport = undefined;
+    thumbnail = undefined;
     const failedEngine = engine;
     engine = undefined;
     source = undefined;
@@ -169,7 +176,7 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
   /** Used after successful uploads, which already invalidate numeric handles. */
   function settleCancelled(task: Task) {
     remove(task);
-    if (!preview && !exporting) {
+    if (!preview && !exporting && !thumbnail) {
       cancelTurn?.();
       cancelTurn = undefined;
     }
@@ -202,9 +209,12 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
     for (const task of tasks()) {
       if (task === except) continue;
       if (
-        profile(task.message)
-          ? engine!.charactersAtlasRetentionVersion !== 1
-          : !style(task.message) && task.message.settings.mapping === "glyph"
+        task.message.type === "renderThumbnail"
+          ? task.message.profile.kind === "characters" &&
+            engine!.charactersAtlasRetentionVersion !== 1
+          : profile(task.message)
+            ? engine!.charactersAtlasRetentionVersion !== 1
+            : !style(task.message) && task.message.settings.mapping === "glyph"
       )
         // Setters may deduplicate without invalidating native handles. Release a
         // still-live handle; only an actual upload's already-absent status is safe.
@@ -222,7 +232,12 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
     settleUploadInvalidations(except);
   }
   function wake() {
-    if (!disposed && !failure && !cancelTurn && (preview || exporting))
+    if (
+      !disposed &&
+      !failure &&
+      !cancelTurn &&
+      (preview || exporting || thumbnail)
+    )
       cancelTurn = scheduler.schedule(runTurn);
   }
   function runTurn() {
@@ -235,7 +250,13 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
       steps < 64 && (steps === 0 || now() - start < 4);
       steps++
     ) {
-      if (disposed || failure || !engine || (!preview && !exporting)) break;
+      if (
+        disposed ||
+        failure ||
+        !engine ||
+        (!preview && !exporting && !thumbnail)
+      )
+        break;
       runStep();
     }
     for (const task of progressed) {
@@ -261,17 +282,27 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
           : "preview"
         : preview
           ? "preview"
-          : "export";
-    const task = lane === "preview" ? preview : exporting;
+          : exporting
+            ? "export"
+            : "thumbnail";
+    const task =
+      lane === "preview" ? preview : lane === "export" ? exporting : thumbnail;
     if (!task) return;
-    lastLane = lane;
+    if (lane !== "thumbnail") lastLane = lane;
     const m = task.message;
     try {
       if (task.handle === undefined) {
-        if (profile(m) || (style(m) && m.settings.styleId === "braille"))
+        if (
+          profile(m) ||
+          (style(m) && m.settings.styleId === "braille") ||
+          (m.type === "renderThumbnail" &&
+            (m.profile.kind === "characters" ||
+              m.profile.settings.styleId === "braille"))
+        )
           selectAtlas(task.atlas!, task);
         else if (
           !style(m) &&
+          m.type !== "renderThumbnail" &&
           m.settings.mapping === "glyph" &&
           selectedCalibrationKey !== calibrationIdentityKey(logicalCalibration!)
         ) {
@@ -281,15 +312,26 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
           settleUploadInvalidations(task);
         }
         task.startedAt = now();
-        task.handle = style(m)
-          ? engine.beginStyle(m.settings)
-          : profile(m)
-            ? engine.beginCharacters(m.settings)
-            : engine.begin(m.settings);
+        task.handle =
+          m.type === "renderThumbnail"
+            ? m.profile.kind === "characters"
+              ? engine.beginCharacters(m.profile.settings)
+              : engine.beginStyle(m.profile.settings)
+            : style(m)
+              ? engine.beginStyle(m.settings)
+              : profile(m)
+                ? engine.beginCharacters(m.settings)
+                : engine.begin(m.settings);
       }
       const status = engine.step(task.handle, 4096);
       task.slices++;
       if (status === "complete") {
+        if (m.type === "renderThumbnail" && !task.converting) {
+          engine.beginThumbnail(task.handle, m.maxSide);
+          task.converting = true;
+          progressed.add(task);
+          return;
+        }
         // The completing turn still reports its real step count once.
         progressed.delete(task);
         options.postMessage({
@@ -305,18 +347,28 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
         // Readback owns release, including its failure path; don't cancel a
         // numeric handle that its readback already dropped.
         task.handle = undefined;
-        const result = style(m)
-          ? {
-              type: "styleResult" as const,
-              styleId: m.styleId,
-              frame: engine.takeStyleFrame(handle),
-            }
-          : profile(m)
+        const result =
+          m.type === "renderThumbnail"
             ? {
-                type: "charactersResult" as const,
-                frame: engine.takeFrame(handle),
+                type: "thumbnailResult" as const,
+                styleId:
+                  m.profile.kind === "characters"
+                    ? ("characters" as const)
+                    : m.profile.settings.styleId,
+                frame: engine.takeThumbnail(handle),
               }
-            : { type: "result" as const, grid: engine.takeGrid(handle) };
+            : style(m)
+              ? {
+                  type: "styleResult" as const,
+                  styleId: m.styleId,
+                  frame: engine.takeStyleFrame(handle),
+                }
+              : profile(m)
+                ? {
+                    type: "charactersResult" as const,
+                    frame: engine.takeFrame(handle),
+                  }
+                : { type: "result" as const, grid: engine.takeGrid(handle) };
         const finishedAt = now();
         remove(task);
         const grid =
@@ -333,7 +385,11 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
               grid.alpha.buffer,
             ]
           : [];
-        if (result.type === "charactersResult" || result.type === "styleResult")
+        if (
+          result.type === "charactersResult" ||
+          result.type === "styleResult" ||
+          result.type === "thumbnailResult"
+        )
           transfer.push(result.frame.rgba.buffer);
         options.postMessage(
           {
@@ -357,7 +413,10 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
       if (
         !(cause instanceof RenderError) ||
         cause.code === "WorkerFailure" ||
-        (cause.code === "CapabilityUnavailable" && !profile(m) && !style(m))
+        (cause.code === "CapabilityUnavailable" &&
+          !profile(m) &&
+          !style(m) &&
+          m.type !== "renderThumbnail")
       ) {
         fatal(m.requestId, cause, m);
         return;
@@ -441,6 +500,8 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
                 ...envelope(m.requestId),
                 type: "ready",
                 styleProfileVersion: engine?.styleProfileVersion ?? null,
+                thumbnailProfileVersion:
+                  engine?.thumbnailProfileVersion ?? null,
                 supportedStyleIds:
                   engine?.styleProfileVersion === 1
                     ? (["braille", "pixel", "mosaic"] as const).filter((id) =>
@@ -499,6 +560,7 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
               "BudgetExceeded",
               "Source exceeds session memory budget",
             );
+          if (thumbnail) cancel(thumbnail);
           engine.setSource(s);
           for (const task of tasks()) settleCancelled(task);
           source = {
@@ -531,6 +593,7 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
             "Atlas metadata requires a new identity",
           );
         if (!atlas || atlasKey !== key) {
+          if (thumbnail) cancel(thumbnail);
           selectAtlas(a);
           // A logical replacement invalidates lazy legacy tasks even when this
           // exact atlas is already selected for a captured profile export.
@@ -556,6 +619,7 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
       if (m.type === "setCalibration") {
         const c = m.calibration;
         if (!calibration || calibration.id !== c.id) {
+          if (thumbnail) cancel(thumbnail);
           engine.setCalibration(c);
           selectedAtlasKey = undefined;
           selectedCalibrationKey = calibrationIdentityKey(c);
@@ -603,7 +667,55 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
           "MissingSource",
           "Requested source identity is not uploaded",
         );
-      if (style(m)) {
+      if (m.type === "renderThumbnail") {
+        if (engine.thumbnailProfileVersion !== 1)
+          throw new RenderError(
+            "CapabilityUnavailable",
+            "Native thumbnail conversion is unavailable",
+          );
+        if (
+          m.source.width !== source.width ||
+          m.source.height !== source.height
+        )
+          throw new RenderError(
+            "InvalidInput",
+            "Thumbnail source geometry mismatch",
+          );
+        if (m.profile.kind === "style") {
+          if (
+            engine.styleProfileVersion !== 1 ||
+            !engine.supportsStyle(
+              STYLE_DISPATCH_IDS[m.profile.settings.styleId],
+            )
+          )
+            throw new RenderError(
+              "CapabilityUnavailable",
+              "Thumbnail style is unsupported",
+            );
+          encodeStyleSettings(
+            m.profile.settings,
+            source,
+            m.profile.settings.styleId === "braille" ? atlas : undefined,
+          );
+        } else if (
+          !engine.charactersProfileAvailable ||
+          (m.profile.settings.backdrop !== "none" &&
+            engine.charactersContextVersion !== 1)
+        )
+          throw new RenderError(
+            "CapabilityUnavailable",
+            "Thumbnail Characters profile is unavailable",
+          );
+        if (
+          (m.profile.kind === "characters" ||
+            m.profile.settings.styleId === "braille") &&
+          (!atlas || atlas.calibration.id !== m.calibrationId)
+        )
+          throw new RenderError(
+            "MissingCalibration",
+            "Thumbnail atlas is missing",
+          );
+      } else if (style(m)) {
         if (
           engine.styleProfileVersion !== 1 ||
           !engine.supportsStyle(STYLE_DISPATCH_IDS[m.settings.styleId])
@@ -704,18 +816,27 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
         message: m,
         queuedAt: now(),
         slices: 0,
-        ...(profile(m) || (style(m) && m.settings.styleId === "braille")
+        ...(profile(m) ||
+        (style(m) && m.settings.styleId === "braille") ||
+        (m.type === "renderThumbnail" &&
+          (m.profile.kind === "characters" ||
+            m.profile.settings.styleId === "braille"))
           ? { atlas }
           : {}),
       };
-      if (
+      if (m.type === "renderThumbnail") {
+        if (thumbnail) cancel(thumbnail);
+        thumbnail = task;
+      } else if (
         m.type === "renderPreview" ||
         m.type === "renderCharactersPreview" ||
         m.type === "renderStylePreview"
       ) {
+        if (thumbnail) cancel(thumbnail);
         if (preview) cancel(preview);
         preview = task;
       } else {
+        if (thumbnail) cancel(thumbnail);
         if (exporting && pendingExport)
           throw new RenderError("Busy", "Export queue is full");
         if (exporting) pendingExport = task;

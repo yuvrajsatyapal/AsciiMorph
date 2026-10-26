@@ -72,6 +72,46 @@ function AcceptedThumbnail({
     </>
   );
 }
+function CurrentSourceThumbnail({ runtime, styleId, label, identityKey }: {
+  runtime: StudioRuntime; styleId: string; label: string; identityKey: string;
+}) {
+  const canvas = useRef<HTMLCanvasElement>(null);
+  const [visible, setVisible] = useState(false);
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    const target = canvas.current;
+    if (!target) return;
+    if (typeof IntersectionObserver === "undefined") {
+      setVisible(true);
+      return;
+    }
+    const observer = new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting),
+      { rootMargin: "80px" });
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, []);
+  useEffect(() => {
+    const target = canvas.current;
+    if (!target || !visible) return;
+    const release = runtime.retainCanvas(target);
+    const abort = new AbortController();
+    let live = true;
+    void runtime.requestThumbnail(styleId, abort.signal).then((frame) => {
+      if (!live || !frame) return;
+      try { runtime.admitThumbnailPaint(target, frame); paintStudioFrame(target, frame); setReady(true); }
+      catch { setReady(false); }
+    }).catch(() => { if (live) setReady(false); });
+    return () => {
+      live = false;
+      abort.abort();
+      target.width = target.height = 0;
+      release();
+      setReady(false);
+    };
+  }, [runtime, styleId, identityKey, visible]);
+  return <canvas ref={canvas} width={0} height={0} aria-label={`Current ${label} thumbnail`}
+    style={{ visibility: ready ? "visible" : "hidden" }} />;
+}
 function Tile({
   tile,
   controller: c,
@@ -99,12 +139,27 @@ function Tile({
         }
         aria-pressed={available ? selected : undefined}
         onClick={() => {
+          runtime.clearHover?.();
           c.selectStyle(tile.id);
           c.setView({ dockOpen: true, dockCollapsed: false });
         }}
+        onPointerEnter={(event) => {
+          if (available && (event.pointerType === "mouse" || event.pointerType === "pen"))
+            void runtime.hoverStyle?.(tile.id);
+        }}
+        onPointerLeave={() => runtime.clearHover?.()}
+        onFocus={(event) => {
+          if (available && event.currentTarget.matches(":focus-visible"))
+            void runtime.hoverStyle?.(tile.id);
+        }}
+        onBlur={() => runtime.clearHover?.()}
       >
         <span className="studio-tile-visual">
-          {available && selected ? (
+          {available && runtime.canRenderThumbnail?.() ? (
+            <CurrentSourceThumbnail runtime={runtime} styleId={tile.id} label={tile.label}
+              identityKey={JSON.stringify([s.project.source, s.project.style, s.project.crop,
+                s.project.rotation, s.project.seed, s.project.timeUs, s.capabilityRevision])} />
+          ) : available && selected ? (
             <AcceptedThumbnail
               runtime={runtime}
               snapshot={s}
