@@ -93,7 +93,7 @@ async function trackStyles(page: Page) {
 }
 async function acceptedStyle(
   page: Page,
-  styleId: "pixel" | "mosaic",
+  styleId: "pixel" | "mosaic" | "braille",
   afterRevision = -1,
 ): Promise<AcceptedStyle> {
   await expect
@@ -468,4 +468,120 @@ test("desktop widths and coarse tablet/fine narrow sheets preserve a shared proj
       await context.close();
     }
   }
+});
+
+test("Braille uses a measured atlas through crop, rotation, threshold and equal PNG export", async ({
+  page,
+}) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await trackStyles(page);
+  await page.goto("/app");
+  await upload17x13(page);
+  await pickStyle(page, "Braille");
+  let latest = await acceptedStyle(page, "braille");
+  const first = await frameHash(page);
+  await page.getByRole("button", { name: "Crop", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Crop and rotate" });
+  await dialog.getByLabel("Width (%)").fill("50");
+  await dialog.getByLabel("Rotate clockwise").click();
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+  expect(await frameHash(page)).toEqual(first);
+  await expect(
+    page.getByRole("button", { name: "Crop", exact: true }),
+  ).toBeFocused();
+  await page.getByRole("button", { name: "Crop", exact: true }).click();
+  await dialog.getByLabel("Width (%)").fill("50");
+  await dialog.getByLabel("Rotate clockwise").click();
+  await expect(
+    dialog.getByRole("status", { name: "Effective dimensions" }),
+  ).toHaveText("13 × 9 pixels");
+  await dialog.getByRole("button", { name: "Apply", exact: true }).click();
+  latest = await acceptedStyle(page, "braille", latest.revision);
+  expect(await frameHash(page)).toMatchObject({ width: 13, height: 9 });
+  expect(await exported(page, "png")).toEqual([13, 9]);
+  await history(page, "Undo");
+  latest = await acceptedStyle(page, "braille", latest.revision);
+  expect(await frameHash(page)).toEqual(first);
+  const threshold = page.getByRole("slider", {
+    name: "Local profile threshold",
+  });
+  await threshold.fill("100");
+  latest = await acceptedStyle(page, "braille", latest.revision);
+  const high = await frameHash(page);
+  await threshold.fill("0");
+  await acceptedStyle(page, "braille", latest.revision);
+  const low = await frameHash(page);
+  expect(low.hash).not.toBe(high.hash);
+  await page.getByRole("button", { name: "Export", exact: true }).click();
+  const pending = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export PNG", exact: true }).click();
+  const stream = await (await pending).createReadStream(),
+    chunks: Buffer[] = [];
+  for await (const chunk of stream!) chunks.push(Buffer.from(chunk));
+  const exportedHash = await page.evaluate(async (base64) => {
+    const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+    const bitmap = await createImageBitmap(
+      new Blob([bytes], { type: "image/png" }),
+    );
+    const c = document.createElement("canvas");
+    c.width = bitmap.width;
+    c.height = bitmap.height;
+    const ctx = c.getContext("2d")!;
+    ctx.drawImage(bitmap, 0, 0);
+    bitmap.close();
+    let hash = 2166136261;
+    for (const b of ctx.getImageData(0, 0, c.width, c.height).data)
+      hash = Math.imul(hash ^ b, 16777619);
+    return hash >>> 0;
+  }, Buffer.concat(chunks).toString("base64"));
+  expect(exportedHash).toBe(low.hash);
+  await page.keyboard.press("Escape");
+  await page.screenshot({
+    path: "docs/verification/screenshots/studio-braille-crop.png",
+  });
+  expect(errors).toEqual([]);
+});
+
+test("mobile crop ratios, invalid draft and Escape preserve a usable source", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await trackStyles(page);
+  await page.goto("/app");
+  await upload17x13(page);
+  const crop = page.getByRole("button", { name: "Crop", exact: true });
+  await expect(crop).toBeVisible();
+  await crop.click();
+  const dialog = page.getByRole("dialog", { name: "Crop and rotate" });
+  await dialog.getByLabel("Aspect ratio").selectOption("1:1");
+  await expect(
+    dialog.getByRole("status", { name: "Effective dimensions" }),
+  ).toHaveText("13 × 13 pixels");
+  await dialog.getByLabel("Width (%)").fill("0");
+  await expect(
+    dialog.getByRole("button", { name: "Apply", exact: true }),
+  ).toBeDisabled();
+  await page.keyboard.press("Escape");
+  await expect(dialog).not.toBeVisible();
+  await expect(crop).toBeFocused();
+  await crop.click();
+  await expect(dialog.getByLabel("Width (%)")).toHaveValue("100");
+  await dialog.getByLabel("Aspect ratio").selectOption("1:1");
+  await dialog.getByLabel("Rotate counterclockwise").click();
+  await dialog.getByRole("button", { name: "Apply", exact: true }).click();
+  await expect
+    .poll(async () => {
+      const frame = await frameHash(page);
+      return [frame.width, frame.height];
+    })
+    .toEqual([13, 13]);
+  await page.screenshot({
+    path: "docs/verification/screenshots/studio-crop-mobile.png",
+  });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
 });

@@ -15,6 +15,7 @@ import {
 } from "./controller";
 import { useStudio } from "./use-studio";
 import type { StudioRuntime } from "./runtime";
+import { CropDialogContent } from "./crop-dialog";
 import { ExportDialogContent } from "./export-dialog";
 import { StudioViewport } from "./viewport";
 import { Catalog } from "./catalog";
@@ -135,9 +136,11 @@ export function StudioShell({
   );
   const c = runtime.controller;
   const compact = useCompact();
-  const [dialog, setDialog] = useState<"help" | "menu" | "export" | null>(null);
+  const [dialog, setDialog] = useState<
+    "help" | "menu" | "export" | "crop" | null
+  >(null);
   const dialogTrigger = useRef<HTMLElement | null>(null);
-  const openDialog = (next: "help" | "menu" | "export") => {
+  const openDialog = (next: "help" | "menu" | "export" | "crop") => {
     // Sheet cleanup releases its trap and scroll lock before the dialog owns them.
     c.setView({ mobileSheet: null });
     setDialog(next);
@@ -542,17 +545,25 @@ export function StudioShell({
       {dialog && (
         <StudioDialog
           title={
-            dialog === "help"
-              ? "Studio help"
-              : dialog === "menu"
-                ? "Studio menu"
-                : "Export image"
+            dialog === "crop"
+              ? "Crop and rotate"
+              : dialog === "help"
+                ? "Studio help"
+                : dialog === "menu"
+                  ? "Studio menu"
+                  : "Export image"
           }
           kind={dialog}
           returnTo={dialogTrigger.current}
           close={() => setDialog(null)}
         >
-          {dialog === "help" ? (
+          {dialog === "crop" ? (
+            <CropDialogContent
+              controller={c}
+              snapshot={s}
+              close={() => setDialog(null)}
+            />
+          ) : dialog === "help" ? (
             <>
               <p>
                 Upload or drop a PNG, JPEG, WebP or BMP, or paste an image file.

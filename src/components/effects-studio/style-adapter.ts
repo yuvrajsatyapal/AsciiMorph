@@ -6,7 +6,12 @@ import {
 } from "@/render/style-contract";
 
 /** Internal service capability. Catalog readiness is reserved for Task 18. */
-export const STUDIO_STYLE_IDS = ["characters", "pixel", "mosaic"] as const;
+export const STUDIO_STYLE_IDS = [
+  "characters",
+  "pixel",
+  "mosaic",
+  "braille",
+] as const;
 export type StudioStyleId = (typeof STUDIO_STYLE_IDS)[number];
 export function isStudioStyleId(id: string): id is StudioStyleId {
   return (STUDIO_STYLE_IDS as readonly string[]).includes(id);
@@ -40,7 +45,7 @@ export function bindStyleProject(
   project: RenderProjectV1,
   scale: 1 | 2 | 3 | 4,
 ): StyleSettingsV1 {
-  if (project.style.id !== "pixel" && project.style.id !== "mosaic")
+  if (!["pixel", "mosaic", "braille"].includes(project.style.id))
     throw new Error("Studio raster style unavailable");
   if (
     project.effects.some((effect) => effect.enabled) ||

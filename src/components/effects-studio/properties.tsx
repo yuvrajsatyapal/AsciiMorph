@@ -140,8 +140,7 @@ export function Properties({
   close: () => void;
   collapse: () => void;
 }) {
-  const raster =
-    s.project.style.id === "pixel" || s.project.style.id === "mosaic";
+  const raster = s.project.style.id !== "characters";
   const schema = initialCatalogRegistry.getStyle(s.project.style.id)!;
   const control = (key: string) => {
     const descriptor = schema.descriptor.parameters.find((p) => p.key === key);
@@ -214,6 +213,7 @@ export function Properties({
             {control("fontSize")}
             {control("invert")}
             {control("charOpacity")}
+            {s.project.style.id === "braille" && control("brailleThreshold")}
             {s.project.style.id === "mosaic" && control("mosaicShape")}
             <p className="studio-note">
               Advanced controls are unavailable for this profile.

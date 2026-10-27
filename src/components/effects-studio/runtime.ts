@@ -40,7 +40,10 @@ import {
 import type { RgbaFrameV1, StyleSettingsV1 } from "@/render/style-contract";
 import type { ThumbnailRenderRequest } from "@/render/protocol";
 import type { RenderProjectV1 } from "@/render/project";
-import { createThumbnailScheduler, type ThumbnailKey } from "@/render/thumbnail-scheduler";
+import {
+  createThumbnailScheduler,
+  type ThumbnailKey,
+} from "@/render/thumbnail-scheduler";
 import { bindStyleProject } from "./style-adapter";
 import {
   createStudioController,
@@ -114,13 +117,16 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
   let thumbnailSequence = 0;
   let lastThumbnailSignature = "";
   let thumbnailReservation = 0;
-  const thumbnailInputs = new Map<string, {
-    request: ThumbnailRenderRequest;
-    atlas?: ReferenceCharacterAtlasV1;
-    live: number;
-    retired: boolean;
-    started: boolean;
-  }>();
+  const thumbnailInputs = new Map<
+    string,
+    {
+      request: ThumbnailRenderRequest;
+      atlas?: ReferenceCharacterAtlasV1;
+      live: number;
+      retired: boolean;
+      started: boolean;
+    }
+  >();
   let staged:
     | (AcceptedStudioFrame & { jobId: number; release(): void })
     | null = null;
@@ -141,7 +147,12 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
   };
   function heldFrameBytes() {
     const backings = new Set<ArrayBufferLike>();
-    for (const value of [accepted?.frame, staged?.frame, hoverFrame, ...captures]) {
+    for (const value of [
+      accepted?.frame,
+      staged?.frame,
+      hoverFrame,
+      ...captures,
+    ]) {
       if (!value) continue;
       backings.add(value.rgba.buffer);
       if ("grid" in value && value.grid)
@@ -168,10 +179,12 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
   function atlasResourceBytes(extra?: ReferenceCharacterAtlasV1) {
     const locals = [
       ...new Set(
-        [measured?.atlas, capturedAtlas, extra,
-          ...[...thumbnailInputs.values()].map((entry) => entry.atlas)].filter(
-          (a): a is ReferenceCharacterAtlasV1 => !!a,
-        ),
+        [
+          measured?.atlas,
+          capturedAtlas,
+          extra,
+          ...[...thumbnailInputs.values()].map((entry) => entry.atlas),
+        ].filter((a): a is ReferenceCharacterAtlasV1 => !!a),
       ),
     ];
     const originalBackings = new Set<ArrayBufferLike>();
@@ -243,14 +256,15 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
     await closeService(old);
     if (!disposed) {
       service = createService();
-      unsubscribeCapability = service.subscribeStatus?.(() => {
-        if (service.thumbnailProfileVersion !== 1) {
-          clearHover();
-          thumbnailScheduler.invalidateAll();
-        }
-        controller.refreshAvailability();
-        thumbnailScheduler?.resume();
-      }) ?? (() => {});
+      unsubscribeCapability =
+        service.subscribeStatus?.(() => {
+          if (service.thumbnailProfileVersion !== 1) {
+            clearHover();
+            thumbnailScheduler.invalidateAll();
+          }
+          controller.refreshAvailability();
+          thumbnailScheduler?.resume();
+        }) ?? (() => {});
       controller.refreshAvailability();
     }
   }
@@ -298,33 +312,69 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
     maxFrames: 24,
     maxPending: 6,
     release: () => {},
-    canStart: () => !disposed && !service.highPriorityBusy && !controller.getSnapshot().loading &&
-      controller.getSnapshot().status === "ready" && !controller.getSnapshot().exportBusy,
+    canStart: () =>
+      !disposed &&
+      !service.highPriorityBusy &&
+      !controller.getSnapshot().loading &&
+      controller.getSnapshot().status === "ready" &&
+      !controller.getSnapshot().exportBusy,
     async render(key, signal) {
       const input = thumbnailInputs.get(thumbnailId(key));
       if (!input || signal.aborted) throw cancelled();
       const pixels = key.width * key.height;
-      const thumbWidth = Math.max(1, Math.round(key.width * Math.min(1, 192 / Math.max(key.width, key.height))));
-      const thumbHeight = Math.max(1, Math.round(key.height * Math.min(1, 192 / Math.max(key.width, key.height))));
+      const thumbWidth = Math.max(
+        1,
+        Math.round(
+          key.width * Math.min(1, 192 / Math.max(key.width, key.height)),
+        ),
+      );
+      const thumbHeight = Math.max(
+        1,
+        Math.round(
+          key.height * Math.min(1, 192 / Math.max(key.width, key.height)),
+        ),
+      );
       const thumbPixels = thumbWidth * thumbHeight;
       // Full native profile + retained wire, conversion accumulator/generic wire,
       // detached readback and one pending canvas. Existing source/atlas/outputs
       // are charged separately by the shared ownership ledger.
-      const geometry = input.request.profile.kind === "characters"
-        ? prepareCharactersGeometry(input.request.profile.settings.fontSize, 1)
-        : null;
-      const cells = geometry ? Math.floor(key.width / geometry.cellWidth) *
-        Math.floor(key.height / geometry.cellHeight) : 0;
+      const geometry =
+        input.request.profile.kind === "characters"
+          ? prepareCharactersGeometry(
+              input.request.profile.settings.fontSize,
+              1,
+            )
+          : null;
+      const cells = geometry
+        ? Math.floor(key.width / geometry.cellWidth) *
+          Math.floor(key.height / geometry.cellHeight)
+        : 0;
       const reservation = pixels * 52 + cells * 28 + thumbPixels * 44 + 4096;
-      if (source.retainedSourceBytes * 3 + atlasResourceBytes(input.atlas) + heldFrameBytes() + reservation > DEFAULT_MEMORY_BUDGET_BYTES)
+      if (
+        source.retainedSourceBytes * 3 +
+          atlasResourceBytes(input.atlas) +
+          heldFrameBytes() +
+          reservation >
+        DEFAULT_MEMORY_BUDGET_BYTES
+      )
         throw new Error("Thumbnail exceeds the 256 MiB session budget");
       thumbnailReservation = reservation;
       input.started = true;
       try {
-        const result = await service.renderThumbnail(input.request, signal, input.atlas);
-        if (signal.aborted || result.styleId !== key.styleId || result.sourceId !== key.sourceId ||
-          result.sourceRevision !== key.sourceRevision || result.revision !== input.request.revision ||
-          result.calibrationId !== input.request.calibrationId || !source.isReady(input.request.source))
+        const result = await service.renderThumbnail(
+          input.request,
+          signal,
+          input.atlas,
+        );
+        if (
+          signal.aborted ||
+          result.styleId !== key.styleId ||
+          result.sourceId !== key.sourceId ||
+          result.sourceRevision !== key.sourceRevision ||
+          result.revision !== input.request.revision ||
+          result.calibrationId !== input.request.calibrationId ||
+          !source.isReady(input.request.source)
+        )
           throw cancelled();
         return result.frame;
       } finally {
@@ -350,7 +400,12 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
     signal: AbortSignal,
   ) {
     const fontSize = request.project.style.parameters.fontSize as number;
-    const ramp = request.project.style.parameters.charSet as string;
+    const ramp =
+      request.project.style.id === "braille"
+        ? Array.from({ length: 256 }, (_, i) =>
+            String.fromCodePoint(0x2800 + i),
+          ).join("")
+        : (request.project.style.parameters.charSet as string);
     const geometry = prepareCharactersGeometry(fontSize, scale);
     const key = JSON.stringify([geometry, ramp]);
     if (measured?.key === key) return measured.atlas;
@@ -409,6 +464,7 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
   function styleJob(
     request: StudioRequest,
     settings: StyleSettingsV1,
+    atlas?: ReferenceCharacterAtlasV1,
   ): StyleRenderRequest {
     const ref = request.project.source;
     if (!ref) throw new Error("A committed source is required");
@@ -417,9 +473,9 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
       revision: request.revision,
       sourceId: ref.id,
       sourceRevision: ref.revision,
-      calibrationId: "",
+      calibrationId: atlas?.calibration.id ?? "",
       source: ref,
-      styleId: settings.styleId as "pixel" | "mosaic",
+      styleId: settings.styleId as StyleRenderRequest["styleId"],
       settings,
       timeUs: request.project.timeUs,
     };
@@ -428,6 +484,7 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
     request: StudioRequest,
     format: StillExportOptions["format"],
     settings: StyleSettingsV1,
+    atlas?: ReferenceCharacterAtlasV1,
   ) {
     if (
       service.styleProfileVersion !== 1 ||
@@ -444,7 +501,7 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
     const peak =
       source.retainedSourceBytes * 3 +
       pixels * 52 +
-      atlasResourceBytes() +
+      atlasResourceBytes(atlas) +
       heldFrameBytes() +
       encoderReservationBytes(
         settings.frameWidth,
@@ -614,13 +671,63 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
               sequence !== latestPrepare
             )
               throw cancelled();
-            const identity: PreparedResources = {
-              kind: "none",
-              calibrationId: "",
-              generation: ++atlasGeneration,
-            };
+            const atlas =
+              settings.styleId === "braille"
+                ? await measure(request, 1, signal)
+                : undefined;
+            check(signal);
+            if (
+              current !== service ||
+              epoch !== serviceGeneration ||
+              sequence !== latestPrepare
+            )
+              throw cancelled();
+            if (atlas) {
+              if (
+                source.retainedSourceBytes * 3 +
+                  atlasResourceBytes(atlas) +
+                  heldFrameBytes() +
+                  settings.frameWidth * settings.frameHeight * 52 >
+                DEFAULT_MEMORY_BUDGET_BYTES
+              )
+                throw new Error(
+                  "Style preview exceeds the 256 MiB session budget",
+                );
+              await current.setAtlas(atlas);
+              check(signal);
+              if (
+                current !== service ||
+                epoch !== serviceGeneration ||
+                sequence !== latestPrepare
+              )
+                throw cancelled();
+              measured = {
+                key: JSON.stringify([
+                  prepareCharactersGeometry(
+                    request.project.style.parameters.fontSize as number,
+                    1,
+                  ),
+                  Array.from({ length: 256 }, (_, i) =>
+                    String.fromCodePoint(0x2800 + i),
+                  ).join(""),
+                ]),
+                atlas,
+              };
+            }
+            const identity: PreparedResources = atlas
+              ? {
+                  kind: "atlas",
+                  calibrationId: atlas.calibration.id,
+                  generation: ++atlasGeneration,
+                }
+              : {
+                  kind: "none",
+                  calibrationId: "",
+                  generation: ++atlasGeneration,
+                };
             prepared = {
               jobId: request.jobId,
+              atlas,
               identity,
               service: current,
               serviceGeneration: epoch,
@@ -694,11 +801,20 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
           )
             throw new Error("Prepared Studio resources expired");
           if (request.project.style.id !== "characters") {
-            if (p.identity.kind !== "none")
-              throw new Error("Raster resource identity mismatch");
+            if (
+              (request.project.style.id === "braille") !==
+                (p.identity.kind === "atlas") ||
+              (p.identity.kind === "atlas" &&
+                p.atlas?.calibration.id !== p.identity.calibrationId)
+            )
+              throw new Error("Style resource identity mismatch");
             const settings = bindStyleProject(request.project, 1);
-            const r = styleJob(request, settings);
-            const result = await p.service.renderStylePreview(r, signal);
+            const r = styleJob(request, settings, p.atlas);
+            const result = await p.service.renderStylePreview(
+              r,
+              signal,
+              p.atlas,
+            );
             check(signal);
             if (
               sequence !== latestPreview ||
@@ -712,7 +828,7 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
               result.sourceId !== r.sourceId ||
               result.sourceRevision !== r.sourceRevision ||
               result.styleId !== r.styleId ||
-              result.calibrationId !== ""
+              result.calibrationId !== r.calibrationId
             )
               throw new Error("Raster result identity mismatch");
             const identity: PaintedIdentity = {
@@ -721,7 +837,7 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
               sourceRevision: result.sourceRevision,
               projectId: request.project.id,
               revision: result.revision,
-              calibrationId: "",
+              calibrationId: result.calibrationId,
             };
             discardStage();
             const release = () => signal.removeEventListener("abort", abort);
@@ -824,31 +940,51 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
       }
       controller.refreshAvailability();
       thumbnailScheduler?.resume();
-    }) ??
-    (() => {});
-  async function requestThumbnail(styleId: string, signal?: AbortSignal): Promise<RgbaFrameV1 | null> {
+    }) ?? (() => {});
+  async function requestThumbnail(
+    styleId: string,
+    signal?: AbortSignal,
+  ): Promise<RgbaFrameV1 | null> {
     check();
     if (signal?.aborted) throw cancelled();
     const snapshot = controller.getSnapshot();
     const ref = snapshot.project.source;
-    if (!ref || !source.isReady(ref) || service.thumbnailProfileVersion !== 1 ||
-      !runtime.getAvailableStyleIds().includes(styleId)) return null;
+    if (
+      !ref ||
+      !source.isReady(ref) ||
+      service.thumbnailProfileVersion !== 1 ||
+      !runtime.getAvailableStyleIds().includes(styleId)
+    )
+      return null;
     const project: RenderProjectV1 = {
       ...snapshot.project,
-      style: styleId === snapshot.project.style.id
-        ? snapshot.project.style
-        : { id: styleId, parameters: initialCatalogRegistry.styleDefaults(styleId) },
+      style:
+        styleId === snapshot.project.style.id
+          ? snapshot.project.style
+          : {
+              id: styleId,
+              parameters: initialCatalogRegistry.styleDefaults(styleId),
+            },
     };
     let atlas: ReferenceCharacterAtlasV1 | undefined;
     let profile: ThumbnailRenderRequest["profile"];
     let resourceId = "none";
     if (styleId === "characters") {
-      const request: StudioRequest = { project, revision: snapshot.revision, jobId: 0, generation: 0 };
+      const request: StudioRequest = {
+        project,
+        revision: snapshot.revision,
+        jobId: 0,
+        generation: 0,
+      };
       atlas = await measure(request, 1, new AbortController().signal);
       check();
       if (signal?.aborted) throw cancelled();
-      if (controller.getSnapshot().project.source !== ref &&
-        JSON.stringify(controller.getSnapshot().project.source) !== JSON.stringify(ref)) return null;
+      if (
+        controller.getSnapshot().project.source !== ref &&
+        JSON.stringify(controller.getSnapshot().project.source) !==
+          JSON.stringify(ref)
+      )
+        return null;
       const bound = prepareCharactersProject(project, 1, atlas, {
         source: ref,
         calibrationId: atlas.calibration.id,
@@ -861,29 +997,57 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
       profile = { kind: "characters", settings: bound.settings };
       resourceId = atlas.calibration.id;
     } else {
+      if (styleId === "braille") {
+        atlas = await measure(
+          { project, revision: snapshot.revision, jobId: 0, generation: 0 },
+          1,
+          signal ?? new AbortController().signal,
+        );
+        check(signal);
+        resourceId = atlas.calibration.id;
+      }
       profile = { kind: "style", settings: bindStyleProject(project, 1) };
     }
-    if (snapshot.project.source?.id !== controller.getSnapshot().project.source?.id ||
-      snapshot.project.source?.revision !== controller.getSnapshot().project.source?.revision)
+    if (
+      snapshot.project.source?.id !==
+        controller.getSnapshot().project.source?.id ||
+      snapshot.project.source?.revision !==
+        controller.getSnapshot().project.source?.revision
+    )
       return null;
     const settings = profile.settings;
     const key: ThumbnailKey = {
-      sourceId: ref.id, sourceRevision: ref.revision, styleId,
+      sourceId: ref.id,
+      sourceRevision: ref.revision,
+      styleId,
       parameterKey: JSON.stringify([settings, project.seed, project.timeUs]),
-      seed: project.seed, timeUs: project.timeUs,
-      width: settings.frameWidth, height: settings.frameHeight, resourceId,
+      seed: project.seed,
+      timeUs: project.timeUs,
+      width: settings.frameWidth,
+      height: settings.frameHeight,
+      resourceId,
     };
     const input: ThumbnailRenderRequest = {
       jobId: `thumbnail-${++thumbnailSequence}`,
       revision: snapshot.revision,
-      sourceId: ref.id, sourceRevision: ref.revision,
+      sourceId: ref.id,
+      sourceRevision: ref.revision,
       calibrationId: atlas?.calibration.id ?? "",
-      source: ref, profile, timeUs: project.timeUs, maxSide: 192,
+      source: ref,
+      profile,
+      timeUs: project.timeUs,
+      maxSide: 192,
     };
     const id = thumbnailId(key);
     let holder = thumbnailInputs.get(id);
     if (!holder || holder.retired) {
-      holder = { request: input, atlas, live: 0, retired: false, started: false };
+      holder = {
+        request: input,
+        atlas,
+        live: 0,
+        retired: false,
+        started: false,
+      };
       thumbnailInputs.set(id, holder);
     }
     holder.live++;
@@ -900,13 +1064,20 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
           thumbnailScheduler.cancel(key);
         }
         // An active native request keeps its input/atlas owner through terminal.
-        if (owner.live === 0 && !owner.started && thumbnailInputs.get(id) === owner)
+        if (
+          owner.live === 0 &&
+          !owner.started &&
+          thumbnailInputs.get(id) === owner
+        )
           thumbnailInputs.delete(id);
         outcome();
       };
       const onAbort = () => settle(() => reject(cancelled()), true);
       signal?.addEventListener("abort", onAbort, { once: true });
-      if (signal?.aborted) { onAbort(); return; }
+      if (signal?.aborted) {
+        onAbort();
+        return;
+      }
       thumbnailScheduler.request(key).then(
         (frame) => settle(() => resolve(frame), false),
         (reason) => settle(() => reject(reason), false),
@@ -921,7 +1092,8 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
     hoverStyleId = styleId;
     try {
       const frame = await requestThumbnail(styleId, abort.signal);
-      if (sequence !== hoverSequence || !frame || !hoverStyleId || disposed) return;
+      if (sequence !== hoverSequence || !frame || !hoverStyleId || disposed)
+        return;
       hoverFrame = frame;
       publishHover();
     } catch {
@@ -932,8 +1104,14 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
   // synchronous notification boundary. Stale/export results never enter staging.
   const unsubscribe = controller.subscribe(() => {
     const snapshot = controller.getSnapshot();
-    const signature = JSON.stringify([snapshot.project.source, snapshot.project.style,
-      snapshot.project.crop, snapshot.project.rotation, snapshot.project.seed, snapshot.project.timeUs]);
+    const signature = JSON.stringify([
+      snapshot.project.source,
+      snapshot.project.style,
+      snapshot.project.crop,
+      snapshot.project.rotation,
+      snapshot.project.seed,
+      snapshot.project.timeUs,
+    ]);
     if (signature !== lastThumbnailSignature) {
       lastThumbnailSignature = signature;
       clearHover();
@@ -959,13 +1137,16 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
   });
   const runtime = {
     controller,
-    canRenderThumbnail: () => service.thumbnailProfileVersion === 1 && !disposed,
+    canRenderThumbnail: () =>
+      service.thumbnailProfileVersion === 1 && !disposed,
     requestThumbnail,
     hoverStyle,
     clearHover,
     getHoverFrame: () => hoverFrame,
     getHoverRevision: () => hoverRevision,
-    get thumbnailUsage() { return thumbnailScheduler?.usage(); },
+    get thumbnailUsage() {
+      return thumbnailScheduler?.usage();
+    },
     /** Current negotiated worker capability intersected with reviewed bindings. */
     getAvailableStyleIds(): readonly string[] {
       const ids: string[] = [];
@@ -978,7 +1159,7 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
       )
         ids.push("characters");
       if (service.styleProfileVersion === 1)
-        for (const id of ["pixel", "mosaic"] as const) {
+        for (const id of ["pixel", "mosaic", "braille"] as const) {
           const schema = initialCatalogRegistry.getStyle(id);
           if (schema?.binding && service.supportedStyleIds.includes(id))
             ids.push(id);
@@ -1050,15 +1231,27 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
         canvases.delete(canvas);
       };
     },
-    admitThumbnailPaint(canvas: { width: number; height: number }, frame: RgbaFrameV1) {
+    admitThumbnailPaint(
+      canvas: { width: number; height: number },
+      frame: RgbaFrameV1,
+    ) {
       const next = frame.width * frame.height * 4;
-      if (Math.max(frame.width, frame.height) > 192 ||
-        !Number.isSafeInteger(next) || next > thumbnailMaxBytes ||
-        frame.rgba.byteLength !== next)
+      if (
+        Math.max(frame.width, frame.height) > 192 ||
+        !Number.isSafeInteger(next) ||
+        next > thumbnailMaxBytes ||
+        frame.rgba.byteLength !== next
+      )
         throw new Error("Invalid thumbnail canvas frame");
       const prior = canvases.has(canvas) ? canvas.width * canvas.height * 4 : 0;
-      if (source.retainedSourceBytes * 3 + atlasResourceBytes() +
-        heldFrameBytes() - prior + next > DEFAULT_MEMORY_BUDGET_BYTES)
+      if (
+        source.retainedSourceBytes * 3 +
+          atlasResourceBytes() +
+          heldFrameBytes() -
+          prior +
+          next >
+        DEFAULT_MEMORY_BUDGET_BYTES
+      )
         throw new Error("Thumbnail canvas exceeds the 256 MiB session budget");
     },
     async retry() {
@@ -1091,8 +1284,25 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
             !current.supportedStyleIds.includes(settings.styleId)
           )
             throw new Error("Studio raster style capability unavailable");
-          if (format) admitStyleExport(request, format, settings);
-          const r = styleJob(request, settings);
+          const atlas =
+            settings.styleId === "braille"
+              ? await measure(request, scale, signal)
+              : undefined;
+          check(signal);
+          if (current !== service || epoch !== serviceGeneration)
+            throw cancelled();
+          if (atlas) capturedAtlas = atlas;
+          // Include the newly captured atlas before native work even for callers without an encoder.
+          if (
+            source.retainedSourceBytes * 3 +
+              atlasResourceBytes(atlas) +
+              heldFrameBytes() +
+              settings.frameWidth * settings.frameHeight * 52 >
+            DEFAULT_MEMORY_BUDGET_BYTES
+          )
+            throw new Error("Style export exceeds the 256 MiB session budget");
+          if (format) admitStyleExport(request, format, settings, atlas);
+          const r = styleJob(request, settings, atlas);
           const result = await current.renderStyleExport(
             {
               ...r,
@@ -1100,6 +1310,7 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
               outputHeight: settings.frameHeight,
             },
             signal,
+            atlas,
           );
           check(signal);
           if (
@@ -1111,13 +1322,13 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
             result.sourceRevision !== r.sourceRevision ||
             result.revision !== r.revision ||
             result.jobId !== r.jobId ||
-            result.calibrationId !== ""
+            result.calibrationId !== r.calibrationId
           )
             throw cancelled();
           captures.add(result.frame);
           if (format) {
             captureAdmission = () =>
-              admitStyleExport(request, format, settings);
+              admitStyleExport(request, format, settings, atlas);
             try {
               captureAdmission();
             } catch (reason) {
@@ -1138,6 +1349,7 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
               released = true;
               captures.delete(result.frame);
               captureAdmission = undefined;
+              capturedAtlas = undefined;
               captureActive = false;
               finishRelease();
               captureRelease = undefined;
@@ -1199,6 +1411,7 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
           },
         };
       } catch (reason) {
+        capturedAtlas = undefined;
         captureActive = false;
         throw reason;
       }

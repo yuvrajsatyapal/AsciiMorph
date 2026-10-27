@@ -78,7 +78,7 @@ export const initialFamilySchemas: StyleSchema[] = [
   ],
 ].map(([id, name, dispatch, extra, rule]) => {
   const parameter = extra as ParameterDescriptor | null;
-  const accepted = id === "pixel" || id === "mosaic";
+  const accepted = id === "pixel" || id === "mosaic" || id === "braille";
   return {
     evidence: "independent-contract",
     defaultsVersion: 1,

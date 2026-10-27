@@ -13,7 +13,7 @@ describe("Studio style history", () => {
     c.patchParameter("brightness", 13);
     expect(c.selectStyle("pixel")).toBe(true);
     expect(c.selectStyle("mosaic")).toBe(true);
-    expect(c.selectStyle("braille")).toBe(false);
+    expect(c.selectStyle("unsupported")).toBe(false);
     expect(c.selectStyle("mosaic")).toBe(false);
     expect(c.getSnapshot().revision).toBe(3);
     expect(c.getSnapshot().project.source?.id).toBe("s");

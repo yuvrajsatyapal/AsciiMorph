@@ -15,7 +15,7 @@ describe("strict style contracts", () => {
     expect(STYLE_DISPATCH_IDS).not.toHaveProperty("block");
     for (const id of ["pixel", "mosaic", "braille"] as const) {
       const s = initialCatalogRegistry.getStyle(id)!;
-      const accepted = id === "pixel" || id === "mosaic";
+      const accepted = id === "pixel" || id === "mosaic" || id === "braille";
       expect(s.binding).toEqual(
         accepted
           ? { dispatchId: STYLE_DISPATCH_IDS[id], backend: "rust-cpu" }

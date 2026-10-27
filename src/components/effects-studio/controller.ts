@@ -515,6 +515,27 @@ export function createStudioController(
       changed();
       return true;
     },
+    setGeometry(
+      crop: RenderProjectV1["crop"],
+      rotation: RenderProjectV1["rotation"],
+    ): boolean {
+      if (!alive()) return false;
+      let next: RenderProjectV1;
+      try {
+        next = validate({ ...project, crop, rotation });
+      } catch (reason) {
+        fail("parameter", reason);
+        publish();
+        return false;
+      }
+      if (sameLook(look(project), look(next))) return false;
+      commitEdit();
+      remember(look(project));
+      project = next;
+      clearError("parameter");
+      changed();
+      return true;
+    },
     selectStyle(id: string): boolean {
       if (!alive() || id === project.style.id) return false;
       let next: RenderProjectV1;

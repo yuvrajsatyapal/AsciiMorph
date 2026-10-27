@@ -65,6 +65,7 @@ it("publishes 105 canonical tiles in 96 modes and ten categories", () => {
     "characters",
     "pixel",
     "mosaic",
+    "braille",
   ]);
 });
 it("filters category, search and favorites independently from selecting", () => {

@@ -29,7 +29,7 @@ describe("accepted Studio styles", () => {
       brightness: 7,
       contrast: 20,
     });
-    expect(() => switchStyle(next, "braille")).toThrow(/unavailable/i);
+    expect(switchStyle(next, "braille").id).toBe("braille");
   });
 
   it("binds exact raster settings and refuses unsupported active operations", () => {

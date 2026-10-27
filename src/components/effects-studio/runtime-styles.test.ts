@@ -117,14 +117,33 @@ function harness(width = 3, height = 2) {
     })),
     renderStylePreview,
     renderStyleExport,
-    renderThumbnail: vi.fn(async (r: Parameters<RenderService["renderThumbnail"]>[0]) => ({
-      jobId: r.jobId, revision: r.revision, sourceId: r.sourceId,
-      sourceRevision: r.sourceRevision, calibrationId: r.calibrationId,
-      styleId: r.profile.kind === "characters" ? "characters" : r.profile.settings.styleId,
-      backend: "rust-cpu" as const, timings,
-      frame: { version: 1 as const, width: 2, height: 1,
-        rgba: new Uint8Array(8).fill(r.profile.kind === "characters" ? 7 : r.profile.settings.styleId === "pixel" ? 17 : 27) },
-    })),
+    renderThumbnail: vi.fn(
+      async (r: Parameters<RenderService["renderThumbnail"]>[0]) => ({
+        jobId: r.jobId,
+        revision: r.revision,
+        sourceId: r.sourceId,
+        sourceRevision: r.sourceRevision,
+        calibrationId: r.calibrationId,
+        styleId:
+          r.profile.kind === "characters"
+            ? "characters"
+            : r.profile.settings.styleId,
+        backend: "rust-cpu" as const,
+        timings,
+        frame: {
+          version: 1 as const,
+          width: 2,
+          height: 1,
+          rgba: new Uint8Array(8).fill(
+            r.profile.kind === "characters"
+              ? 7
+              : r.profile.settings.styleId === "pixel"
+                ? 17
+                : 27,
+          ),
+        },
+      }),
+    ),
     dispose: vi.fn(async () => {}),
   } as unknown as RenderService;
   let id = 0;
@@ -146,7 +165,9 @@ function harness(width = 3, height = 2) {
     setAtlas,
     renderStylePreview,
     renderStyleExport,
-    emitStatus: () => { for (const listener of statusListeners) listener(); },
+    emitStatus: () => {
+      for (const listener of statusListeners) listener();
+    },
   };
 }
 
@@ -155,7 +176,9 @@ describe("Studio raster service integration", () => {
     const h = harness();
     try {
       await h.runtime.controller.loadFile(new File(["x"], "a.png"));
-      await vi.waitFor(() => expect(h.runtime.getSnapshot().status).toBe("ready"));
+      await vi.waitFor(() =>
+        expect(h.runtime.getSnapshot().status).toBe("ready"),
+      );
       const before = h.runtime.getSnapshot();
       const accepted = h.runtime.getFrame();
       const pixel = await h.runtime.requestThumbnail("pixel");
@@ -170,90 +193,153 @@ describe("Studio raster service integration", () => {
       h.runtime.clearHover();
       expect(h.runtime.getHoverFrame()).toBeNull();
       expect(h.runtime.getFrame()).toBe(accepted);
-    } finally { await h.runtime.dispose(); }
+    } finally {
+      await h.runtime.dispose();
+    }
   });
   it("denies a thumbnail before native work and releases its input owner", async () => {
     const h = harness();
     try {
       await h.runtime.controller.loadFile(new File(["x"], "a.png"));
-      await vi.waitFor(() => expect(h.runtime.getSnapshot().status).toBe("ready"));
+      await vi.waitFor(() =>
+        expect(h.runtime.getSnapshot().status).toBe("ready"),
+      );
       const accepted = h.runtime.getFrame();
       const huge = { width: 8192, height: 8192 };
       const release = h.runtime.retainCanvas(huge);
-      await expect(h.runtime.requestThumbnail("pixel")).rejects.toThrow(/budget/);
+      await expect(h.runtime.requestThumbnail("pixel")).rejects.toThrow(
+        /budget/,
+      );
       expect(h.service.renderThumbnail).not.toHaveBeenCalled();
       expect(h.runtime.getFrame()).toBe(accepted);
       release();
-      await expect(h.runtime.requestThumbnail("mosaic")).resolves.toMatchObject({ width: 2 });
-      await expect(h.runtime.requestThumbnail("pixel")).resolves.toMatchObject({ width: 2 });
+      await expect(h.runtime.requestThumbnail("mosaic")).resolves.toMatchObject(
+        { width: 2 },
+      );
+      await expect(h.runtime.requestThumbnail("pixel")).resolves.toMatchObject({
+        width: 2,
+      });
       const calls = vi.mocked(h.service.renderThumbnail).mock.calls;
       expect(calls).toHaveLength(2);
       expect(Number(calls[1][0].jobId.split("-").at(-1))).toBeGreaterThan(
         Number(calls[0][0].jobId.split("-").at(-1)),
       );
-    } finally { await h.runtime.dispose(); }
+    } finally {
+      await h.runtime.dispose();
+    }
   });
   it("holds the full native reservation after local cancellation until service terminal settlement", async () => {
     const h = harness();
     try {
       await h.runtime.controller.loadFile(new File(["x"], "a.png"));
-      await vi.waitFor(() => expect(h.runtime.getSnapshot().status).toBe("ready"));
+      await vi.waitFor(() =>
+        expect(h.runtime.getSnapshot().status).toBe("ready"),
+      );
       const baseline = h.runtime.heldFrameBytes;
-      let finish!: (value: Awaited<ReturnType<RenderService["renderThumbnail"]>>) => void;
-      const held = new Promise<Awaited<ReturnType<RenderService["renderThumbnail"]>>>((resolve) => { finish = resolve; });
+      let finish!: (
+        value: Awaited<ReturnType<RenderService["renderThumbnail"]>>,
+      ) => void;
+      const held = new Promise<
+        Awaited<ReturnType<RenderService["renderThumbnail"]>>
+      >((resolve) => {
+        finish = resolve;
+      });
       vi.mocked(h.service.renderThumbnail).mockImplementationOnce(() => held);
       const abort = new AbortController();
       const request = h.runtime.requestThumbnail("pixel", abort.signal);
-      await vi.waitFor(() => expect(h.service.renderThumbnail).toHaveBeenCalledTimes(1));
+      await vi.waitFor(() =>
+        expect(h.service.renderThumbnail).toHaveBeenCalledTimes(1),
+      );
       expect(h.runtime.heldFrameBytes).toBeGreaterThan(baseline);
       abort.abort();
       await expect(request).rejects.toThrow();
       expect(h.runtime.heldFrameBytes).toBeGreaterThan(baseline);
       const submitted = vi.mocked(h.service.renderThumbnail).mock.calls[0][0];
-      finish({ ...submitted, styleId: "pixel", backend: "rust-cpu", timings,
-        frame: { version: 1, width: 2, height: 1, rgba: new Uint8Array(8) } });
+      finish({
+        ...submitted,
+        styleId: "pixel",
+        backend: "rust-cpu",
+        timings,
+        frame: { version: 1, width: 2, height: 1, rgba: new Uint8Array(8) },
+      });
       await vi.waitFor(() => expect(h.runtime.heldFrameBytes).toBe(baseline));
-    } finally { await h.runtime.dispose(); }
+    } finally {
+      await h.runtime.dispose();
+    }
   });
   it("settles each coalesced caller on its own abort without cancelling a live caller", async () => {
     const h = harness();
-    let finish!: (value: Awaited<ReturnType<RenderService["renderThumbnail"]>>) => void;
+    let finish!: (
+      value: Awaited<ReturnType<RenderService["renderThumbnail"]>>,
+    ) => void;
     try {
       await h.runtime.controller.loadFile(new File(["x"], "a.png"));
-      await vi.waitFor(() => expect(h.runtime.getSnapshot().status).toBe("ready"));
-      const held = new Promise<Awaited<ReturnType<RenderService["renderThumbnail"]>>>((resolve) => { finish = resolve; });
+      await vi.waitFor(() =>
+        expect(h.runtime.getSnapshot().status).toBe("ready"),
+      );
+      const held = new Promise<
+        Awaited<ReturnType<RenderService["renderThumbnail"]>>
+      >((resolve) => {
+        finish = resolve;
+      });
       vi.mocked(h.service.renderThumbnail).mockImplementationOnce(() => held);
       const firstAbort = new AbortController();
       const secondAbort = new AbortController();
       const first = h.runtime.requestThumbnail("pixel", firstAbort.signal);
       const second = h.runtime.requestThumbnail("pixel", secondAbort.signal);
-      await vi.waitFor(() => expect(h.service.renderThumbnail).toHaveBeenCalledTimes(1));
-      const nativeSignal = vi.mocked(h.service.renderThumbnail).mock.calls[0][1]!;
+      await vi.waitFor(() =>
+        expect(h.service.renderThumbnail).toHaveBeenCalledTimes(1),
+      );
+      const nativeSignal = vi.mocked(h.service.renderThumbnail).mock
+        .calls[0][1]!;
       firstAbort.abort();
       await expect(first).rejects.toMatchObject({ name: "AbortError" });
       expect(nativeSignal.aborted).toBe(false);
       const submitted = vi.mocked(h.service.renderThumbnail).mock.calls[0][0];
-      finish({ ...submitted, styleId: "pixel", backend: "rust-cpu", timings,
-        frame: { version: 1, width: 2, height: 1, rgba: new Uint8Array(8).fill(17) } });
+      finish({
+        ...submitted,
+        styleId: "pixel",
+        backend: "rust-cpu",
+        timings,
+        frame: {
+          version: 1,
+          width: 2,
+          height: 1,
+          rgba: new Uint8Array(8).fill(17),
+        },
+      });
       expect((await second)?.rgba[0]).toBe(17);
       expect(nativeSignal.aborted).toBe(false);
-    } finally { await h.runtime.dispose(); }
+    } finally {
+      await h.runtime.dispose();
+    }
   });
   it("cancels after the last coalesced abort, settles both, and holds the native reservation until terminal", async () => {
     const h = harness();
-    let finish!: (value: Awaited<ReturnType<RenderService["renderThumbnail"]>>) => void;
+    let finish!: (
+      value: Awaited<ReturnType<RenderService["renderThumbnail"]>>,
+    ) => void;
     try {
       await h.runtime.controller.loadFile(new File(["x"], "a.png"));
-      await vi.waitFor(() => expect(h.runtime.getSnapshot().status).toBe("ready"));
+      await vi.waitFor(() =>
+        expect(h.runtime.getSnapshot().status).toBe("ready"),
+      );
       const baseline = h.runtime.heldFrameBytes;
-      const held = new Promise<Awaited<ReturnType<RenderService["renderThumbnail"]>>>((resolve) => { finish = resolve; });
+      const held = new Promise<
+        Awaited<ReturnType<RenderService["renderThumbnail"]>>
+      >((resolve) => {
+        finish = resolve;
+      });
       vi.mocked(h.service.renderThumbnail).mockImplementationOnce(() => held);
       const firstAbort = new AbortController();
       const secondAbort = new AbortController();
       const first = h.runtime.requestThumbnail("pixel", firstAbort.signal);
       const second = h.runtime.requestThumbnail("pixel", secondAbort.signal);
-      await vi.waitFor(() => expect(h.service.renderThumbnail).toHaveBeenCalledTimes(1));
-      const nativeSignal = vi.mocked(h.service.renderThumbnail).mock.calls[0][1]!;
+      await vi.waitFor(() =>
+        expect(h.service.renderThumbnail).toHaveBeenCalledTimes(1),
+      );
+      const nativeSignal = vi.mocked(h.service.renderThumbnail).mock
+        .calls[0][1]!;
       expect(h.runtime.heldFrameBytes).toBeGreaterThan(baseline);
       firstAbort.abort();
       await expect(first).rejects.toMatchObject({ name: "AbortError" });
@@ -265,34 +351,72 @@ describe("Studio raster service integration", () => {
       const late = h.runtime.requestThumbnail("pixel");
       expect(h.service.renderThumbnail).toHaveBeenCalledTimes(1);
       const submitted = vi.mocked(h.service.renderThumbnail).mock.calls[0][0];
-      finish({ ...submitted, styleId: "pixel", backend: "rust-cpu", timings,
-        frame: { version: 1, width: 2, height: 1, rgba: new Uint8Array(8).fill(17) } });
+      finish({
+        ...submitted,
+        styleId: "pixel",
+        backend: "rust-cpu",
+        timings,
+        frame: {
+          version: 1,
+          width: 2,
+          height: 1,
+          rgba: new Uint8Array(8).fill(17),
+        },
+      });
       expect((await late)?.rgba[0]).toBe(17);
       expect(h.service.renderThumbnail).toHaveBeenCalledTimes(2);
-      await vi.waitFor(() => expect(h.runtime.heldFrameBytes).toBe(baseline + 8));
-    } finally { await h.runtime.dispose(); }
+      await vi.waitFor(() =>
+        expect(h.runtime.heldFrameBytes).toBe(baseline + 8),
+      );
+    } finally {
+      await h.runtime.dispose();
+    }
   });
   it("retires an atlas-changed hover and refuses stale completion after capability loss", async () => {
     const h = harness();
     try {
       await h.runtime.controller.loadFile(new File(["x"], "a.png"));
-      await vi.waitFor(() => expect(h.runtime.getSnapshot().status).toBe("ready"));
-      let finish!: (value: Awaited<ReturnType<RenderService["renderThumbnail"]>>) => void;
-      const held = new Promise<Awaited<ReturnType<RenderService["renderThumbnail"]>>>((resolve) => { finish = resolve; });
+      await vi.waitFor(() =>
+        expect(h.runtime.getSnapshot().status).toBe("ready"),
+      );
+      let finish!: (
+        value: Awaited<ReturnType<RenderService["renderThumbnail"]>>,
+      ) => void;
+      const held = new Promise<
+        Awaited<ReturnType<RenderService["renderThumbnail"]>>
+      >((resolve) => {
+        finish = resolve;
+      });
       vi.mocked(h.service.renderThumbnail).mockImplementationOnce(() => held);
       const hover = h.runtime.hoverStyle("pixel");
-      await vi.waitFor(() => expect(h.service.renderThumbnail).toHaveBeenCalledTimes(1));
+      await vi.waitFor(() =>
+        expect(h.service.renderThumbnail).toHaveBeenCalledTimes(1),
+      );
       h.runtime.controller.patchParameter("charSet", "@#.");
       expect(h.runtime.getHoverFrame()).toBeNull();
       const submitted = vi.mocked(h.service.renderThumbnail).mock.calls[0][0];
-      finish({ ...submitted, styleId: "pixel", backend: "rust-cpu", timings,
-        frame: { version: 1, width: 2, height: 1, rgba: new Uint8Array(8).fill(17) } });
+      finish({
+        ...submitted,
+        styleId: "pixel",
+        backend: "rust-cpu",
+        timings,
+        frame: {
+          version: 1,
+          width: 2,
+          height: 1,
+          rgba: new Uint8Array(8).fill(17),
+        },
+      });
       await hover;
       expect(h.runtime.getHoverFrame()).toBeNull();
-      await vi.waitFor(() => expect(h.runtime.getSnapshot().status).toBe("ready"));
+      await vi.waitFor(() =>
+        expect(h.runtime.getSnapshot().status).toBe("ready"),
+      );
       await h.runtime.hoverStyle("characters");
       expect(h.runtime.getHoverFrame()?.rgba[0]).toBe(7);
-      const capability = h.service as unknown as { thumbnailProfileVersion: 1 | null };
+      const capability = h.service as unknown as {
+        thumbnailProfileVersion: 1 | null;
+      };
       capability.thumbnailProfileVersion = null;
       h.emitStatus();
       expect(h.runtime.getHoverFrame()).toBeNull();
@@ -300,30 +424,63 @@ describe("Studio raster service integration", () => {
       capability.thumbnailProfileVersion = 1;
       h.emitStatus();
       expect((await h.runtime.requestThumbnail("mosaic"))?.rgba[0]).toBe(27);
-    } finally { await h.runtime.dispose(); }
+    } finally {
+      await h.runtime.dispose();
+    }
   });
   it("keeps a replaced-source thumbnail reservation until terminal and rejects its old pixels", async () => {
     const h = harness();
     try {
       await h.runtime.controller.loadFile(new File(["x"], "one.png"));
-      await vi.waitFor(() => expect(h.runtime.getSnapshot().status).toBe("ready"));
-      let finish!: (value: Awaited<ReturnType<RenderService["renderThumbnail"]>>) => void;
-      const held = new Promise<Awaited<ReturnType<RenderService["renderThumbnail"]>>>((resolve) => { finish = resolve; });
+      await vi.waitFor(() =>
+        expect(h.runtime.getSnapshot().status).toBe("ready"),
+      );
+      let finish!: (
+        value: Awaited<ReturnType<RenderService["renderThumbnail"]>>,
+      ) => void;
+      const held = new Promise<
+        Awaited<ReturnType<RenderService["renderThumbnail"]>>
+      >((resolve) => {
+        finish = resolve;
+      });
       vi.mocked(h.service.renderThumbnail).mockImplementationOnce(() => held);
       const old = h.runtime.requestThumbnail("pixel").catch((error) => error);
-      await vi.waitFor(() => expect(h.service.renderThumbnail).toHaveBeenCalledTimes(1));
+      await vi.waitFor(() =>
+        expect(h.service.renderThumbnail).toHaveBeenCalledTimes(1),
+      );
       const submitted = vi.mocked(h.service.renderThumbnail).mock.calls[0][0];
-      expect(await h.runtime.controller.loadFile(new File(["y"], "two.png"))).toBe(true);
-      await vi.waitFor(() => expect(h.runtime.getSnapshot().status).toBe("ready"));
-      expect(h.runtime.getSnapshot().project.source?.id).not.toBe(submitted.sourceId);
-      expect(h.runtime.heldFrameBytes).toBeGreaterThan(h.runtime.getFrame()!.frame.rgba.buffer.byteLength);
-      finish({ ...submitted, styleId: "pixel", backend: "rust-cpu", timings,
-        frame: { version: 1, width: 2, height: 1, rgba: new Uint8Array(8).fill(17) } });
+      expect(
+        await h.runtime.controller.loadFile(new File(["y"], "two.png")),
+      ).toBe(true);
+      await vi.waitFor(() =>
+        expect(h.runtime.getSnapshot().status).toBe("ready"),
+      );
+      expect(h.runtime.getSnapshot().project.source?.id).not.toBe(
+        submitted.sourceId,
+      );
+      expect(h.runtime.heldFrameBytes).toBeGreaterThan(
+        h.runtime.getFrame()!.frame.rgba.buffer.byteLength,
+      );
+      finish({
+        ...submitted,
+        styleId: "pixel",
+        backend: "rust-cpu",
+        timings,
+        frame: {
+          version: 1,
+          width: 2,
+          height: 1,
+          rgba: new Uint8Array(8).fill(17),
+        },
+      });
       expect(await old).toMatchObject({ name: "AbortError" });
       expect((await h.runtime.requestThumbnail("pixel"))?.rgba[0]).toBe(17);
-      expect(vi.mocked(h.service.renderThumbnail).mock.calls.at(-1)?.[0].sourceId)
-        .toBe(h.runtime.getSnapshot().project.source?.id);
-    } finally { await h.runtime.dispose(); }
+      expect(
+        vi.mocked(h.service.renderThumbnail).mock.calls.at(-1)?.[0].sourceId,
+      ).toBe(h.runtime.getSnapshot().project.source?.id);
+    } finally {
+      await h.runtime.dispose();
+    }
   });
   it("publishes only currently negotiated reviewed bindings and responds to lost/recovered capability", async () => {
     const h = harness();
@@ -339,7 +496,11 @@ describe("Studio raster service integration", () => {
         "mosaic",
       ]);
       capability.supportedStyleIds = ["pixel", "braille"];
-      expect(h.runtime.getAvailableStyleIds()).toEqual(["characters", "pixel"]);
+      expect(h.runtime.getAvailableStyleIds()).toEqual([
+        "characters",
+        "pixel",
+        "braille",
+      ]);
       capability.styleProfileVersion = null;
       expect(h.runtime.getAvailableStyleIds()).toEqual(["characters"]);
       capability.charactersProfileVersion = null;
@@ -347,6 +508,69 @@ describe("Studio raster service integration", () => {
       capability.styleProfileVersion = 1;
       capability.supportedStyleIds = ["mosaic"];
       expect(h.runtime.getAvailableStyleIds()).toEqual(["mosaic"]);
+    } finally {
+      await h.runtime.dispose();
+    }
+  });
+  it("prepares ordered Braille atlas and retains its identity in previews, thumbnails and captured exports", async () => {
+    const h = harness(41, 27);
+    (
+      h.service as unknown as { supportedStyleIds: string[] }
+    ).supportedStyleIds.push("braille");
+    try {
+      await h.runtime.controller.loadFile(new File(["x"], "braille.png"));
+      await vi.waitFor(() =>
+        expect(h.runtime.getSnapshot().status).toBe("ready"),
+      );
+      h.runtime.controller.selectStyle("braille");
+      await vi.waitFor(() =>
+        expect(h.runtime.getSnapshot().frame?.styleId).toBe("braille"),
+      );
+      const input = h.measure.mock.calls.at(-1)![0];
+      expect(input.ramp).toBe(
+        Array.from({ length: 256 }, (_, i) =>
+          String.fromCodePoint(0x2800 + i),
+        ).join(""),
+      );
+      expect(input.cellWidth).toBe(6.6);
+      expect(input.cellHeight).toBe(11);
+      const id = h.runtime.getSnapshot().frame!.calibrationId;
+      expect(id).not.toBe("");
+      expect(h.jobs.at(-1)?.calibrationId).toBe(id);
+      expect(
+        vi.mocked(h.service.renderStylePreview).mock.calls.at(-1)?.[2],
+      ).toBeDefined();
+      await h.runtime.requestThumbnail("braille");
+      expect(
+        vi.mocked(h.service.renderThumbnail).mock.calls.at(-1)?.[0]
+          .calibrationId,
+      ).not.toBe("");
+      const s = h.runtime.getSnapshot();
+      const captured = await h.runtime.renderCaptured(
+        { project: s.project, revision: s.revision, jobId: 89, generation: 1 },
+        2,
+        new AbortController().signal,
+      );
+      expect(captured.result.frame.width).toBe(82);
+      expect(captured.result.calibrationId).not.toBe("");
+      expect(h.measure.mock.calls.at(-1)![0].cellWidth).toBe(13.2);
+      h.runtime.controller.selectStyle("characters");
+      await vi.waitFor(() =>
+        expect(h.runtime.getSnapshot().frame?.styleId).toBe("characters"),
+      );
+      expect(captured.result.frame.width).toBe(82);
+      captured.release();
+      h.runtime.controller.undo();
+      await vi.waitFor(() =>
+        expect(h.runtime.getSnapshot().frame?.styleId).toBe("braille"),
+      );
+      const accepted = h.runtime.getFrame();
+      h.renderStylePreview.mockRejectedValueOnce(new Error("native failure"));
+      h.runtime.controller.patchParameter("brailleThreshold", 75);
+      await vi.waitFor(() =>
+        expect(h.runtime.getSnapshot().status).toBe("error"),
+      );
+      expect(h.runtime.getFrame()).toBe(accepted);
     } finally {
       await h.runtime.dispose();
     }

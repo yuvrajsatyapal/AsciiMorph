@@ -15,7 +15,7 @@ export function Toolbar({
 }: {
   controller: StudioController;
   snapshot: StudioSnapshot;
-  open: (dialog: "help" | "menu") => void;
+  open: (dialog: "help" | "menu" | "crop") => void;
 }) {
   const holding = useRef(false);
   const release = () => {
@@ -76,7 +76,11 @@ export function Toolbar({
           <Icon name="plus" />
         </button>
         <span className="studio-separator" />
-        <button disabled aria-label="Crop unavailable" title={unavailable}>
+        <button
+          disabled={!s.project.source || s.loading}
+          aria-label="Crop"
+          onClick={() => open("crop")}
+        >
           <Icon name="crop" />
         </button>
         <button
