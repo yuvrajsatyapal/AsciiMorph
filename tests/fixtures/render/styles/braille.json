@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "profile": "independent-initial-v1",
+  "rowMajorDotBits": [1, 8, 2, 16, 4, 32, 64, 128],
+  "fixtures": [
+    {"name":"all-patterns","patterns":"0..255 inclusive","source":"12x20; font20; exact6x5 dots; active128, inactive0, opaque; brightness30 contrast0 threshold50","atlas":"256 ordered U+2800+i; 8x1 mask encodes index bits left-to-right","expected":"each output mask bit is the corresponding source spatial bit; U+2800 paints nothing"},
+    {"name":"equal-mean-distinct","patterns":[1,8],"expected":"different selected masks and output pixels"},
+    {"name":"threshold","values":[127,128],"threshold":50,"expectedBits":[0,1]},
+    {"name":"transparent-threshold-zero","rgba":[255,255,255,0],"threshold":0,"expectedEveryPixel":[0,0,0,0]},
+    {"name":"alpha-safe-cell","source":"one opaque red spatial dot; seven transparent blue dots","threshold":20,"expectedGlyph":1,"expectedCellRGB":[255,0,0],"expectedCellAlpha":31.875},
+    {"name":"partial","sourceSize":[17,13],"fontSize":5,"cell":[5,2],"expectedOrigin":[15,10],"expectedGlyph":63},
+    {"name":"baseline","sourceSize":[17,13],"rgba":[128,128,128,255],"fontSize":11,"contrast":20,"scales":[1,2,4],"rotations":[0,90,180,270],"expectedEveryPixel":[128,128,128,255]},
+    {"name":"resources","reject":["count !=256","nonzero blank mask","zero full mask","origin mismatch","changed captured atlas"]},
+    {"name":"lifetime-budget","expected":["exact capacity peak accepted","one byte short rejected before allocation","bounded cooperative source/paint/composition","cancel frees dynamic planes","frame transfer one shot","actual WASM preview/export and thumbnail readback"]}
+  ]
+}

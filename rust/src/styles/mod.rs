@@ -1,3 +1,4 @@
+pub mod braille;
 pub mod compose;
 pub mod contract;
 pub mod geometry;

@@ -2,14 +2,14 @@
 import { readFileSync } from "node:fs";
 import { it, expect } from "vitest";
 import { createCharacterEngine } from "./wasm-character";
-it("discovers actual Pixel and Mosaic native families", async () => {
+it("discovers actual Braille, Pixel and Mosaic native families", async () => {
   const e = await createCharacterEngine(
     readFileSync("public/wasm/asciimorph_engine.wasm"),
   );
   try {
     expect(e.styleProfileVersion).toBe(1);
     for (let id = 1; id <= 15; id++)
-      expect(e.supportsStyle(id)).toBe(id === 10 || id === 11);
+      expect(e.supportsStyle(id)).toBe(id === 4 || id === 10 || id === 11);
   } finally {
     e.dispose();
   }

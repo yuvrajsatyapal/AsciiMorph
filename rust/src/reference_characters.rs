@@ -178,6 +178,25 @@ impl ReferenceAtlas {
     pub fn glyph_count(&self) -> u16 {
         self.count
     }
+    pub(crate) fn dimensions(&self) -> (usize, usize) {
+        (self.width as usize, self.height as usize)
+    }
+    pub(crate) fn validate_braille(
+        &self,
+        s: &crate::styles::contract::StyleSettings,
+    ) -> Result<(), RenderError> {
+        let stride = self.width as usize * self.height as usize;
+        if self.count != 256
+            || self.space_index != 65535
+            || self.origin_x != s.atlas_origin_x
+            || self.origin_y != s.atlas_origin_y
+            || self.masks[..stride].iter().any(|&v| v != 0)
+            || !self.masks[255 * stride..].iter().any(|&v| v != 0)
+        {
+            return Err(RenderError::InvalidInput);
+        }
+        Ok(())
+    }
     pub(crate) fn identity(&self) -> (usize, u16, u16, u16, u64, u64, u16) {
         (
             self.masks.as_ptr() as usize,
@@ -198,7 +217,7 @@ impl ReferenceAtlas {
             + x as usize] as f64
             / 255.
     }
-    fn bilinear(&self, index: u16, x: f64, y: f64) -> f64 {
+    pub(crate) fn bilinear(&self, index: u16, x: f64, y: f64) -> f64 {
         let (ix, iy) = (x.floor() as isize, y.floor() as isize);
         let (fx, fy) = (x - x.floor(), y - y.floor());
         self.alpha(index, ix, iy) * (1. - fx) * (1. - fy)

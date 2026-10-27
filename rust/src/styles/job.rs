@@ -1,5 +1,6 @@
 //! Native job boundary. A transport schema never registers a numerical renderer.
 use super::{
+    braille::BrailleJob,
     contract::{Family, StyleSettings},
     mosaic::MosaicJob,
     pixel::PixelJob,
@@ -20,11 +21,12 @@ pub enum StyleJob {
     Unavailable,
     Pixel(PixelJob),
     Mosaic(MosaicJob),
+    Braille(BrailleJob),
     #[cfg(test)]
     Fixture(fixture::FixtureJob),
 }
 pub fn supports_style(dispatch_id: u32) -> bool {
-    matches!(dispatch_id, 10 | 11)
+    matches!(dispatch_id, 4 | 10 | 11)
 }
 impl StyleJob {
     pub fn new(
@@ -44,7 +46,13 @@ impl StyleJob {
                 MosaicJob::new(source, settings, other_bytes).map(Self::Mosaic)
             }
             Family::Pixel => Err(RenderError::InvalidInput),
-            _ => Err(RenderError::UnsupportedVersion),
+            Family::Braille { .. } => BrailleJob::new(
+                source,
+                settings,
+                atlas.ok_or(RenderError::MissingCalibration)?,
+                other_bytes,
+            )
+            .map(Self::Braille),
         }
     }
     /// Total session peak: retained source + other session reservations (including
@@ -63,7 +71,12 @@ impl StyleJob {
                 }
                 super::pixel::TileJob::peak(source, settings, other_bytes)
             }
-            _ => Err(RenderError::UnsupportedVersion),
+            Family::Braille { .. } => BrailleJob::estimated_peak_bytes(
+                source,
+                settings,
+                atlas.ok_or(RenderError::MissingCalibration)?,
+                other_bytes,
+            ),
         }
     }
     pub fn step(
@@ -76,6 +89,11 @@ impl StyleJob {
             Self::Unavailable => Err(RenderError::UnsupportedVersion),
             Self::Pixel(j) => j.tiles.step(_source, _max_work),
             Self::Mosaic(j) => j.tiles.step(_source, _max_work),
+            Self::Braille(j) => j.step(
+                _source,
+                _atlas.ok_or(RenderError::MissingCalibration)?,
+                _max_work,
+            ),
             #[cfg(test)]
             Self::Fixture(j) => j.step(_source, _atlas, _max_work),
         }
@@ -85,6 +103,7 @@ impl StyleJob {
             Self::Unavailable => 0,
             Self::Pixel(j) => j.tiles.storage_bytes(),
             Self::Mosaic(j) => j.tiles.storage_bytes(),
+            Self::Braille(j) => j.storage_bytes(),
             #[cfg(test)]
             Self::Fixture(j) => j.storage_bytes(),
         }
@@ -94,6 +113,7 @@ impl StyleJob {
             Self::Unavailable => 0,
             Self::Pixel(j) => j.tiles.capacity_excess_bytes(),
             Self::Mosaic(j) => j.tiles.capacity_excess_bytes(),
+            Self::Braille(j) => j.capacity_excess_bytes(),
             #[cfg(test)]
             Self::Fixture(j) => j.capacity_excess_bytes(),
         }
@@ -102,6 +122,7 @@ impl StyleJob {
         match self {
             Self::Pixel(j) => j.tiles.cancel(),
             Self::Mosaic(j) => j.tiles.cancel(),
+            Self::Braille(j) => j.cancel(),
             _ => (),
         }
         #[cfg(test)]
@@ -114,6 +135,7 @@ impl StyleJob {
             Self::Unavailable => None,
             Self::Pixel(j) => j.tiles.take_frame(),
             Self::Mosaic(j) => j.tiles.take_frame(),
+            Self::Braille(j) => j.take_frame(),
             #[cfg(test)]
             Self::Fixture(j) => j.take_frame(),
         }
