@@ -2,7 +2,7 @@
 
 A local-first ASCII creative workspace: manual drawing, image conversion, FIGlet typography, original templates/gallery, layers, frame animation, video/GIF conversion, seeded generators, OBJ/GLB rendering and audio-reactive art.
 
-Start at **http://localhost:3000/create** to explore all tools. Media and artwork stay in your browser; no account or server database is required.
+Start at **http://localhost:3000/** to open the rebuilt effects Studio at `/app`. The earlier creative tools remain at **http://localhost:3000/create**. Media and artwork stay in your browser; no account or server database is required.
 
 ## Run
 

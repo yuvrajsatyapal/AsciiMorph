@@ -64,7 +64,7 @@ export default function Home() {
           <a href="#possibilities">The possibilities</a>
           <Link prefetch={false} href="/create">Creative tools</Link>
         </nav>
-        <Link prefetch={false} href="/studio" className="header-studio">
+        <Link prefetch={false} href="/app" className="header-studio">
           Open Studio <ArrowUpRight size={15} />
         </Link>
       </header>
@@ -83,7 +83,7 @@ export default function Home() {
             art.
           </p>
           <div className="hero-actions">
-            <Link prefetch={false} href="/studio" className="button primary">
+            <Link prefetch={false} href="/app" className="button primary">
               Launch Studio <ArrowUpRight size={18} />
             </Link>
             <a href="#playground" className="text-link">

@@ -2,14 +2,18 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 import Home from "./home";
 describe("homepage demo", () => {
-  it("introduces the product and opens an empty studio", () => {
+  it("introduces the product and links to the rebuilt effects Studio", () => {
     render(<Home />);
     expect(
       screen.getByRole("heading", { name: "Your Imagination. In Characters." }),
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Launch Studio" })).toHaveAttribute(
       "href",
-      "/studio",
+      "/app",
+    );
+    expect(screen.getByRole("link", { name: "Open Studio" })).toHaveAttribute(
+      "href",
+      "/app",
     );
   });
   it("changes the real preview and carries choices to the studio", () => {
