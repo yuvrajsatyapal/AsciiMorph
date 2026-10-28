@@ -121,6 +121,26 @@ function CharacterControls({
           }}
         />
       </label>
+      <label className="studio-control">
+        <span>Ramp Preset</span>
+        <select
+          aria-label="Ramp Preset"
+          value=""
+          onChange={(e) => {
+            if (e.target.value) {
+              c.beginEdit();
+              c.patchParameter("charSet", e.target.value);
+              c.commitEdit();
+            }
+          }}
+        >
+          <option value="">Custom / choose preset</option>
+          <option value="@#S08Xx+=-;:. ">Classic</option>
+          <option value=" .:-=+*#%@">Light to dark</option>
+          <option value="01">Binary</option>
+          <option value="█▓▒░ ">Blocks</option>
+        </select>
+      </label>
       <p id="studio-ramp-hint" className="studio-note">
         {valid
           ? "Unique printable characters, darkest to lightest. Spaces are preserved."
@@ -207,6 +227,14 @@ export function Properties({
             <Icon name="close" />
           </button>
         </header>
+        {s.view.activeGroup === "characters" && (
+          <section className="studio-control-section">
+            <h2>Composition</h2>
+            {["bgMode", "bgBlur", "bgOpacity", "coverage", "blend"].map(
+              control,
+            )}
+          </section>
+        )}
         {s.view.activeGroup === "characters" && raster ? (
           <section className="studio-control-section">
             <h2>{schema.descriptor.name}</h2>
@@ -216,35 +244,15 @@ export function Properties({
             {s.project.style.id === "braille" && control("brailleThreshold")}
             {s.project.style.id === "mosaic" && control("mosaicShape")}
             <p className="studio-note">
-              Advanced controls are unavailable for this profile.
+              Independent native profile. Coverage uses stable seeded cells.
             </p>
           </section>
         ) : s.view.activeGroup === "characters" ? (
           <>
             <section className="studio-control-section">
-              <h2>Backdrop</h2>
-              <p className="studio-fixed">
-                Blurred source <span>Fixed</span>
-              </p>
-              <p className="studio-note">
-                The Characters renderer includes a blurred source backdrop.
-              </p>
-            </section>
-            <section className="studio-control-section">
               <h2>Characters</h2>
               <CharacterControls controller={c} snapshot={s} />
-            </section>
-            <section className="studio-control-section">
-              <h2>Intensity</h2>
-              <p className="studio-note">
-                Fixed in this look. Intensity editing is unavailable.
-              </p>
-            </section>
-            <section className="studio-control-section">
-              <h2>Blur</h2>
-              <p className="studio-note">
-                Fixed backdrop blur. Additional blur controls are unavailable.
-              </p>
+              {["invert", "charOpacity", "randomChars"].map(control)}
             </section>
           </>
         ) : (

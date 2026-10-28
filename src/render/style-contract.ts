@@ -1,3 +1,4 @@
+import { validateStyleContext, type StyleContextV1 } from "./style-context";
 import { MAX_BACKING_PIXELS, MAX_BACKING_SIDE } from "@/core/render";
 import {
   DEFAULT_MEMORY_BUDGET_BYTES,
@@ -23,6 +24,7 @@ export const STYLE_DISPATCH_IDS = Object.freeze({
   dither: 15,
 });
 export interface StyleSettingsV1 {
+  styleContext?: StyleContextV1;
   version: 1;
   styleId: FamilyId;
   frameWidth: number;
@@ -84,7 +86,10 @@ export function validateStyleSettings(
 ): StyleSettingsV1 {
   const o = styleObject(
     value,
-    "version styleId frameWidth frameHeight renderScale crop rotation seed timeUs parameters",
+    "version styleId frameWidth frameHeight renderScale crop rotation seed timeUs parameters" +
+      (value && typeof value === "object" && "styleContext" in value
+        ? " styleContext"
+        : ""),
   );
   if (
     o.version !== 1 ||
@@ -168,6 +173,9 @@ export function validateStyleSettings(
     seed: styleNumber(o.seed, 0, 0xffffffff, true),
     timeUs: styleNumber(o.timeUs, 0, Number.MAX_SAFE_INTEGER, true),
     parameters,
+    ...(o.styleContext !== undefined
+      ? { styleContext: validateStyleContext(o.styleContext) }
+      : {}),
   };
 }
 export function validateStyleFrame(

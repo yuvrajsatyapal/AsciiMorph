@@ -183,14 +183,27 @@ it.each(["cancel", "source replacement"] as const)(
     recycledJobModule();
     const e = await createCharacterEngine(bytes);
     try {
-      e.setSource({ ...f.source, rgba: new Uint8ClampedArray(f.source.width * f.source.height * 4) });
+      e.setSource({
+        ...f.source,
+        rgba: new Uint8ClampedArray(f.source.width * f.source.height * 4),
+      });
       const first = e.beginStyle(validateStyleSettings(f.settings, f.source));
       expect(e.step(first, 1)).toBe("complete");
       e.beginThumbnail(first, 8);
       expect(e.step(first, 1)).toBe("complete");
       if (invalidation === "cancel") e.cancel(first);
-      else e.setSource({ ...f.source, revision: 2, rgba: new Uint8ClampedArray(f.source.width * f.source.height * 4) });
-      const next = e.beginStyle(validateStyleSettings(f.settings, { ...f.source, revision: invalidation === "cancel" ? f.source.revision : 2 }));
+      else
+        e.setSource({
+          ...f.source,
+          revision: 2,
+          rgba: new Uint8ClampedArray(f.source.width * f.source.height * 4),
+        });
+      const next = e.beginStyle(
+        validateStyleSettings(f.settings, {
+          ...f.source,
+          revision: invalidation === "cancel" ? f.source.revision : 2,
+        }),
+      );
       expect(next).toBe(first);
       expect(e.step(next, 1)).toBe("complete");
       expect(() => e.beginThumbnail(next, 8)).not.toThrow();
@@ -358,3 +371,110 @@ it.each([false, true, "pointer", "length"] as const)(
     }
   },
 );
+it("captures additive backdrop, coverage, blend and opacity in actual WASM jobs", async () => {
+  const e = await createCharacterEngine(
+    readFileSync("public/wasm/asciimorph_engine.wasm"),
+  );
+  try {
+    expect(e.styleContextVersion).toBe(1);
+    const rgba = new Uint8ClampedArray(f.source.width * f.source.height * 4);
+    for (let i = 0; i < rgba.length; i += 4)
+      rgba.set([30 + (i % 190), 100, 210, 128], i);
+    e.setSource({ ...f.source, rgba });
+    const s = validateStyleSettings(f.settings, f.source);
+    const { STYLE_CONTEXT_DEFAULTS } = await import("./style-context");
+    const run = (c: typeof STYLE_CONTEXT_DEFAULTS) => {
+      const id = e.beginStyle({ ...s, styleContext: c });
+      while (e.step(id, 1) === "pending") {}
+      return e.takeStyleFrame(id).rgba;
+    };
+    const original = run({
+      ...STYLE_CONTEXT_DEFAULTS,
+      backdrop: "original",
+      coverage: 0,
+    });
+    expect([...original]).toEqual([...rgba]);
+    expect(
+      run({
+        ...STYLE_CONTEXT_DEFAULTS,
+        backdrop: "blur",
+        softness: 0,
+        coverage: 0,
+      }),
+    ).toEqual(original);
+    expect(
+      run({ ...STYLE_CONTEXT_DEFAULTS, backdrop: "none", coverage: 0 }).every(
+        (v) => v === 0,
+      ),
+    ).toBe(true);
+    expect(
+      run({ ...STYLE_CONTEXT_DEFAULTS, backdrop: "solid", coverage: 0 }).every(
+        (v, i) => v === (i % 4 === 3 ? 255 : 0),
+      ),
+    ).toBe(true);
+    for (const blend of [
+      "source-over",
+      "overlay",
+      "color-dodge",
+      "screen",
+      "lighter",
+    ] as const) {
+      expect(
+        run({
+          ...STYLE_CONTEXT_DEFAULTS,
+          blend,
+          opacity: 0,
+          backdrop: "original",
+        }),
+      ).toEqual(original);
+    }
+    const id = e.beginStyle({
+      ...s,
+      styleContext: {
+        ...STYLE_CONTEXT_DEFAULTS,
+        coverage: 0,
+        backdrop: "none",
+      },
+    });
+    const second = e.beginStyle({
+      ...s,
+      styleContext: {
+        ...STYLE_CONTEXT_DEFAULTS,
+        coverage: 100,
+        backdrop: "solid",
+      },
+    });
+    while (e.step(second, 7) === "pending") {}
+    while (e.step(id, 7) === "pending") {}
+    expect(e.takeStyleFrame(id).rgba.every((v) => v === 0)).toBe(true);
+    expect(e.takeStyleFrame(second).rgba.some((v) => v > 0)).toBe(true);
+  } finally {
+    e.dispose();
+  }
+});
+it("old WASM rejects additive settings before allocating a native stage", async () => {
+  shim([
+    "render_style_context_version",
+    "render_begin_style_context_v1",
+    "render_begin_characters_context_v1",
+  ]);
+  const e = await createCharacterEngine(bytes);
+  try {
+    e.setSource({
+      ...f.source,
+      rgba: new Uint8ClampedArray(f.source.width * f.source.height * 4),
+    });
+    const { STYLE_CONTEXT_DEFAULTS } = await import("./style-context");
+    expect(() =>
+      e.beginStyle({
+        ...validateStyleSettings(f.settings, f.source),
+        styleContext: { ...STYLE_CONTEXT_DEFAULTS, coverage: 0 },
+      }),
+    ).toThrow(/unavailable/i);
+    const id = e.beginStyle(validateStyleSettings(f.settings, f.source));
+    while (e.step(id, 4096) === "pending") {}
+    e.takeStyleFrame(id);
+  } finally {
+    e.dispose();
+  }
+});

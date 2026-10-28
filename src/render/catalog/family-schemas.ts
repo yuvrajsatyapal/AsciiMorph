@@ -1,3 +1,4 @@
+import { contextDescriptors, contextRules } from "./style-context-schema";
 import type { ParameterDescriptor, ParameterRule, StyleSchema } from "./types";
 const common: ParameterDescriptor[] = [
   {
@@ -87,6 +88,7 @@ export const initialFamilySchemas: StyleSchema[] = [
       : null,
     rules: {
       ...commonRules,
+      ...contextRules,
       ...(parameter ? { [parameter.key]: rule as ParameterRule } : {}),
     },
     descriptor: {
@@ -98,7 +100,11 @@ export const initialFamilySchemas: StyleSchema[] = [
       tags: [],
       ready: accepted,
       output: "rgba",
-      parameters: [...common, ...(parameter ? [parameter] : [])],
+      parameters: [
+        ...common,
+        ...contextDescriptors,
+        ...(parameter ? [parameter] : []),
+      ],
     },
   };
 });

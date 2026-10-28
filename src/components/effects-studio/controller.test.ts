@@ -65,6 +65,14 @@ describe("Studio validated project transitions", () => {
         charSet: "@#S08Xx+=-;:. ",
         brightness: 0,
         contrast: 20,
+        bgMode: "blur",
+        bgBlur: 8,
+        bgOpacity: 100,
+        coverage: 100,
+        blend: "source-over",
+        invert: false,
+        charOpacity: 100,
+        randomChars: false,
       },
     });
     expect(controller.patchParameter("brightness", 12)).toBe(true);

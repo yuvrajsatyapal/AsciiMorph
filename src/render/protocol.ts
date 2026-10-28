@@ -136,6 +136,7 @@ export type WorkerResponse =
       supportedStyleIds?: readonly InitialStyleId[];
       charactersProfileVersion?: 1 | null;
       charactersContextVersion?: 1 | null;
+      styleContextVersion?: 1 | null;
       charactersAtlasRetentionVersion?: 1 | null;
       thumbnailProfileVersion?: 1 | null;
     }>
@@ -423,6 +424,7 @@ export function validateWorkerResponse(value: unknown): WorkerResponse {
     case "ready":
       exact(m, [
         ...base,
+        ...("styleContextVersion" in m ? ["styleContextVersion"] : []),
         ...("styleProfileVersion" in m ? ["styleProfileVersion"] : []),
         ...("supportedStyleIds" in m ? ["supportedStyleIds"] : []),
         ...("charactersProfileVersion" in m
@@ -454,6 +456,7 @@ export function validateWorkerResponse(value: unknown): WorkerResponse {
           invalid("Invalid supported styles");
       }
       for (const key of [
+        "styleContextVersion",
         "charactersProfileVersion",
         "charactersContextVersion",
         "charactersAtlasRetentionVersion",

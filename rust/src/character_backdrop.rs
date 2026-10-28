@@ -38,6 +38,7 @@ enum Phase {
 /// (at most65 fixed initialization taps), or one source-over destination pixel.
 #[derive(Debug)]
 pub struct CompleteCharactersJob {
+    context: Option<crate::style_context::StyleContext>,
     settings: ReferenceCharactersSettings,
     geometry: Geometry,
     source_identity: (usize, u32, u32, usize, usize),
@@ -123,6 +124,7 @@ impl CompleteCharactersJob {
             return Err(RenderError::BudgetExceeded);
         }
         Ok(Self {
+            context: None,
             settings: s,
             geometry: g,
             source_identity: source_identity(source),
@@ -138,6 +140,12 @@ impl CompleteCharactersJob {
             sum: [0.; 4],
             capacity_excess_bytes: excess,
         })
+    }
+    pub(crate) fn configure_context(&mut self, c: crate::style_context::StyleContext) {
+        self.context = Some(c);
+        if let Some(g) = self.glyph.as_mut() {
+            g.configure_context(c);
+        }
     }
     pub(crate) fn capacity_excess_bytes(&self) -> usize {
         self.capacity_excess_bytes
@@ -223,7 +231,14 @@ impl CompleteCharactersJob {
                     self.cursor += 1;
                     if self.cursor == self.a.len() {
                         self.cursor = 0;
-                        self.phase = Phase::Blur;
+                        self.phase = if self
+                            .context
+                            .is_some_and(|c| c.backdrop != 3 || c.softness == 0.)
+                        {
+                            Phase::Composite
+                        } else {
+                            Phase::Blur
+                        };
                     }
                 }
                 Phase::Blur => self.blur_pixel(),
@@ -244,12 +259,13 @@ impl CompleteCharactersJob {
         );
     }
     fn blur_pixel(&mut self) {
-        blur_pixel_into(
+        blur_pixel_radius_into(
             &mut self.a,
             &mut self.b,
             self.settings.frame_width as usize,
             self.settings.frame_height as usize,
             self.settings.render_scale,
+            self.context.map_or(8., |c| c.softness),
             self.pass,
             self.cursor,
             &mut self.sum,
@@ -266,14 +282,26 @@ impl CompleteCharactersJob {
         }
     }
     fn composite_pixel(&mut self) {
-        let backdrop = match self.settings.backdrop {
-            ReferenceBackdrop::None => [0.; 4],
-            ReferenceBackdrop::Solid => [0., 0., 0., 1.],
-            ReferenceBackdrop::Blur => self.a[self.cursor],
+        let backdrop = if let Some(c) = self.context {
+            match c.backdrop {
+                0 => [0.; 4],
+                1 => [0., 0., 0., 1.],
+                _ => self.a[self.cursor],
+            }
+        } else {
+            match self.settings.backdrop {
+                ReferenceBackdrop::None => [0.; 4],
+                ReferenceBackdrop::Solid => [0., 0., 0., 1.],
+                ReferenceBackdrop::Blur => self.a[self.cursor],
+            }
         };
         let layer = self.layer.as_mut().unwrap();
         let p = &mut layer.rgba[self.cursor * 4..self.cursor * 4 + 4];
-        source_over(p, backdrop);
+        if let Some(c) = self.context {
+            c.composite(p, backdrop);
+        } else {
+            source_over(p, backdrop);
+        }
         self.cursor += 1;
         if self.cursor == layer.rgba.len() / 4 {
             let layer = self.layer.take().unwrap();
@@ -326,13 +354,14 @@ pub(crate) fn resize_pixel_into(
     }
     a[cursor] = p.map(|v| v as f32);
 }
-/// One fixed moving-window output; at most 65 initialization taps.
-pub(crate) fn blur_pixel_into(
+/// One moving-window output; at most481 initialization taps at softness60/scale4.
+pub(crate) fn blur_pixel_radius_into(
     a: &mut [[f32; 4]],
     b: &mut [[f32; 4]],
     w: usize,
     h: usize,
     scale: u8,
+    softness: f64,
     pass: usize,
     cursor: usize,
     sum: &mut [f64; 4],
@@ -340,7 +369,8 @@ pub(crate) fn blur_pixel_into(
     let horizontal = pass % 2 == 0;
     let (length, _) = if horizontal { (w, h) } else { (h, w) };
     let (line, pos) = (cursor / length, cursor % length);
-    let radius = box_radii(scale).unwrap()[pass / 2];
+    let r = (softness * scale as f64).round() as usize;
+    let radius = if pass / 2 < 2 { r.saturating_sub(1) } else { r };
     let at = |p: isize| {
         let p = p.clamp(0, length as isize - 1) as usize;
         if horizontal {

@@ -5,6 +5,7 @@ import {
   type StyleSettingsV1,
   type RgbaFrameV1,
 } from "./style-contract";
+import { appendStyleContext } from "./style-context";
 import { encodeStyleSettings } from "./style-wire";
 import {
   DEFAULT_MEMORY_BUDGET_BYTES,
@@ -104,6 +105,7 @@ interface CharacterWasm extends WebAssembly.Exports {
 }
 export type CharacterStepStatus = "pending" | "complete" | "cancelled";
 export interface CharacterEngine {
+  readonly styleContextVersion?: 1 | null;
   readonly thumbnailProfileVersion: 1 | null;
   beginThumbnail(jobId: number, maxSide: number): void;
   takeThumbnail(jobId: number): RgbaFrameV1;
@@ -203,6 +205,13 @@ export async function createCharacterEngine(
       "render_frame_output_len",
     ].every((name) => typeof wasm[name] === "function") &&
     (wasm.render_thumbnail_profile_version as NumericExport)() === 1;
+  const styleContextAvailable =
+    [
+      "render_style_context_version",
+      "render_begin_style_context_v1",
+      "render_begin_characters_context_v1",
+    ].every((n) => typeof wasm[n] === "function") &&
+    (wasm.render_style_context_version as NumericExport)() === 1;
   const contextVersion =
     profileAvailable &&
     typeof wasm.render_characters_context_version === "function" &&
@@ -223,22 +232,24 @@ export async function createCharacterEngine(
   let calibrationIdentity = "";
   const jobs = new Map<
     number,
-    ({
-        kind: "legacy";
-        settings: CharacterSettingsV1;
-        calibration?: CalibrationIdentity;
-      }
-    | {
-        kind: "style";
-        settings: StyleSettingsV1;
-        atlas?: ReferenceCharacterAtlasV1;
-      }
-    | {
-        kind: "characters";
-        settings: ReferenceCharactersSettingsV1;
-        atlas: ReferenceCharacterAtlasV1;
-        source: SourceRef;
-      }) & { thumbnailMaxSide?: number }
+    (
+      | {
+          kind: "legacy";
+          settings: CharacterSettingsV1;
+          calibration?: CalibrationIdentity;
+        }
+      | {
+          kind: "style";
+          settings: StyleSettingsV1;
+          atlas?: ReferenceCharacterAtlasV1;
+        }
+      | {
+          kind: "characters";
+          settings: ReferenceCharactersSettingsV1;
+          atlas: ReferenceCharacterAtlasV1;
+          source: SourceRef;
+        }
+    ) & { thumbnailMaxSide?: number }
   >();
   function alive() {
     if (disposed)
@@ -303,7 +314,11 @@ export async function createCharacterEngine(
     beginThumbnail(id, maxSide) {
       const metadata = job(id);
       uint(maxSide, "maxSide", 1);
-      if (maxSide > 192 || metadata.kind === "legacy" || metadata.thumbnailMaxSide !== undefined)
+      if (
+        maxSide > 192 ||
+        metadata.kind === "legacy" ||
+        metadata.thumbnailMaxSide !== undefined
+      )
         throw new CharacterEngineError(
           "InvalidInput",
           "Invalid thumbnail job or size",
@@ -394,18 +409,28 @@ export async function createCharacterEngine(
           "MissingCalibration",
           "Missing style atlas",
         );
-      const bytes = validateInput(settings, (v) =>
-        encodeStyleSettings(v as StyleSettingsV1, source!, capture),
+      if (settings.styleContext && !styleContextAvailable)
+        throw new CharacterEngineError(
+          "CapabilityUnavailable",
+          "Style context controls unavailable",
+        );
+      const bytes = appendStyleContext(
+        validateInput(settings, (v) =>
+          encodeStyleSettings(v as StyleSettingsV1, source!, capture),
+        ),
+        settings.styleContext,
       );
       const id = transfer(
         bytes.length,
         (_v, b) => b.set(bytes),
         (ptr) =>
-          (wasm.render_begin_style_v1 as NumericExport)(
-            handle,
-            ptr,
-            bytes.length,
-          ),
+          (
+            wasm[
+              settings.styleContext
+                ? "render_begin_style_context_v1"
+                : "render_begin_style_v1"
+            ] as NumericExport
+          )(handle, ptr, bytes.length),
       );
       jobs.set(id, { kind: "style", settings, atlas: capture });
       return id;
@@ -454,6 +479,7 @@ export async function createCharacterEngine(
       }
     },
     charactersProfileAvailable: profileAvailable,
+    styleContextVersion: styleContextAvailable ? 1 : null,
     charactersContextVersion: contextVersion,
     charactersAtlasRetentionVersion: retentionVersion,
     setAtlas(input) {
@@ -517,12 +543,26 @@ export async function createCharacterEngine(
           "MissingCalibration",
           "Missing measured Characters atlas",
         );
-      const block = encodeCharactersSettings(s, atlas, source);
+      if (s.styleContext && !styleContextAvailable)
+        throw new CharacterEngineError(
+          "CapabilityUnavailable",
+          "Style context controls unavailable",
+        );
+      const block = appendStyleContext(
+        encodeCharactersSettings(s, atlas, source),
+        s.styleContext,
+      );
       const id = transfer(
-        112,
+        block.length,
         (_v, b) => b.set(block),
         (ptr) =>
-          (wasm.render_begin_characters_v1 as NumericExport)(handle, ptr, 112),
+          (
+            wasm[
+              s.styleContext
+                ? "render_begin_characters_context_v1"
+                : "render_begin_characters_v1"
+            ] as NumericExport
+          )(handle, ptr, block.length),
       );
       jobs.set(id, {
         kind: "characters",

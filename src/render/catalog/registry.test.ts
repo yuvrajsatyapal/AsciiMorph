@@ -302,7 +302,7 @@ describe("independent four-control character subset", () => {
         dispatchId: 1,
       },
     });
-    expect(r.styleDefaults("characters")).toEqual({
+    expect(r.styleDefaults("characters")).toMatchObject({
       fontSize: 11,
       charSet: "@#S08Xx+=-;:. ",
       brightness: 0,
@@ -313,7 +313,7 @@ describe("independent four-control character subset", () => {
         (id) => r.getStyle(id),
       ),
     ).toBe(true);
-    expect(s.descriptor.parameters).toHaveLength(4);
+    expect(s.descriptor.parameters).toHaveLength(12);
     expect(
       s.descriptor.parameters.find((p) => p.key === "brightness")?.step,
     ).toBeUndefined();

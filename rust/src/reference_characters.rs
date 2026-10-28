@@ -349,6 +349,7 @@ enum Stage {
 /// No transformed image/source clone, unbounded glyph loop, or numerical browser fallback.
 #[derive(Debug)]
 pub struct ReferenceCharactersJob {
+    context: Option<crate::style_context::StyleContext>,
     settings: ReferenceCharactersSettings,
     g: Geometry,
     columns: usize,
@@ -450,6 +451,7 @@ impl ReferenceCharactersJob {
             return Err(RenderError::BudgetExceeded);
         }
         Ok(Self {
+            context: None,
             settings,
             g,
             columns,
@@ -566,6 +568,9 @@ impl ReferenceCharactersJob {
             Stage::Select
         };
     }
+    pub(crate) fn configure_context(&mut self, c: crate::style_context::StyleContext) {
+        self.context = Some(c);
+    }
     fn select(&mut self, source: &SourceImage, atlas: &ReferenceAtlas) {
         let (column, row) = (self.cell % self.columns, self.cell / self.columns);
         let p = self.pixel(source, column, row);
@@ -574,10 +579,20 @@ impl ReferenceCharactersJob {
         } else {
             self.max - self.min
         };
-        let selected = if p[3] == 0 {
+        let selected = if p[3] == 0 || self.context.is_some_and(|c| !c.occupied(column, row)) {
             None
         } else {
-            ramp_index(((luma(p) - self.min) / span).clamp(0., 1.), atlas.count)
+            ramp_index(((luma(p) - self.min) / span).clamp(0., 1.), atlas.count).map(|mut index| {
+                if let Some(c) = self.context {
+                    if c.invert {
+                        index = atlas.count - 1 - index;
+                    }
+                    if c.random {
+                        index = (c.hash(column, row) % atlas.count as u32) as u16;
+                    }
+                }
+                index
+            })
         };
         let Some(index) = selected.filter(|&index| index != atlas.space_index) else {
             self.next_cell();

@@ -1,3 +1,4 @@
+import { contextDescriptors, contextRules } from "./style-context-schema";
 import type { StyleSchema } from "./types";
 
 /** Independent four-control subset. Anchors: ui-0306, charSet resolution, ui-0464/0465.
@@ -7,6 +8,10 @@ export const initialCharacterSchema: StyleSchema = {
   defaultsVersion: 1,
   binding: { dispatchId: 1, backend: "rust-cpu" },
   rules: {
+    ...contextRules,
+    invert: { kind: "boolean" },
+    charOpacity: { kind: "number", min: 0, max: 100 },
+    randomChars: { kind: "boolean" },
     fontSize: { kind: "number", min: 3, max: 80 },
     charSet: { kind: "text", minLength: 2, maxLength: 512, graphemeRamp: true },
     brightness: { kind: "number", min: -100, max: 100 },
@@ -22,6 +27,27 @@ export const initialCharacterSchema: StyleSchema = {
     output: "rgba",
     dispatchId: 1,
     parameters: [
+      ...contextDescriptors,
+      {
+        key: "invert",
+        label: "Invert Mapping",
+        type: "boolean",
+        default: false,
+      },
+      {
+        key: "charOpacity",
+        label: "Opacity",
+        type: "number",
+        default: 100,
+        min: 0,
+        max: 100,
+      },
+      {
+        key: "randomChars",
+        label: "Random Characters",
+        type: "boolean",
+        default: false,
+      },
       {
         key: "fontSize",
         label: "Cell Size",

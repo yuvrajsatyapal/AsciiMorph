@@ -1,3 +1,4 @@
+import { migrateContextParameters } from "./style-context-schema";
 import type { ParameterMap, ParameterValue } from "../project";
 import { ProjectValidationError } from "../project-errors";
 import { sanitizeProjectJson } from "../project-json";
@@ -359,7 +360,14 @@ export function createCatalogRegistry(
     value: unknown,
     path: string,
   ): ParameterMap {
-    const result = record(sanitizeProjectJson(value), path);
+    const raw = record(sanitizeProjectJson(value), path);
+    const result =
+      path === "style.parameters"
+        ? (migrateContextParameters(
+            "id" in schema.descriptor ? schema.descriptor.id : "",
+            raw,
+          ) as ParameterMap)
+        : raw;
     exact(result, Object.keys(schema.rules), path);
     for (const [key, rule] of Object.entries(schema.rules))
       validateRule(rule, result[key], `${path}.${key}`);

@@ -316,7 +316,9 @@ it("traps sheet Tab, closes on scrim and retains the selected control group", ()
   const close = within(sheet).getByRole("button", { name: "Close panel" });
   close.focus();
   fireEvent.keyDown(document, { key: "Tab", shiftKey: true });
-  expect(within(sheet).getByLabelText("Character Set")).toHaveFocus();
+  expect(
+    within(sheet).getByRole("checkbox", { name: "Random Characters" }),
+  ).toHaveFocus();
   fireEvent.keyDown(document, { key: "Tab" });
   expect(close).toHaveFocus();
   fireEvent.click(

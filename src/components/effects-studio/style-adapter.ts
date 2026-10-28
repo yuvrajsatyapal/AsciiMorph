@@ -1,3 +1,4 @@
+import { contextFromParameters } from "@/render/style-context";
 import { initialCatalogRegistry } from "@/render/catalog/initial-schemas";
 import type { RenderProjectV1 } from "@/render/project";
 import {
@@ -75,7 +76,22 @@ export function bindStyleProject(
       rotation: p.rotation,
       seed: p.seed,
       timeUs: p.timeUs,
-      parameters: p.style.parameters,
+      parameters: Object.fromEntries(
+        Object.entries(p.style.parameters).filter(([k]) =>
+          [
+            "fontSize",
+            "brightness",
+            "contrast",
+            "invert",
+            "charOpacity",
+            "mosaicShape",
+            "brailleThreshold",
+          ].includes(k),
+        ),
+      ),
+      ...(contextFromParameters(p.style.parameters, p.seed)
+        ? { styleContext: contextFromParameters(p.style.parameters, p.seed) }
+        : {}),
     },
     ref,
   );

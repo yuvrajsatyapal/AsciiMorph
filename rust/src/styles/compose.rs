@@ -2,7 +2,7 @@
 use super::{contract::StyleSettings, geometry::FrameGeometry, StyleFrame};
 use crate::{
     character::{JobStatus, RenderError, MAX_SOURCE_BYTES},
-    character_backdrop::{blur_pixel_into, resize_pixel_into, source_over},
+    character_backdrop::resize_pixel_into,
     reference_characters::source_identity,
     source::SourceImage,
 };
@@ -17,6 +17,7 @@ enum Phase {
 }
 #[derive(Debug)]
 pub struct FrameComposer {
+    context: crate::style_context::StyleContext,
     geometry: FrameGeometry,
     rotation: u16,
     scale: u8,
@@ -90,6 +91,7 @@ impl FrameComposer {
             return Err(RenderError::BudgetExceeded);
         }
         Ok(Self {
+            context: crate::style_context::StyleContext::default(),
             geometry,
             rotation: settings.rotation as u16,
             scale: settings.scale as u8,
@@ -105,6 +107,9 @@ impl FrameComposer {
             pass: 0,
             sum: [0.; 4],
         })
+    }
+    pub(crate) fn configure_context(&mut self, c: crate::style_context::StyleContext) {
+        self.context = c;
     }
     pub fn storage_bytes(&self) -> usize {
         self.a.capacity() * 16
@@ -171,16 +176,21 @@ impl FrameComposer {
                     self.cursor += 1;
                     if self.cursor == self.a.len() {
                         self.cursor = 0;
-                        self.phase = Phase::Blur;
+                        self.phase = if self.context.backdrop != 3 || self.context.softness == 0. {
+                            Phase::Composite
+                        } else {
+                            Phase::Blur
+                        };
                     }
                 }
                 Phase::Blur => {
-                    blur_pixel_into(
+                    crate::character_backdrop::blur_pixel_radius_into(
                         &mut self.a,
                         &mut self.b,
                         self.width,
                         self.height,
                         self.scale,
+                        self.context.softness,
                         self.pass,
                         self.cursor,
                         &mut self.sum,
@@ -198,7 +208,12 @@ impl FrameComposer {
                 }
                 Phase::Composite => {
                     let p = &mut self.layer.as_mut().unwrap()[self.cursor * 4..self.cursor * 4 + 4];
-                    source_over(p, self.a[self.cursor]);
+                    let bg = match self.context.backdrop {
+                        0 => [0.; 4],
+                        1 => [0., 0., 0., 1.],
+                        _ => self.a[self.cursor],
+                    };
+                    self.context.composite(p, bg);
                     self.cursor += 1;
                     if self.cursor == self.width * self.height {
                         self.a = Vec::new();

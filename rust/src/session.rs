@@ -440,7 +440,35 @@ impl RenderSession {
         Ok(id)
     }
     pub fn begin_characters_staged(&mut self, ptr: usize, len: usize) -> Result<u32, RenderError> {
-        let (settings, count, x, y, space) = decode_reference_settings(self.staged(ptr, len)?)?;
+        self.begin_characters_context(ptr, len, false)
+    }
+    pub fn begin_characters_extended(
+        &mut self,
+        ptr: usize,
+        len: usize,
+    ) -> Result<u32, RenderError> {
+        self.begin_characters_context(ptr, len, true)
+    }
+    fn begin_characters_context(
+        &mut self,
+        ptr: usize,
+        len: usize,
+        extended: bool,
+    ) -> Result<u32, RenderError> {
+        let b = self.staged(ptr, len)?;
+        let context = if extended {
+            if b.len() != 176 {
+                return Err(RenderError::InvalidInput);
+            }
+            Some(crate::style_context::StyleContext::decode(&b[112..])?)
+        } else {
+            None
+        };
+        let (mut settings, count, x, y, space) =
+            decode_reference_settings(if extended { &b[..112] } else { b })?;
+        if extended {
+            settings.backdrop = ReferenceBackdrop::Blur;
+        }
         if self.jobs.len() >= 2 || self.next_job == u32::MAX {
             return Err(RenderError::InvalidInput);
         }
@@ -470,7 +498,10 @@ impl RenderSession {
             return Err(RenderError::BudgetExceeded);
         }
         let reserved_bytes = peak - self.admission_bytes();
-        let job = CompleteCharactersJob::new(source, settings.clone(), &atlas, other)?;
+        let mut job = CompleteCharactersJob::new(source, settings.clone(), &atlas, other)?;
+        if let Some(c) = context {
+            job.configure_context(c);
+        }
         let reserved_bytes = reserved_bytes
             .checked_add(job.capacity_excess_bytes())
             .ok_or(RenderError::BudgetExceeded)?;
@@ -511,7 +542,39 @@ impl RenderSession {
         estimate: StylePeak,
         create: StyleNew,
     ) -> Result<u32, RenderError> {
-        let settings = decode_style_settings(self.staged(ptr, len)?)?;
+        self.begin_style_context(ptr, len, estimate, create, false)
+    }
+    pub fn begin_style_extended(&mut self, ptr: usize, len: usize) -> Result<u32, RenderError> {
+        self.begin_style_context(
+            ptr,
+            len,
+            StyleJob::estimated_peak_bytes,
+            StyleJob::new,
+            true,
+        )
+    }
+    fn begin_style_context(
+        &mut self,
+        ptr: usize,
+        len: usize,
+        estimate: StylePeak,
+        create: StyleNew,
+        extended: bool,
+    ) -> Result<u32, RenderError> {
+        let b = self.staged(ptr, len)?;
+        let (base, context) = if extended {
+            if b.len() < 64 {
+                return Err(RenderError::InvalidInput);
+            }
+            let n = b.len() - 64;
+            (
+                &b[..n],
+                Some(crate::style_context::StyleContext::decode(&b[n..])?),
+            )
+        } else {
+            (b, None)
+        };
+        let settings = decode_style_settings(base)?;
         if self.jobs.len() >= 2 || self.next_job == u32::MAX {
             return Err(RenderError::InvalidInput);
         }
@@ -559,7 +622,10 @@ impl RenderSession {
             .checked_sub(admission)
             .ok_or(RenderError::InvalidInput)?;
         self.preflight(reserved_bytes)?;
-        let job = create(source, settings.clone(), atlas.as_ref(), other)?;
+        let mut job = create(source, settings.clone(), atlas.as_ref(), other)?;
+        if let Some(c) = context {
+            job.configure_context(c);
+        }
         reserved_bytes = reserved_bytes
             .checked_add(job.capacity_excess_bytes())
             .ok_or(RenderError::BudgetExceeded)?;

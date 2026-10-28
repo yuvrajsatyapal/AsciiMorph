@@ -408,3 +408,25 @@ fn style_and_characters_captures_share_one_mask_allocation_and_protect_each_futu
     s.cancel(first).unwrap();
     s.cancel(second).unwrap();
 }
+#[test]
+fn extended_context_reservation_cannot_borrow_future_scratch() {
+    let mut s = session();
+    let mut b = encode_style_settings(&settings(false)).unwrap();
+    let mut context = [0u8; 64];
+    for (o, v) in [(0, 0x31584353u32), (4, 1), (8, 3)] {
+        context[o..o + 4].copy_from_slice(&v.to_le_bytes());
+    }
+    for (o, v) in [(16, 60f64), (24, 100.), (32, 100.), (40, 50.)] {
+        context[o..o + 8].copy_from_slice(&v.to_le_bytes());
+    }
+    b.extend(context);
+    let ptr = s.stage(b.len()).unwrap();
+    s.stage_mut(ptr).unwrap().copy_from_slice(&b);
+    let id = s.begin_style_extended(ptr, b.len()).unwrap();
+    s.unstage(ptr).unwrap();
+    s.budget = s.admission_bytes();
+    assert_eq!(s.stage(1), Err(RenderError::BudgetExceeded));
+    while s.step(id, 1).unwrap() != JobStatus::Complete {}
+    s.release(id).unwrap();
+    assert_eq!(s.jobs.len(), 0);
+}

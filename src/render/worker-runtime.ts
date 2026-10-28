@@ -500,6 +500,7 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
                 ...envelope(m.requestId),
                 type: "ready",
                 styleProfileVersion: engine?.styleProfileVersion ?? null,
+                styleContextVersion: engine?.styleContextVersion ?? null,
                 thumbnailProfileVersion:
                   engine?.thumbnailProfileVersion ?? null,
                 supportedStyleIds:
@@ -681,6 +682,11 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
             "InvalidInput",
             "Thumbnail source geometry mismatch",
           );
+        if (m.profile.settings.styleContext && engine.styleContextVersion !== 1)
+          throw new RenderError(
+            "CapabilityUnavailable",
+            "Style context controls unavailable",
+          );
         if (m.profile.kind === "style") {
           if (
             engine.styleProfileVersion !== 1 ||
@@ -716,6 +722,11 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
             "Thumbnail atlas is missing",
           );
       } else if (style(m)) {
+        if (m.settings.styleContext && engine.styleContextVersion !== 1)
+          throw new RenderError(
+            "CapabilityUnavailable",
+            "Style context controls unavailable",
+          );
         if (
           engine.styleProfileVersion !== 1 ||
           !engine.supportsStyle(STYLE_DISPATCH_IDS[m.settings.styleId])
@@ -755,6 +766,11 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
           );
         }
       } else if (profile(m)) {
+        if (m.settings.styleContext && engine.styleContextVersion !== 1)
+          throw new RenderError(
+            "CapabilityUnavailable",
+            "Style context controls unavailable",
+          );
         if (
           !engine.charactersProfileAvailable ||
           (m.settings.backdrop !== "none" &&

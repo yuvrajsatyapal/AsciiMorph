@@ -25,6 +25,7 @@ pub struct BrailleJob {
     geometry: FrameGeometry,
     identity: (usize, u32, u32, usize, usize),
     atlas_identity: (usize, u16, u16, u16, u64, u64, u16),
+    context: crate::style_context::StyleContext,
     composer: FrameComposer,
     sampler: Option<AreaSampler>,
     column: usize,
@@ -96,6 +97,7 @@ impl BrailleJob {
                 .ok_or(RenderError::BudgetExceeded)?,
         )?;
         Ok(Self {
+            context: crate::style_context::StyleContext::default(),
             settings: s,
             geometry,
             identity: source_identity(source),
@@ -170,7 +172,7 @@ impl BrailleJob {
     }
     fn begin_paint(&mut self, atlas: &ReferenceAtlas) {
         self.glyph = pack_braille(self.dots);
-        if self.glyph == 0 || self.alpha == 0. {
+        if self.glyph == 0 || self.alpha == 0. || !self.context.occupied(self.column, self.row) {
             self.advance();
             return;
         }
@@ -307,6 +309,10 @@ impl BrailleJob {
         } else {
             JobStatus::Pending
         }
+    }
+    pub(crate) fn configure_context(&mut self, c: crate::style_context::StyleContext) {
+        self.context = c;
+        self.composer.configure_context(c);
     }
     pub fn storage_bytes(&self) -> usize {
         self.composer.storage_bytes()

@@ -89,6 +89,7 @@ export interface RenderService {
   ): Promise<StyleRenderResult>;
   readonly charactersProfileVersion: 1 | null;
   readonly charactersContextVersion: 1 | null;
+  readonly styleContextVersion?: 1 | null;
   readonly charactersAtlasRetentionVersion: 1 | null;
   initialize(): Promise<void>;
   setSource(source: SourceUpload): Promise<void>;
@@ -165,6 +166,7 @@ export function createRenderService(
   let supportedStyleIds: readonly InitialStyleId[] = Object.freeze([]);
   let charactersProfileVersion: 1 | null = null;
   let charactersContextVersion: 1 | null = null;
+  let styleContextVersion: 1 | null = null;
   let charactersAtlasRetentionVersion: 1 | null = null;
   let connection: Connection | undefined;
   let initialization: Promise<void> | undefined;
@@ -228,8 +230,11 @@ export function createRenderService(
   let highPriorityRequests = 0;
   async function highPriority<T>(work: () => Promise<T>): Promise<T> {
     highPriorityRequests++;
-    try { return await work(); }
-    finally { highPriorityRequests--; }
+    try {
+      return await work();
+    } finally {
+      highPriorityRequests--;
+    }
   }
   const envelope = () => ({
     version: 1 as const,
@@ -332,7 +337,10 @@ export function createRenderService(
       waiter.aborted &&
       ["thumbnailResult", "cancelled", "error"].includes(response.type)
     ) {
-      settle(response.requestId, new RenderError("Cancelled", "Render cancelled"));
+      settle(
+        response.requestId,
+        new RenderError("Cancelled", "Render cancelled"),
+      );
       return;
     }
     if ("jobId" in request) {
@@ -618,6 +626,7 @@ export function createRenderService(
       supportedStyleIds = Object.freeze([]);
       charactersProfileVersion = null;
       charactersContextVersion = null;
+      styleContextVersion = null;
       charactersAtlasRetentionVersion = null;
       try {
         validateWorkerRequest({
@@ -652,6 +661,7 @@ export function createRenderService(
         supportedStyleIds = Object.freeze([...(ready.supportedStyleIds ?? [])]);
         charactersProfileVersion = ready.charactersProfileVersion ?? null;
         charactersContextVersion = ready.charactersContextVersion ?? null;
+        styleContextVersion = ready.styleContextVersion ?? null;
         charactersAtlasRetentionVersion =
           ready.charactersAtlasRetentionVersion ?? null;
         alive();
@@ -707,7 +717,13 @@ export function createRenderService(
       ...envelope(),
       type,
       ...request,
-      settings: { ...request.settings, crop: { ...request.settings.crop } },
+      settings: {
+        ...request.settings,
+        crop: { ...request.settings.crop },
+        ...("styleContext" in request.settings && request.settings.styleContext
+          ? { styleContext: { ...request.settings.styleContext } }
+          : {}),
+      },
     };
     validateWorkerRequest(message);
     await initialize();
@@ -730,7 +746,13 @@ export function createRenderService(
       ...request,
       type,
       source: { ...request.source },
-      settings: { ...request.settings, crop: { ...request.settings.crop } },
+      settings: {
+        ...request.settings,
+        crop: { ...request.settings.crop },
+        ...("styleContext" in request.settings && request.settings.styleContext
+          ? { styleContext: { ...request.settings.styleContext } }
+          : {}),
+      },
     };
     const atlasSnapshot = capturedAtlas
       ? snapshotAtlas(capturedAtlas)
@@ -786,8 +808,9 @@ export function createRenderService(
           );
         }
         if (
-          message.settings.backdrop !== "none" &&
-          charactersContextVersion !== 1
+          (message.settings.styleContext && styleContextVersion !== 1) ||
+          (message.settings.backdrop !== "none" &&
+            charactersContextVersion !== 1)
         )
           throw new RenderError(
             "CapabilityUnavailable",
@@ -848,6 +871,7 @@ export function createRenderService(
       const { response: pending } = await enqueueInput(async () => {
         await initialize();
         if (
+          (settings.styleContext && styleContextVersion !== 1) ||
           styleProfileVersion !== 1 ||
           !supportedStyleIds.includes(message.styleId)
         )
@@ -931,6 +955,13 @@ export function createRenderService(
               settings: {
                 ...request.profile.settings,
                 crop: { ...request.profile.settings.crop },
+                ...(request.profile.settings.styleContext
+                  ? {
+                      styleContext: {
+                        ...request.profile.settings.styleContext,
+                      },
+                    }
+                  : {}),
               },
             }
           : {
@@ -938,6 +969,13 @@ export function createRenderService(
               settings: {
                 ...request.profile.settings,
                 crop: { ...request.profile.settings.crop },
+                ...(request.profile.settings.styleContext
+                  ? {
+                      styleContext: {
+                        ...request.profile.settings.styleContext,
+                      },
+                    }
+                  : {}),
                 parameters: { ...request.profile.settings.parameters },
               },
             },
@@ -957,8 +995,16 @@ export function createRenderService(
     try {
       const { response: pending } = await enqueueInput(async () => {
         if (highPriorityRequests)
-          throw new RenderError("Cancelled", "Higher-priority render is queued");
+          throw new RenderError(
+            "Cancelled",
+            "Higher-priority render is queued",
+          );
         await initialize();
+        if (message.profile.settings.styleContext && styleContextVersion !== 1)
+          throw new RenderError(
+            "CapabilityUnavailable",
+            "Style context controls unavailable",
+          );
         if (thumbnailProfileVersion !== 1)
           throw new RenderError(
             "CapabilityUnavailable",
@@ -1089,14 +1135,21 @@ export function createRenderService(
       return state === "ready" ? supportedStyleIds : Object.freeze([]);
     },
     renderStylePreview: (request, signal, atlas) =>
-      highPriority(() => renderStyle("renderStylePreview", request, signal, atlas)),
+      highPriority(() =>
+        renderStyle("renderStylePreview", request, signal, atlas),
+      ),
     renderStyleExport: (request, signal, atlas) =>
-      highPriority(() => renderStyle("renderStyleExport", request, signal, atlas)),
+      highPriority(() =>
+        renderStyle("renderStyleExport", request, signal, atlas),
+      ),
     get charactersProfileVersion() {
       return state === "ready" ? charactersProfileVersion : null;
     },
     get charactersAtlasRetentionVersion() {
       return state === "ready" ? charactersAtlasRetentionVersion : null;
+    },
+    get styleContextVersion() {
+      return state === "ready" ? styleContextVersion : null;
     },
     get charactersContextVersion() {
       return state === "ready" ? charactersContextVersion : null;
@@ -1192,12 +1245,17 @@ export function createRenderService(
       );
     },
     renderCharactersPreview: (request, signal, atlas) =>
-      highPriority(() => renderCharacters("renderCharactersPreview", request, signal, atlas)),
+      highPriority(() =>
+        renderCharacters("renderCharactersPreview", request, signal, atlas),
+      ),
     renderCharactersExport: (request, signal, atlas) =>
-      highPriority(() => renderCharacters("renderCharactersExport", request, signal, atlas)),
+      highPriority(() =>
+        renderCharacters("renderCharactersExport", request, signal, atlas),
+      ),
     renderPreview: (request, signal) =>
       highPriority(() => render("renderPreview", request, signal)),
-    renderExport: (request, signal) => highPriority(() => render("renderExport", request, signal)),
+    renderExport: (request, signal) =>
+      highPriority(() => render("renderExport", request, signal)),
     async dispose() {
       if (state === "disposed") return;
       state = "disposed";

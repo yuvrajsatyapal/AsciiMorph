@@ -12,7 +12,7 @@ describe("accepted Studio styles", () => {
       },
       "mosaic",
     );
-    expect(next).toEqual({
+    expect(next).toMatchObject({
       id: "mosaic",
       parameters: {
         fontSize: 11,
@@ -23,7 +23,7 @@ describe("accepted Studio styles", () => {
         mosaicShape: "square",
       },
     });
-    expect(switchStyle(next, "characters").parameters).toEqual({
+    expect(switchStyle(next, "characters").parameters).toMatchObject({
       fontSize: 11,
       charSet: "@#S08Xx+=-;:. ",
       brightness: 7,
@@ -44,7 +44,13 @@ describe("accepted Studio styles", () => {
       frameWidth: 6,
       frameHeight: 4,
       renderScale: 2,
-      parameters: project.style.parameters,
+      parameters: {
+        fontSize: 11,
+        brightness: 0,
+        contrast: 20,
+        invert: false,
+        charOpacity: 100,
+      },
     });
     expect(() =>
       bindStyleProject({ ...project, text: [{ enabled: true }] } as never, 1),

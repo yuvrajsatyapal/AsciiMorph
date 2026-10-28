@@ -98,6 +98,14 @@ impl StyleJob {
             Self::Fixture(j) => j.step(_source, _atlas, _max_work),
         }
     }
+    pub(crate) fn configure_context(&mut self, c: crate::style_context::StyleContext) {
+        match self {
+            Self::Pixel(j) => j.tiles.configure_context(c),
+            Self::Mosaic(j) => j.tiles.configure_context(c),
+            Self::Braille(j) => j.configure_context(c),
+            _ => (),
+        }
+    }
     pub fn storage_bytes(&self) -> usize {
         match self {
             Self::Unavailable => 0,

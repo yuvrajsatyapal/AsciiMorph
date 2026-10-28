@@ -1,6 +1,11 @@
 /** Versioned reference Characters contracts. Numeric rendering belongs to Rust.
  * Glyph layers are intermediate; project binding requires complete Rust context v1.
  */
+import {
+  contextFromParameters,
+  validateStyleContext,
+  type StyleContextV1,
+} from "./style-context";
 import { graphemes } from "@/core/document";
 import { validateRenderProject } from "./project";
 import { initialCatalogRegistry } from "./catalog/initial-schemas";
@@ -30,6 +35,7 @@ export interface ReferenceCharacterAtlasV1 {
   spaceIndexOr65535: number;
 }
 export interface ReferenceCharactersSettingsV1 {
+  styleContext?: StyleContextV1;
   version: 1;
   frameWidth: number;
   frameHeight: number;
@@ -125,9 +131,13 @@ function number(
 function strictSettings(value: unknown): ReferenceCharactersSettingsV1 {
   const s = object(
     value,
-    "version frameWidth frameHeight fontSize renderScale brightness contrast crop rotation backdrop",
+    "version frameWidth frameHeight fontSize renderScale brightness contrast crop rotation backdrop" +
+      (value && typeof value === "object" && "styleContext" in value
+        ? " styleContext"
+        : ""),
   );
   if (s.version !== 1) fail("version");
+  if (s.styleContext !== undefined) validateStyleContext(s.styleContext);
   const w = number(s.frameWidth, 1, MAX_BACKING_SIDE, "frameWidth", true),
     h = number(s.frameHeight, 1, MAX_BACKING_SIDE, "frameHeight", true);
   if (w * h > MAX_BACKING_PIXELS) fail("backing pixels");
@@ -449,6 +459,15 @@ export function prepareCharactersProject(
       crop: { ...crop },
       rotation: p.rotation,
       backdrop: "blur",
+      ...(contextFromParameters(p.style.parameters, p.seed, true)
+        ? {
+            styleContext: contextFromParameters(
+              p.style.parameters,
+              p.seed,
+              true,
+            ),
+          }
+        : {}),
     },
     source,
     resources.memoryBudgetBytes,

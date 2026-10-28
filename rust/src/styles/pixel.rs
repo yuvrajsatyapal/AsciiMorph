@@ -19,6 +19,7 @@ pub struct PixelJob {
 
 #[derive(Debug)]
 pub(crate) struct TileJob {
+    context: crate::style_context::StyleContext,
     settings: StyleSettings,
     geometry: FrameGeometry,
     identity: (usize, u32, u32, usize, usize),
@@ -95,6 +96,7 @@ impl TileJob {
             _ => return Err(RenderError::UnsupportedVersion),
         };
         Ok(Self {
+            context: crate::style_context::StyleContext::default(),
             settings: s,
             geometry,
             identity: source_identity(source),
@@ -111,6 +113,10 @@ impl TileJob {
             multiplier_x,
             multiplier_y,
         })
+    }
+    pub(crate) fn configure_context(&mut self, c: crate::style_context::StyleContext) {
+        self.context = c;
+        self.composer.configure_context(c);
     }
     fn tile_bounds(&self) -> [f64; 4] {
         let s = &self.settings;
@@ -159,6 +165,9 @@ impl TileJob {
             self.color[i] = byte(tone);
         }
         self.color[3] = byte(sample.alpha * self.settings.opacity / 100.);
+        if !self.context.occupied(self.tile_x, self.tile_y) {
+            self.color[3] = 0;
+        }
         if self.color[3] == 0 {
             self.color = [0; 4];
         }
