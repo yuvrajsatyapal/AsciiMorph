@@ -1159,7 +1159,7 @@ export function createStudioRuntime(options: StudioRuntimeOptions = {}) {
       )
         ids.push("characters");
       if (service.styleProfileVersion === 1)
-        for (const id of ["pixel", "mosaic", "braille"] as const) {
+        for (const id of ["pixel", "mosaic", "braille", "dither"] as const) {
           const schema = initialCatalogRegistry.getStyle(id);
           if (schema?.binding && service.supportedStyleIds.includes(id))
             ids.push(id);

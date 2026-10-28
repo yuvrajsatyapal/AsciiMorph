@@ -12,6 +12,7 @@ export const STUDIO_STYLE_IDS = [
   "pixel",
   "mosaic",
   "braille",
+  "dither",
 ] as const;
 export type StudioStyleId = (typeof STUDIO_STYLE_IDS)[number];
 export function isStudioStyleId(id: string): id is StudioStyleId {
@@ -46,7 +47,7 @@ export function bindStyleProject(
   project: RenderProjectV1,
   scale: 1 | 2 | 3 | 4,
 ): StyleSettingsV1 {
-  if (!["pixel", "mosaic", "braille"].includes(project.style.id))
+  if (!["pixel", "mosaic", "braille", "dither"].includes(project.style.id))
     throw new Error("Studio raster style unavailable");
   if (
     project.effects.some((effect) => effect.enabled) ||
@@ -76,19 +77,33 @@ export function bindStyleProject(
       rotation: p.rotation,
       seed: p.seed,
       timeUs: p.timeUs,
-      parameters: Object.fromEntries(
-        Object.entries(p.style.parameters).filter(([k]) =>
-          [
-            "fontSize",
-            "brightness",
-            "contrast",
-            "invert",
-            "charOpacity",
-            "mosaicShape",
-            "brailleThreshold",
-          ].includes(k),
-        ),
-      ),
+      parameters:
+        p.style.id === "dither"
+          ? {
+              fontSize: 3,
+              brightness: 0,
+              contrast: 0,
+              invert: false,
+              charOpacity: 100,
+              dither: Object.fromEntries(
+                Object.entries(p.style.parameters)
+                  .filter(([k]) => k.startsWith("dither"))
+                  .map(([k, v]) => [k.charAt(6).toLowerCase() + k.slice(7), v]),
+              ),
+            }
+          : Object.fromEntries(
+              Object.entries(p.style.parameters).filter(([k]) =>
+                [
+                  "fontSize",
+                  "brightness",
+                  "contrast",
+                  "invert",
+                  "charOpacity",
+                  "mosaicShape",
+                  "brailleThreshold",
+                ].includes(k),
+              ),
+            ),
       ...(contextFromParameters(p.style.parameters, p.seed)
         ? { styleContext: contextFromParameters(p.style.parameters, p.seed) }
         : {}),

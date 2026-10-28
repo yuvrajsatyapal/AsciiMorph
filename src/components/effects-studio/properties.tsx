@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { initialCatalogRegistry } from "@/render/catalog/initial-schemas";
 import type { StudioController, StudioSnapshot } from "./controller";
 import { Icon } from "./toolbar";
+import { DitherPalette } from "./dither-palette";
 import { ParameterControl } from "./parameter-control";
 function Range({
   name,
@@ -160,6 +161,7 @@ export function Properties({
   close: () => void;
   collapse: () => void;
 }) {
+  const dither = s.project.style.id === "dither";
   const raster = s.project.style.id !== "characters";
   const schema = initialCatalogRegistry.getStyle(s.project.style.id)!;
   const control = (key: string) => {
@@ -238,11 +240,47 @@ export function Properties({
         {s.view.activeGroup === "characters" && raster ? (
           <section className="studio-control-section">
             <h2>{schema.descriptor.name}</h2>
-            {control("fontSize")}
-            {control("invert")}
-            {control("charOpacity")}
-            {s.project.style.id === "braille" && control("brailleThreshold")}
-            {s.project.style.id === "mosaic" && control("mosaicShape")}
+            {dither ? (
+              <>
+                {[
+                  "ditherAlgorithm",
+                  "ditherPalette",
+                  "ditherChroma",
+                  "ditherPixelSize",
+                  "ditherStrength",
+                  "ditherContrast",
+                  "ditherThreshold",
+                  "ditherAngle",
+                ].map(control)}
+                {s.project.style.parameters.ditherPalette === "custom" && (
+                  <DitherPalette controller={c} snapshot={s} />
+                )}
+                {s.project.style.parameters.ditherChroma === "perChannel" && (
+                  <p className="studio-note">
+                    Per Channel combines channel values; output colors can fall
+                    outside the palette.
+                  </p>
+                )}
+                {s.project.style.parameters.ditherPalette === "original" && (
+                  <p className="studio-note">
+                    Local Source RGB332 quantizer: 8 red × 8 green × 4 blue
+                    levels.
+                  </p>
+                )}
+                <p className="studio-note">
+                  Animation and shimmer are unavailable for this static profile.
+                </p>
+              </>
+            ) : (
+              <>
+                {control("fontSize")}
+                {control("invert")}
+                {control("charOpacity")}
+                {s.project.style.id === "braille" &&
+                  control("brailleThreshold")}
+                {s.project.style.id === "mosaic" && control("mosaicShape")}
+              </>
+            )}
             <p className="studio-note">
               Independent native profile. Coverage uses stable seeded cells.
             </p>
@@ -258,7 +296,22 @@ export function Properties({
         ) : (
           <section className="studio-control-section">
             <h2>Color</h2>
-            {raster ? (
+            {dither ? (
+              <>
+                {["ditherPalette", "ditherChroma", "ditherContrast"].map(
+                  control,
+                )}
+                {s.project.style.parameters.ditherPalette === "custom" && (
+                  <DitherPalette controller={c} snapshot={s} />
+                )}
+                {s.project.style.parameters.ditherChroma === "perChannel" && (
+                  <p className="studio-note">
+                    Per Channel combines channel values; output colors can fall
+                    outside the palette.
+                  </p>
+                )}
+              </>
+            ) : raster ? (
               <>
                 {control("brightness")}
                 {control("contrast")}

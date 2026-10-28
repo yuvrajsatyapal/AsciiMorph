@@ -1,3 +1,4 @@
+import { validateDitherParameters } from "./dither-contract";
 import { validateStyleContext, type StyleContextV1 } from "./style-context";
 import { MAX_BACKING_PIXELS, MAX_BACKING_SIDE } from "@/core/render";
 import {
@@ -93,7 +94,7 @@ export function validateStyleSettings(
   );
   if (
     o.version !== 1 ||
-    !["braille", "pixel", "mosaic"].includes(o.styleId as string)
+    !["braille", "pixel", "mosaic", "dither"].includes(o.styleId as string)
   )
     throw new Error("Unsupported style profile");
   const id = o.styleId as FamilyId;
@@ -141,6 +142,7 @@ export function validateStyleSettings(
   const p = styleObject(
     o.parameters,
     "fontSize brightness contrast invert charOpacity" +
+      (id === "dither" ? " dither" : "") +
       (id === "braille"
         ? " brailleThreshold"
         : id === "mosaic"
@@ -155,6 +157,17 @@ export function validateStyleSettings(
     invert: p.invert,
     charOpacity: styleNumber(p.charOpacity, 0, 100),
   };
+  if (id === "dither") {
+    if (
+      parameters.fontSize !== 3 ||
+      parameters.brightness !== 0 ||
+      parameters.contrast !== 0 ||
+      parameters.invert ||
+      parameters.charOpacity !== 100
+    )
+      throw new Error("Invalid Dither common fields");
+    parameters.dither = validateDitherParameters(p.dither);
+  }
   if (id === "braille")
     parameters.brailleThreshold = styleNumber(p.brailleThreshold, 0, 100);
   if (id === "mosaic") {

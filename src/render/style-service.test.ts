@@ -227,7 +227,7 @@ it("sends raster without speculative atlas, snapshots settings before awaits and
     await s.setSource(source());
     const w = workers[0];
     expect(s.styleProfileVersion).toBe(1);
-    expect(s.supportedStyleIds).toEqual(["braille", "pixel", "mosaic"]);
+    expect(s.supportedStyleIds).toEqual(["braille", "pixel", "mosaic", "dither"]);
     expect(Object.isFrozen(s.supportedStyleIds)).toBe(true);
     const r = request("export");
     const exporting = s.renderStyleExport({

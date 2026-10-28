@@ -3,8 +3,46 @@ use crate::character::{Crop, RenderError};
 #[derive(Debug, Clone, PartialEq)]
 pub enum Family {
     Pixel,
+    Dither(DitherSettings),
     Mosaic { shape: u32 },
     Braille { threshold: f64 },
+}
+#[derive(Debug, Clone, PartialEq)]
+pub struct DitherSettings {
+    pub algorithm: u32,
+    pub palette: u32,
+    pub chroma: u32,
+    pub pixel_size: u32,
+    pub strength: f64,
+    pub contrast: f64,
+    pub threshold: f64,
+    pub angle: f64,
+    pub custom: Vec<[u8; 3]>,
+    pub animate: bool,
+    pub shimmer: bool,
+    pub direction: u32,
+    pub speed: u32,
+}
+impl DitherSettings {
+    pub fn validate(&self) -> bool {
+        self.algorithm < 15
+            && self.palette < 16
+            && self.chroma < 3
+            && (1..=12).contains(&self.pixel_size)
+            && [
+                (self.strength, 100.),
+                (self.contrast, 200.),
+                (self.threshold, 100.),
+                (self.angle, 180.),
+            ]
+            .iter()
+            .all(|(v, max)| bounded(*v, 0., *max) && v.fract() == 0.)
+            && !self.animate
+            && !self.shimmer
+            && self.direction < 8
+            && (1..=4).contains(&self.speed)
+            && (2..=64).contains(&self.custom.len())
+    }
 }
 #[derive(Debug, Clone, PartialEq)]
 pub struct StyleSettings {
@@ -33,6 +71,7 @@ impl StyleSettings {
     pub fn dispatch_id(&self) -> u32 {
         match self.family {
             Family::Pixel => 10,
+            Family::Dither(_) => 15,
             Family::Mosaic { .. } => 11,
             Family::Braille { .. } => 4,
         }
@@ -40,6 +79,7 @@ impl StyleSettings {
     pub fn payload_bytes(&self) -> usize {
         match self.family {
             Family::Pixel => 32,
+            Family::Dither(ref d) => 72 + d.custom.len() * 3,
             Family::Mosaic { .. } => 36,
             Family::Braille { .. } => 40,
         }
@@ -72,6 +112,17 @@ impl StyleSettings {
             && bounded(self.opacity, 0.0, 100.0)
             && self.space_index == 65535;
         valid &= match self.family {
+            Family::Dither(ref d) => {
+                d.validate()
+                    && self.atlas_count == 0
+                    && self.atlas_origin_x == 0.
+                    && self.atlas_origin_y == 0.
+                    && self.font_size == 3
+                    && self.brightness == 0.
+                    && self.contrast == 0.
+                    && !self.invert
+                    && self.opacity == 100.
+            }
             Family::Pixel => {
                 self.atlas_count == 0 && self.atlas_origin_x == 0.0 && self.atlas_origin_y == 0.0
             }

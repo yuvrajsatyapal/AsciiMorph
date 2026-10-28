@@ -448,7 +448,7 @@ export function validateWorkerResponse(value: unknown): WorkerResponse {
         if (
           !Array.isArray(m.supportedStyleIds) ||
           m.supportedStyleIds.some(
-            (id) => !["braille", "pixel", "mosaic"].includes(id),
+            (id) => !["braille", "pixel", "mosaic", "dither"].includes(id),
           ) ||
           new Set(m.supportedStyleIds).size !== m.supportedStyleIds.length ||
           (m.supportedStyleIds.length > 0 && m.styleProfileVersion !== 1)
@@ -535,7 +535,7 @@ export function validateWorkerResponse(value: unknown): WorkerResponse {
         contract(m.grid, (v) => validateGrid(v as PackedGlyphGrid));
       else if (m.type === "thumbnailResult") {
         if (
-          !["characters", "braille", "pixel", "mosaic"].includes(
+          !["characters", "braille", "pixel", "mosaic", "dither"].includes(
             m.styleId as string,
           )
         )
@@ -557,7 +557,11 @@ export function validateWorkerResponse(value: unknown): WorkerResponse {
         )
           invalid("Invalid thumbnail frame");
       } else if (m.type === "styleResult") {
-        if (!["braille", "pixel", "mosaic"].includes(m.styleId as string))
+        if (
+          !["braille", "pixel", "mosaic", "dither"].includes(
+            m.styleId as string,
+          )
+        )
           invalid("Invalid style result identity");
         if (m.styleId === "braille" ? !m.calibrationId : m.calibrationId !== "")
           invalid("Invalid style resource identity");

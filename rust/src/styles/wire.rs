@@ -1,5 +1,5 @@
 //! Checked little-endian STY1 transport. No native casts or renderer registration.
-use super::contract::{Family, StyleSettings};
+use super::contract::{DitherSettings, Family, StyleSettings};
 use crate::character::{Crop, RenderError};
 const HEADER: usize = 112;
 const MAGIC: u32 = 0x31595453;
@@ -16,15 +16,37 @@ pub fn decode_style_settings(bytes: &[u8]) -> Result<StyleSettings, RenderError>
         4 => 40,
         10 => 32,
         11 => 36,
+        15 if bytes.len() >= 184 && (2..=64).contains(&u(160)) => 72 + u(160) as usize * 3,
         _ => return Err(RenderError::InvalidInput),
     };
     if u(80) as usize != payload || bytes.len() != HEADER + payload {
         return Err(RenderError::InvalidInput);
     }
-    if u(132) > 1 {
+    if u(8) != 15 && u(132) > 1 {
+        return Err(RenderError::InvalidInput);
+    }
+    if u(8) == 15 && (u(164) != 0 || u(168) != 0 || u(180) != 0 || u(160) > 64) {
         return Err(RenderError::InvalidInput);
     }
     let family = match u(8) {
+        15 => Family::Dither(DitherSettings {
+            algorithm: u(112),
+            palette: u(116),
+            chroma: u(120),
+            pixel_size: u(124),
+            strength: f(128),
+            contrast: f(136),
+            threshold: f(144),
+            angle: f(152),
+            custom: bytes[184..]
+                .chunks_exact(3)
+                .map(|c| [c[0], c[1], c[2]])
+                .collect(),
+            animate: false,
+            shimmer: false,
+            direction: u(172),
+            speed: u(176),
+        }),
         4 => Family::Braille { threshold: f(144) },
         11 => Family::Mosaic { shape: u(144) },
         _ => Family::Pixel,
@@ -47,11 +69,11 @@ pub fn decode_style_settings(bytes: &[u8]) -> Result<StyleSettings, RenderError>
         atlas_origin_x: f(88),
         atlas_origin_y: f(96),
         space_index: u(104),
-        font_size: u(112),
-        brightness: f(116),
-        contrast: f(124),
-        invert: u(132) == 1,
-        opacity: f(136),
+        font_size: if u(8) == 15 { 3 } else { u(112) },
+        brightness: if u(8) == 15 { 0. } else { f(116) },
+        contrast: if u(8) == 15 { 0. } else { f(124) },
+        invert: u(8) != 15 && u(132) == 1,
+        opacity: if u(8) == 15 { 100. } else { f(136) },
     };
     s.validate()?;
     Ok(s)
@@ -92,6 +114,31 @@ pub fn encode_style_settings(s: &StyleSettings) -> Result<Vec<u8>, RenderError> 
         b[o..o + 8].copy_from_slice(&v.to_le_bytes());
     }
     match s.family {
+        Family::Dither(ref d) => {
+            b[112..].fill(0);
+            for (o, v) in [
+                (112, d.algorithm),
+                (116, d.palette),
+                (120, d.chroma),
+                (124, d.pixel_size),
+                (160, d.custom.len() as u32),
+                (172, d.direction),
+                (176, d.speed),
+            ] {
+                b[o..o + 4].copy_from_slice(&v.to_le_bytes());
+            }
+            for (o, v) in [
+                (128, d.strength),
+                (136, d.contrast),
+                (144, d.threshold),
+                (152, d.angle),
+            ] {
+                b[o..o + 8].copy_from_slice(&v.to_le_bytes());
+            }
+            for (i, c) in d.custom.iter().enumerate() {
+                b[184 + i * 3..187 + i * 3].copy_from_slice(c);
+            }
+        }
         Family::Braille { threshold } => b[144..152].copy_from_slice(&threshold.to_le_bytes()),
         Family::Mosaic { shape } => b[144..148].copy_from_slice(&shape.to_le_bytes()),
         _ => (),

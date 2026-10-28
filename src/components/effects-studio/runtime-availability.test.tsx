@@ -69,6 +69,7 @@ it("updates the subscribed Studio snapshot on idle capability loss and recovery"
     await waitFor(() =>
       expect(screen.getByText(/characters,pixel,mosaic/)).toBeVisible(),
     );
+    expect(runtime.getAvailableStyleIds()).not.toContain("dither");
     workers[0].emit("error");
     await waitFor(() => expect(screen.getByText(/^\|/)).toBeVisible());
     await service.initialize();

@@ -9,7 +9,9 @@ it("discovers actual Braille, Pixel and Mosaic native families", async () => {
   try {
     expect(e.styleProfileVersion).toBe(1);
     for (let id = 1; id <= 15; id++)
-      expect(e.supportsStyle(id)).toBe(id === 4 || id === 10 || id === 11);
+      expect(e.supportsStyle(id)).toBe(
+        id === 4 || id === 10 || id === 11 || id === 15,
+      );
   } finally {
     e.dispose();
   }

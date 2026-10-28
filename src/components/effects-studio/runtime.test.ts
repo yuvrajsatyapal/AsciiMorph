@@ -419,6 +419,8 @@ function encoderHarness() {
   const click = vi.fn(),
     revokeObjectURL = vi.fn();
   const encoder = {
+    createBlob: (bytes: Uint8Array<ArrayBuffer>, mime: string) =>
+      new NodeBlob([bytes], { type: mime }) as unknown as Blob,
     createCanvas: vi.fn(() => {
       const c = {
         width: 0,
@@ -464,7 +466,7 @@ it("exports immutable real captured dimensions and holds encoder reservation thr
     });
   await load(h);
   h.runtime.controller.setView({ zoom: 4 });
-  const first = h.runtime.controller.exportStill({ format: "png", scale: 2 });
+  const first = h.runtime.controller.exportStill({ format: "jpeg", scale: 2 });
   await tick();
   expect(e.canvases[0]).toMatchObject({ width: 26, height: 14 });
   const captured = (
@@ -480,7 +482,7 @@ it("exports immutable real captured dimensions and holds encoder reservation thr
   expect(e.callbacks).toHaveLength(1);
   h.runtime.controller.cancelExport();
   expect(
-    await h.runtime.controller.exportStill({ format: "png", scale: 1 }),
+    await h.runtime.controller.exportStill({ format: "jpeg", scale: 1 }),
   ).toBe(false);
   const held = h.runtime.heldFrameBytes;
   expect(held).toBeGreaterThan(1_114_112);
@@ -510,7 +512,7 @@ it("cancels a late encoder Blob on source replacement and charges its reservatio
     },
   });
   await load(h);
-  const first = h.runtime.controller.exportStill({ format: "png", scale: 1 });
+  const first = h.runtime.controller.exportStill({ format: "jpeg", scale: 1 });
   await tick();
   await load(h);
   expect(observed[1]).toBeGreaterThan(1_114_112);
@@ -583,9 +585,8 @@ it("charges actual completed Blob ownership until URL cleanup and refreshes expo
   await load(h);
   const first = h.runtime.controller.exportStill({ format: "png", scale: 1 });
   await tick();
-  e.finish();
   expect(await first).toBe(true);
-  expect(h.runtime.heldFrameBytes).toBe(32);
+  expect(h.runtime.heldFrameBytes).toBeGreaterThan(24);
   const listener = vi.fn();
   const release = h.runtime.subscribe(listener);
   timers[0]();

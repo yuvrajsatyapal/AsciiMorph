@@ -503,6 +503,7 @@ test("Braille uses a measured atlas through crop, rotation, threshold and equal 
   await history(page, "Undo");
   latest = await acceptedStyle(page, "braille", latest.revision);
   expect(await frameHash(page)).toEqual(first);
+  await openControls(page);
   const threshold = page.getByRole("slider", {
     name: "Local profile threshold",
   });
@@ -513,6 +514,9 @@ test("Braille uses a measured atlas through crop, rotation, threshold and equal 
   await acceptedStyle(page, "braille", latest.revision);
   const low = await frameHash(page);
   expect(low.hash).not.toBe(high.hash);
+  const controlsSheet = page.getByRole("dialog", { name: "Controls sheet" });
+  if (await controlsSheet.isVisible())
+    await controlsSheet.getByRole("button", { name: "Close controls", exact: true }).click();
   await page.getByRole("button", { name: "Export", exact: true }).click();
   const pending = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export PNG", exact: true }).click();

@@ -20,13 +20,14 @@ pub struct StyleFrame {
 pub enum StyleJob {
     Unavailable,
     Pixel(PixelJob),
+    Dither(super::dither::DitherJob),
     Mosaic(MosaicJob),
     Braille(BrailleJob),
     #[cfg(test)]
     Fixture(fixture::FixtureJob),
 }
 pub fn supports_style(dispatch_id: u32) -> bool {
-    matches!(dispatch_id, 4 | 10 | 11)
+    matches!(dispatch_id, 4 | 10 | 11 | 15)
 }
 impl StyleJob {
     pub fn new(
@@ -36,6 +37,12 @@ impl StyleJob {
         other_bytes: usize,
     ) -> Result<Self, RenderError> {
         match settings.family {
+            Family::Dither(_) => {
+                if atlas.is_some() {
+                    return Err(RenderError::InvalidInput);
+                }
+                super::dither::DitherJob::new(source, settings, other_bytes).map(Self::Dither)
+            }
             Family::Pixel if atlas.is_none() => {
                 PixelJob::new(source, settings, other_bytes).map(Self::Pixel)
             }
@@ -65,6 +72,12 @@ impl StyleJob {
         other_bytes: usize,
     ) -> Result<usize, RenderError> {
         match settings.family {
+            Family::Dither(_) => {
+                if atlas.is_some() {
+                    return Err(RenderError::InvalidInput);
+                }
+                super::dither::DitherJob::estimated_peak_bytes(source, settings, other_bytes)
+            }
             Family::Pixel | Family::Mosaic { .. } => {
                 if atlas.is_some() {
                     return Err(RenderError::InvalidInput);
@@ -87,6 +100,7 @@ impl StyleJob {
     ) -> Result<JobStatus, RenderError> {
         match self {
             Self::Unavailable => Err(RenderError::UnsupportedVersion),
+            Self::Dither(j) => j.step(_source, _max_work),
             Self::Pixel(j) => j.tiles.step(_source, _max_work),
             Self::Mosaic(j) => j.tiles.step(_source, _max_work),
             Self::Braille(j) => j.step(
@@ -100,6 +114,7 @@ impl StyleJob {
     }
     pub(crate) fn configure_context(&mut self, c: crate::style_context::StyleContext) {
         match self {
+            Self::Dither(j) => j.configure_context(c),
             Self::Pixel(j) => j.tiles.configure_context(c),
             Self::Mosaic(j) => j.tiles.configure_context(c),
             Self::Braille(j) => j.configure_context(c),
@@ -109,6 +124,7 @@ impl StyleJob {
     pub fn storage_bytes(&self) -> usize {
         match self {
             Self::Unavailable => 0,
+            Self::Dither(j) => j.storage_bytes(),
             Self::Pixel(j) => j.tiles.storage_bytes(),
             Self::Mosaic(j) => j.tiles.storage_bytes(),
             Self::Braille(j) => j.storage_bytes(),
@@ -119,6 +135,7 @@ impl StyleJob {
     pub(crate) fn capacity_excess_bytes(&self) -> usize {
         match self {
             Self::Unavailable => 0,
+            Self::Dither(j) => j.capacity_excess_bytes(),
             Self::Pixel(j) => j.tiles.capacity_excess_bytes(),
             Self::Mosaic(j) => j.tiles.capacity_excess_bytes(),
             Self::Braille(j) => j.capacity_excess_bytes(),
@@ -128,6 +145,7 @@ impl StyleJob {
     }
     pub fn cancel(&mut self) {
         match self {
+            Self::Dither(j) => j.cancel(),
             Self::Pixel(j) => j.tiles.cancel(),
             Self::Mosaic(j) => j.tiles.cancel(),
             Self::Braille(j) => j.cancel(),
@@ -141,6 +159,7 @@ impl StyleJob {
     pub fn take_frame(&mut self) -> Option<StyleFrame> {
         match self {
             Self::Unavailable => None,
+            Self::Dither(j) => j.take_frame(),
             Self::Pixel(j) => j.tiles.take_frame(),
             Self::Mosaic(j) => j.tiles.take_frame(),
             Self::Braille(j) => j.take_frame(),
@@ -169,5 +188,13 @@ impl StyleJob {
         other: usize,
     ) -> Result<Self, RenderError> {
         fixture::FixtureJob::new(source, settings, atlas, other).map(Self::Fixture)
+    }
+}
+
+#[cfg(test)]
+mod dither_admission_tests {
+    #[test]
+    fn dither_has_native_renderer() {
+        assert!(super::supports_style(15));
     }
 }

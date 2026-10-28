@@ -60,7 +60,9 @@ function validateRule(
     case "color":
       if (
         typeof value !== "string" ||
-        !/^#[\da-f]{6}([\da-f]{2})?$/i.test(value)
+        !(rule.opaque ? /^#[\da-f]{6}$/i : /^#[\da-f]{6}([\da-f]{2})?$/i).test(
+          value,
+        )
       )
         invalid(path, "Expected #RRGGBB or #RRGGBBAA");
       return;
@@ -120,7 +122,7 @@ function checkRule(rule: ParameterRule, path: string): void {
   const keys: Record<ParameterRule["kind"], string[]> = {
     number: ["kind", "min", "max", "integer"],
     boolean: ["kind"],
-    color: ["kind"],
+    color: ["kind", "opaque"],
     select: ["kind", "values"],
     text: ["kind", "minLength", "maxLength", "graphemeRamp"],
     array: ["kind", "item", "minItems", "maxItems"],
@@ -142,6 +144,10 @@ function checkRule(rule: ParameterRule, path: string): void {
       invalid(path, "Invalid rule bounds");
   };
   switch (rule.kind) {
+    case "color":
+      if (rule.opaque !== undefined && rule.opaque !== true)
+        invalid(path, "Invalid opaque flag");
+      break;
     case "number":
       range(rule.min, rule.max);
       if (rule.integer !== undefined && typeof rule.integer !== "boolean")

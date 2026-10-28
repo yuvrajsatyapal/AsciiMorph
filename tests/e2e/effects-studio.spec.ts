@@ -63,17 +63,10 @@ test.beforeEach(async ({ page }) => {
         else super.postMessage(message, options);
       }
     };
-    const native = HTMLCanvasElement.prototype.toBlob;
-    HTMLCanvasElement.prototype.toBlob = function (callback, type, quality) {
-      native.call(
-        this,
-        (blob) => {
-          document.body.dataset.nativeMime = blob?.type ?? "null";
-          callback(blob);
-        },
-        type,
-        quality,
-      );
+    const createURL = URL.createObjectURL.bind(URL);
+    URL.createObjectURL = (value) => {
+      if (value instanceof Blob) document.body.dataset.encodedMime = value.type;
+      return createURL(value);
     };
   });
 });
@@ -194,7 +187,7 @@ async function closeSheet(page: Page) {
   const sheet = page.getByRole("dialog", { name: "Controls sheet" });
   if (await sheet.isVisible())
     await sheet
-      .getByRole("button", { name: "Close panel", exact: true })
+      .getByRole("button", { name: "Close controls", exact: true })
       .click();
 }
 async function pointerHistory(page: Page, action: "Undo" | "Redo") {
@@ -232,10 +225,10 @@ async function download(page: Page, format: "png" | "jpeg", scale = 1) {
   const chunks: Buffer[] = [];
   for await (const chunk of stream!) chunks.push(Buffer.from(chunk));
   const bytes = Buffer.concat(chunks);
-  const nativeMime = await page
+  const encodedMime = await page
     .locator("body")
-    .getAttribute("data-native-mime");
-  expect(nativeMime).toBe(`image/${format}`);
+    .getAttribute("data-encoded-mime");
+  expect(encodedMime).toBe(`image/${format}`);
   expect(result.suggestedFilename()).toMatch(new RegExp(`\\.${format}$`));
   expect(bytes.subarray(0, format === "png" ? 8 : 3).toString("hex")).toBe(
     format === "png" ? "89504e470d0a1a0a" : "ffd8ff",
@@ -295,7 +288,7 @@ async function download(page: Page, format: "png" | "jpeg", scale = 1) {
   return decoded;
 }
 
-test("production native PNG/JPEG download bytes, full frame, alpha and black matte", async ({
+test("production captured PNG/JPEG download bytes, full frame, alpha and black matte", async ({
   page,
   browser,
 }, testInfo) => {
@@ -387,6 +380,7 @@ test("coarse 390px phone exposes pointer-only Menu history with actual native pr
       name: "Font Size",
       exact: true,
     });
+    await slider.scrollIntoViewIfNeeded();
     const bounds = await slider.boundingBox();
     expect(bounds).not.toBeNull();
     await phone.touchscreen.tap(
@@ -398,7 +392,7 @@ test("coarse 390px phone exposes pointer-only Menu history with actual native pr
       .not.toBe(first.hash);
     await ready(phone, 67, 53);
     const edited = await pixels(phone);
-    await sheet.getByRole("button", { name: "Close panel", exact: true }).tap();
+    await sheet.getByRole("button", { name: "Close controls", exact: true }).tap();
     await phone.getByRole("button", { name: "Menu", exact: true }).tap();
     const menu = phone.getByRole("dialog", {
       name: "Studio menu",

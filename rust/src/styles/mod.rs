@@ -1,6 +1,7 @@
 pub mod braille;
 pub mod compose;
 pub mod contract;
+pub mod dither;
 pub mod geometry;
 mod job;
 pub mod mosaic;

@@ -10,6 +10,7 @@ import {
 } from "./style-contract";
 import {
   FAMILY_PAYLOAD_BYTES,
+  familyPayloadBytes,
   readFamilyPayload,
   writeFamilyPayload,
   type FamilyId,
@@ -49,7 +50,9 @@ export function encodeStyleSettings(
 ): Uint8Array {
   const s = validateStyleSettings(settings, source),
     [count, x, y, space] = atlasFields(s, atlas);
-  const bytes = new Uint8Array(HEADER + FAMILY_PAYLOAD_BYTES[s.styleId]),
+  const bytes = new Uint8Array(
+      HEADER + familyPayloadBytes(s.styleId, s.parameters),
+    ),
     v = new DataView(bytes.buffer);
   for (const [offset, value] of [
     [0, MAGIC],
@@ -62,7 +65,7 @@ export function encodeStyleSettings(
     [28, s.rotation],
     [32, s.seed],
     [36, count],
-    [80, FAMILY_PAYLOAD_BYTES[s.styleId]],
+    [80, familyPayloadBytes(s.styleId, s.parameters)],
     [104, space],
   ])
     v.setUint32(offset, value, true);
@@ -90,7 +93,10 @@ export function decodeStyleSettings(
     u = (o: number) => v.getUint32(o, true),
     f = (o: number) => v.getFloat64(o, true);
   const id = (
-    { 4: "braille", 10: "pixel", 11: "mosaic" } as Record<number, FamilyId>
+    { 4: "braille", 10: "pixel", 11: "mosaic", 15: "dither" } as Record<
+      number,
+      FamilyId
+    >
   )[u(8)];
   if (
     u(0) !== MAGIC ||
@@ -99,7 +105,9 @@ export function decodeStyleSettings(
     u(84) !== 0 ||
     u(108) !== 0 ||
     !id ||
-    u(80) !== FAMILY_PAYLOAD_BYTES[id] ||
+    (id === "dither"
+      ? u(80) < 78 || u(80) > 264
+      : u(80) !== FAMILY_PAYLOAD_BYTES[id]) ||
     bytes.byteLength !== HEADER + u(80)
   )
     throw new Error("Invalid style packet header");

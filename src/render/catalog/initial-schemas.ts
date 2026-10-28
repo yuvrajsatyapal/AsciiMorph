@@ -1,3 +1,4 @@
+import { ditherSchema } from "./dither-schema";
 import { initialFamilySchemas } from "./family-schemas";
 import { initialCharacterSchema } from "./character-schema";
 import { createCatalogRegistry } from "./registry";
@@ -135,7 +136,7 @@ const shaders: StyleSchema[] = declarations.map(([id, name, controls]) => ({
 }));
 // Publish only the checked immutable snapshots, not mutable registration inputs.
 export const initialCatalogRegistry = createCatalogRegistry(
-  [...shaders, initialCharacterSchema, ...initialFamilySchemas],
+  [...shaders, initialCharacterSchema, ...initialFamilySchemas, ditherSchema],
   [],
 );
 export const initialShaderSchemas = Object.freeze(

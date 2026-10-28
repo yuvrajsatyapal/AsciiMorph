@@ -1,14 +1,14 @@
 //! Bounded, deterministic alpha-weighted area sampling and Sobel gradients.
-pub mod styles;
 pub mod abi;
 pub mod session;
+pub mod styles;
 
 pub mod character;
-pub mod reference_characters;
 pub mod character_backdrop;
-pub mod glyph;
-pub mod dither;
 pub mod color;
+pub mod dither;
+pub mod glyph;
+pub mod reference_characters;
 pub mod source;
 
 pub fn sample(input: &[u8], iw: usize, ih: usize, ow: usize, oh: usize, out: &mut [f64]) {

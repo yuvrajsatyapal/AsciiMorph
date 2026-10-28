@@ -39,7 +39,7 @@ fn style_discovery_is_additive_without_advertising_unimplemented_families() {
     for dispatch in 0..=16 {
         assert_eq!(
             abi::render_style_supported(dispatch),
-            u32::from(matches!(dispatch, 4 | 10 | 11))
+            u32::from(matches!(dispatch, 4 | 10 | 11 | 15))
         );
     }
     assert_eq!(abi::render_style_supported(u32::MAX), 0);

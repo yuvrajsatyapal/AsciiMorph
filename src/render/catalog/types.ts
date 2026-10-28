@@ -2,7 +2,7 @@ import type { ParameterMap, ParameterValue } from "../project";
 export type ParameterRule =
   | { kind: "number"; min: number; max: number; integer?: boolean }
   | { kind: "boolean" }
-  | { kind: "color" }
+  | { kind: "color"; opaque?: true }
   | { kind: "select"; values: readonly (string | number | boolean)[] }
   | { kind: "text"; minLength: number; maxLength: number; graphemeRamp?: true }
   | { kind: "array"; item: ParameterRule; minItems: number; maxItems: number }

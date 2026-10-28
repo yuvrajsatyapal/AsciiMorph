@@ -229,7 +229,11 @@ it("keeps StrictMode remount source admission behind retired encoding even after
       ({
         width: 0,
         height: 0,
-        getContext: () => ({ putImageData: vi.fn() }),
+        getContext: () => ({
+          putImageData: vi.fn(),
+          fillRect: vi.fn(),
+          drawImage: vi.fn(),
+        }),
         toBlob: (cb: BlobCallback) => {
           nativeCallback = cb;
         },
@@ -269,7 +273,7 @@ it("keeps StrictMode remount source admission behind retired encoding even after
   const retired = runtime!;
   let exporting!: Promise<boolean>;
   act(() => {
-    exporting = retired.controller.exportStill({ format: "png", scale: 1 });
+    exporting = retired.controller.exportStill({ format: "jpeg", scale: 1 });
   });
   await waitFor(() => expect(nativeCallback).toBeDefined());
   const failure = new Error("retired service cleanup failed");

@@ -36,6 +36,8 @@ async function pixels(page: Page, label: string) {
   });
 }
 async function readyTile(page: Page, label: string) {
+  // Catalog growth can move lazy thumbnails below the viewport.
+  await page.getByRole("button", { name: new RegExp(`^${label} — `) }).first().scrollIntoViewIfNeeded();
   const canvas = page.locator(`canvas[aria-label="Current ${label} thumbnail"]:visible`).first();
   await expect.poll(() => canvas.evaluate((value: HTMLCanvasElement) => [value.width, value.height]))
     .toEqual([17, 13]);
@@ -86,9 +88,11 @@ test("real current-source thumbnails, transient hover, stale rejection and canon
   await upload(page);
   if (info.project.name === "mobile")
     await page.getByRole("button", { name: "Styles", exact: true }).click();
-  for (const label of ["Characters", "Pixel Art", "Mosaic"]) await readyTile(page, label);
-  const hashes = await Promise.all(["Characters", "Pixel Art", "Mosaic"].map((label) =>
-    pixels(page, `Current ${label} thumbnail`)));
+  const hashes = [];
+  for (const label of ["Characters", "Pixel Art", "Mosaic"]) {
+    await readyTile(page, label);
+    hashes.push(await pixels(page, `Current ${label} thumbnail`));
+  }
   expect(new Set(hashes.map((value) => value.hash)).size).toBe(3);
   expect(await page.evaluate(() => (window as unknown as { __thumbnailStyles: string[] }).__thumbnailStyles))
     .toEqual(expect.arrayContaining(["characters", "pixel", "mosaic"]));

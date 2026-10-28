@@ -1,4 +1,5 @@
 import { Blob as NodeBlob } from "node:buffer";
+import sharp from "sharp";
 import { describe, expect, it, vi } from "vitest";
 import {
   createStillImageExporter,
@@ -54,11 +55,13 @@ function harness() {
     reserve = vi.fn(() => reserveRelease);
   const click = vi.fn(),
     remove = vi.fn(),
-    createObjectURL = vi.fn(() => "blob:test"),
+    createObjectURL = vi.fn<(blob: Blob) => string>(() => "blob:test"),
     revokeObjectURL = vi.fn();
   const anchor = { click, remove, href: "", download: "" };
   const exporter = createStillImageExporter({
     createCanvas,
+    createBlob: (bytes, mime) =>
+      new NodeBlob([bytes], { type: mime }) as unknown as Blob,
     createImageData: (rgba, w, h) =>
       ({ data: new Uint8ClampedArray(rgba), width: w, height: h }) as ImageData,
     createAnchor: () => anchor as unknown as HTMLAnchorElement,
@@ -113,18 +116,20 @@ describe("owned full-frame still encoder", () => {
         f = frame(13 * scale, 7 * scale);
       f.rgba.set([255, 0, 0, 128], f.rgba.length - 4);
       await run(h, f);
-      expect(h.contexts[0].putImageData.mock.calls[0][0]).toMatchObject({
-        width: 13 * scale,
-        height: 7 * scale,
-        data: new Uint8ClampedArray(f.rgba),
-      });
+      const encoded = h.createObjectURL.mock.calls[0][0];
+      const decoded = await sharp(new Uint8Array(await encoded.arrayBuffer()))
+        .ensureAlpha()
+        .raw()
+        .toBuffer();
+      expect(new Uint8Array(decoded)).toEqual(f.rgba);
+      expect(h.createCanvas).not.toHaveBeenCalled();
       expect(h.anchor.download).toBe("image.png");
       expect(h.click).toHaveBeenCalledOnce();
       expect(h.release).toHaveBeenCalledOnce();
       expect(h.reserve).toHaveBeenCalledWith(
         encoderReservationBytes(f.width, f.height, "png"),
       );
-      expect(h.surfaces[0]).toMatchObject({ width: 0, height: 0 });
+      expect(h.surfaces).toHaveLength(0);
       h.exporter.dispose();
       expect(h.revokeObjectURL).toHaveBeenCalledOnce();
     },
@@ -147,25 +152,31 @@ describe("owned full-frame still encoder", () => {
     "rejects %s without download and releases all ownership",
     async (kind) => {
       const h = harness();
-      h.createCanvas.mockImplementationOnce(() => {
+      h.createCanvas.mockImplementation(() => {
         const c = {
           width: 0,
           height: 0,
-          getContext: () => ({ putImageData: vi.fn() }),
+          getContext: () => ({
+            putImageData: vi.fn(),
+            fillRect: vi.fn(),
+            drawImage: vi.fn(),
+          }),
           toBlob: (cb: BlobCallback) =>
             cb(
               kind === "null"
                 ? null
                 : kind === "mime"
-                  ? blob("image/jpeg")
+                  ? blob("image/png")
                   : (new NodeBlob(["bad"], {
-                      type: "image/png",
+                      type: "image/jpeg",
                     }) as unknown as Blob),
             ),
         };
         return c as unknown as HTMLCanvasElement;
       });
-      await expect(run(h)).rejects.toThrow(/encoder|MIME|signature/i);
+      await expect(run(h, frame(), "jpeg")).rejects.toThrow(
+        /encoder|MIME|signature/i,
+      );
       expect(h.click).not.toHaveBeenCalled();
       expect(h.release).toHaveBeenCalledOnce();
       expect(h.reserveRelease).toHaveBeenCalledOnce();
@@ -187,18 +198,22 @@ describe("owned full-frame still encoder", () => {
     const h = harness(),
       abort = new AbortController();
     let callback!: BlobCallback;
-    h.createCanvas.mockImplementationOnce(
+    h.createCanvas.mockImplementation(
       () =>
         ({
           width: 0,
           height: 0,
-          getContext: () => ({ putImageData: vi.fn() }),
+          getContext: () => ({
+            putImageData: vi.fn(),
+            fillRect: vi.fn(),
+            drawImage: vi.fn(),
+          }),
           toBlob: (cb: BlobCallback) => {
             callback = cb;
           },
         }) as unknown as HTMLCanvasElement,
     );
-    const first = run(h, frame(), "png", abort.signal);
+    const first = run(h, frame(), "jpeg", abort.signal);
     abort.abort();
     h.exporter.dispose();
     expect(h.release).not.toHaveBeenCalled();
@@ -213,7 +228,7 @@ describe("owned full-frame still encoder", () => {
       ),
     ).rejects.toThrow(/busy|disposed/i);
     expect(secondRelease).toHaveBeenCalledOnce();
-    callback(blob("image/png"));
+    callback(blob("image/jpeg"));
     await expect(first).rejects.toThrow(/abort/i);
     expect(h.click).not.toHaveBeenCalled();
     expect(h.release).toHaveBeenCalledOnce();
@@ -223,20 +238,24 @@ describe("owned full-frame still encoder", () => {
     const h = harness(),
       abort = new AbortController(),
       bytes = deferred<ArrayBuffer>();
-    const b = blob("image/png");
+    const b = blob("image/jpeg");
     vi.spyOn(b, "slice").mockReturnValue({
       arrayBuffer: () => bytes.promise,
     } as Blob);
-    h.createCanvas.mockImplementationOnce(
+    h.createCanvas.mockImplementation(
       () =>
         ({
           width: 0,
           height: 0,
-          getContext: () => ({ putImageData: vi.fn() }),
+          getContext: () => ({
+            putImageData: vi.fn(),
+            fillRect: vi.fn(),
+            drawImage: vi.fn(),
+          }),
           toBlob: (cb: BlobCallback) => cb(b),
         }) as unknown as HTMLCanvasElement,
     );
-    const result = run(h, frame(), "png", abort.signal);
+    const result = run(h, frame(), "jpeg", abort.signal);
     await Promise.resolve();
     abort.abort();
     bytes.resolve(new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]).buffer);
@@ -259,6 +278,8 @@ it("charges completed Blob URLs until safe post-click revocation and bounds reta
   const timers: Array<() => void> = [];
   const exporter = createStillImageExporter({
     createCanvas: h.createCanvas,
+    createBlob: (bytes, mime) =>
+      new NodeBlob([bytes], { type: mime }) as unknown as Blob,
     createImageData: (rgba, w, height) =>
       ({ data: new Uint8ClampedArray(rgba), width: w, height }) as ImageData,
     createAnchor: () => h.anchor as unknown as HTMLAnchorElement,
@@ -278,7 +299,7 @@ it("charges completed Blob URLs until safe post-click revocation and bounds reta
     "image",
     new AbortController().signal,
   );
-  expect(retainDownload).toHaveBeenCalledWith(8);
+  expect(retainDownload).toHaveBeenCalledWith(expect.any(Number));
   expect(releaseDownload).not.toHaveBeenCalled();
   timers[0]();
   expect(releaseDownload).toHaveBeenCalledOnce();
@@ -293,6 +314,8 @@ it("bounds completed URL ownership to 32 until cleanup and resumes after safe re
   const releaseDownload = vi.fn();
   const exporter = createStillImageExporter({
     createCanvas: h.createCanvas,
+    createBlob: (bytes, mime) =>
+      new NodeBlob([bytes], { type: mime }) as unknown as Blob,
     createImageData: (rgba, w, height) =>
       ({ data: new Uint8ClampedArray(rgba), width: w, height }) as ImageData,
     createAnchor: () => h.anchor as unknown as HTMLAnchorElement,
@@ -332,4 +355,19 @@ it("bounds completed URL ownership to 32 until cleanup and resumes after safe re
   expect(h.click).toHaveBeenCalledTimes(33);
   exporter.dispose();
   expect(releaseDownload).toHaveBeenCalledTimes(33);
+});
+
+it("retains the actual PNG capture through asynchronous inspection and discards an aborted download", async () => {
+  const h = harness(),
+    abort = new AbortController();
+  const result = run(h, frame(), "png", abort.signal);
+  // PNG encoding is synchronous, but Blob inspection still owns the capture.
+  expect(h.release).not.toHaveBeenCalled();
+  expect(h.reserveRelease).not.toHaveBeenCalled();
+  abort.abort();
+  await expect(result).rejects.toThrow(/abort/i);
+  expect(h.click).not.toHaveBeenCalled();
+  expect(h.release).toHaveBeenCalledOnce();
+  expect(h.reserveRelease).toHaveBeenCalledOnce();
+  expect(h.createCanvas).not.toHaveBeenCalled();
 });

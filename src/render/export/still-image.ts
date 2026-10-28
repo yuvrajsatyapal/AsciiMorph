@@ -1,3 +1,4 @@
+import { encodeRgbaPng } from "./png";
 import { MAX_BACKING_PIXELS, MAX_BACKING_SIDE } from "@/core/render";
 import type { RgbaFrameV1 } from "@/render/style-contract";
 export type StillFormat = "png" | "jpeg";
@@ -7,6 +8,7 @@ export type CapturedStill = {
 };
 export type StillImageBoundaries = {
   createCanvas(): HTMLCanvasElement;
+  createBlob(bytes: Uint8Array<ArrayBuffer>, mime: string): Blob;
   createImageData(rgba: Uint8Array, width: number, height: number): ImageData;
   createAnchor(): HTMLAnchorElement;
   createObjectURL(blob: Blob): string;
@@ -16,7 +18,9 @@ export type StillImageBoundaries = {
   reserve(bytes: number): () => void;
   retainDownload(bytes: number): () => void;
 };
-/** Explicit session policy, not a browser RSS claim: ImageData copy (4 B/px),
+/** Explicit session policy, not a browser RSS claim. PNG uses one native-byte
+ * output buffer plus a Blob copy, within the existing allowance below. JPEG uses
+ * ImageData copy (4 B/px),
  * source canvas (4), optional opaque JPEG canvas (4), encoded Blob (4 + 64 KiB),
  * opaque codec scratch allowance (8 + 1 MiB). Browser/GPU process overhead,
  * compositor caches and OS download storage are outside this policy. */
@@ -35,6 +39,7 @@ export function createStillImageExporter(
   // Browser APIs are invoked only by a committed runtime's user-triggered export.
   const boundary: StillImageBoundaries = {
     createCanvas: () => document.createElement("canvas"),
+    createBlob: (bytes, mime) => new Blob([bytes], { type: mime }),
     createImageData: (rgba, w, h) =>
       new ImageData(new Uint8ClampedArray(rgba), w, h),
     createAnchor: () => document.createElement("a"),
@@ -112,32 +117,39 @@ export function createStillImageExporter(
           if (!context) throw new Error("Still encoder canvas unavailable");
           return { c, context };
         }
-        const source = canvas();
-        source.context.putImageData(
-          boundary.createImageData(f.rgba, f.width, f.height),
-          0,
-          0,
-        );
-        let target = source.c;
-        if (format === "jpeg") {
+        const mime = format === "png" ? "image/png" : "image/jpeg";
+        progress?.("encoding");
+        check();
+        let blob: Blob | null;
+        if (format === "png") {
+          // Encode native straight RGBA; a canvas roundtrip changes partial-alpha
+          // channels in some browsers. Keep the capture and reservation until
+          // inspection/download completes, exactly as for the native JPEG codec.
+          blob = boundary.createBlob(
+            encodeRgbaPng(f.width, f.height, f.rgba),
+            mime,
+          );
+        } else {
+          const source = canvas();
+          source.context.putImageData(
+            boundary.createImageData(f.rgba, f.width, f.height),
+            0,
+            0,
+          );
           const matte = canvas(true);
           matte.context.fillStyle = "#000000";
           matte.context.fillRect(0, 0, f.width, f.height);
           matte.context.drawImage(source.c, 0, 0);
-          target = matte.c;
+          check();
+          // Native toBlob cannot be canceled. Keep every owner until it settles.
+          blob = await new Promise<Blob | null>((resolve, reject) => {
+            try {
+              matte.c.toBlob(resolve, mime, 0.92);
+            } catch (reason) {
+              reject(reason);
+            }
+          });
         }
-        check();
-        const mime = format === "png" ? "image/png" : "image/jpeg";
-        // Native toBlob cannot be canceled. Never race it against AbortSignal:
-        // both the captured frame and all canvas/codec reservations remain owned.
-        progress?.("encoding");
-        const blob = await new Promise<Blob | null>((resolve, reject) => {
-          try {
-            target.toBlob(resolve, mime, 0.92);
-          } catch (reason) {
-            reject(reason);
-          }
-        });
         check();
         if (!blob) throw new Error("Still encoder returned no Blob");
         if (blob.type !== mime)

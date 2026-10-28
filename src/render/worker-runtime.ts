@@ -505,7 +505,9 @@ export function createWorkerRuntime(options: WorkerRuntimeOptions) {
                   engine?.thumbnailProfileVersion ?? null,
                 supportedStyleIds:
                   engine?.styleProfileVersion === 1
-                    ? (["braille", "pixel", "mosaic"] as const).filter((id) =>
+                    ? (
+                        ["braille", "pixel", "mosaic", "dither"] as const
+                      ).filter((id) =>
                         engine!.supportsStyle(STYLE_DISPATCH_IDS[id]),
                       )
                     : [],
