@@ -1,0 +1,60 @@
+{
+  "id": "dither",
+  "width": 128,
+  "height": 64,
+  "params": [
+    {
+      "label": "Backdrop",
+      "value": "blur"
+    },
+    {
+      "label": "Softness",
+      "value": "8"
+    },
+    {
+      "label": "Backdrop Opacity",
+      "value": "100"
+    },
+    {
+      "label": "Coverage",
+      "value": "100"
+    },
+    {
+      "label": "Blend",
+      "value": "source-over"
+    },
+    {
+      "label": "Algorithm",
+      "value": "floyd"
+    },
+    {
+      "label": "Palette",
+      "value": "mono"
+    },
+    {
+      "label": "Chroma",
+      "value": "standard"
+    },
+    {
+      "label": "Pixel Size",
+      "value": "2"
+    },
+    {
+      "label": "Strength",
+      "value": "100"
+    },
+    {
+      "label": "Contrast",
+      "value": "110"
+    },
+    {
+      "label": "Threshold",
+      "value": "50"
+    },
+    {
+      "label": "Angle",
+      "value": "0"
+    }
+  ],
+  "errors": []
+}

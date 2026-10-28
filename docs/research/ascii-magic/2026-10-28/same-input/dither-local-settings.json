@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "styleId": "dither",
+  "frameWidth": 128,
+  "frameHeight": 64,
+  "renderScale": 1,
+  "crop": {
+    "x": 0,
+    "y": 0,
+    "width": 1,
+    "height": 1
+  },
+  "rotation": 0,
+  "seed": 0,
+  "timeUs": 0,
+  "parameters": {
+    "fontSize": 3,
+    "brightness": 0,
+    "contrast": 0,
+    "invert": false,
+    "charOpacity": 100,
+    "dither": {
+      "algorithm": "floyd",
+      "palette": "mono",
+      "chroma": "standard",
+      "pixelSize": 2,
+      "strength": 100,
+      "contrast": 110,
+      "threshold": 50,
+      "angle": 0,
+      "customPalette": [
+        "#000000",
+        "#ffffff"
+      ],
+      "animate": false,
+      "shimmer": false,
+      "direction": "right",
+      "speed": 4
+    }
+  }
+}

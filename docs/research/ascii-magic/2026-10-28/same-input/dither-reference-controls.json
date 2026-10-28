@@ -1,0 +1,72 @@
+[
+  {
+    "checked": false,
+    "id": "",
+    "value": ""
+  },
+  {
+    "checked": false,
+    "id": "",
+    "value": "dither"
+  },
+  {
+    "checked": false,
+    "id": "bgMode",
+    "value": "blur"
+  },
+  {
+    "checked": false,
+    "id": "bgBlur",
+    "value": "8"
+  },
+  {
+    "checked": false,
+    "id": "bgOpacity",
+    "value": "100"
+  },
+  {
+    "checked": false,
+    "id": "ditherAlgo",
+    "value": "floyd"
+  },
+  {
+    "checked": false,
+    "id": "ditherPalette",
+    "value": "mono"
+  },
+  {
+    "checked": false,
+    "id": "ditherChromaMode",
+    "value": "standard"
+  },
+  {
+    "checked": false,
+    "id": "ditherScale",
+    "value": "2"
+  },
+  {
+    "checked": false,
+    "id": "ditherStrength",
+    "value": "100"
+  },
+  {
+    "checked": false,
+    "id": "ditherContrast",
+    "value": "110"
+  },
+  {
+    "checked": false,
+    "id": "ditherThreshold",
+    "value": "50"
+  },
+  {
+    "checked": false,
+    "id": "advBlur-type",
+    "value": "off"
+  },
+  {
+    "checked": false,
+    "id": "crop-aspect",
+    "value": "free"
+  }
+]

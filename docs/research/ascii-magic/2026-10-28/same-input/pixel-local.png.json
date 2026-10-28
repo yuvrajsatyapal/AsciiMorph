@@ -1,0 +1,40 @@
+{
+  "id": "pixel",
+  "width": 128,
+  "height": 64,
+  "params": [
+    {
+      "label": "Backdrop",
+      "value": "blur"
+    },
+    {
+      "label": "Softness",
+      "value": "8"
+    },
+    {
+      "label": "Backdrop Opacity",
+      "value": "100"
+    },
+    {
+      "label": "Coverage",
+      "value": "100"
+    },
+    {
+      "label": "Blend",
+      "value": "source-over"
+    },
+    {
+      "label": "Cell Size",
+      "value": "11"
+    },
+    {
+      "label": "Invert Mapping",
+      "value": "on"
+    },
+    {
+      "label": "Opacity",
+      "value": "100"
+    }
+  ],
+  "errors": []
+}

@@ -12,6 +12,8 @@ Scope: the complete approved rebuild. A catalog label, prototype treatment or pa
 - Supplied GitHub library is a separate animated-piece library. Its audit and exact commit/license exceptions are in `github-library-audit.md`; no general editor parity follows from its availability.
 - Task 18 makes the independently implemented Pixel Art and Mosaic raster profiles available only while the current Worker reports support. The first production browser evidence is recorded in [Initial renderer families](initial-renderer-families.md); broader Task 20 acceptance and reference-output comparison remain open.
 
+- Same-input visual comparison (28 October2026): Characters,Pixel,Mosaic,Dither now have a [reviewable four-style plate and findings](../research/ascii-magic/2026-10-28/same-input/README.md), current accepted Worker settings and exact local1×PNG checks. Allfour retain visible reference differences; no reference-equivalence row closes. Reference evidence is JPEG screenshots, with failed black clips excluded and local alpha flattened onto black for comparison. A speculative Pixel geometry change was disproven and fully reverted; originalWASM hash restored. Remaining renderer families have not been expanded by this comparison pass.
+
 ## Mode acceptance
 
 Every row requires exact parameter capture, owned fixtures, real renderer output, preview/export equivalence and responsive controls. Planned ownership is `rust/src/styles/` or `rust/src/effects/` plus `src/render/catalog/`; current core character primitives alone do not close a mode.

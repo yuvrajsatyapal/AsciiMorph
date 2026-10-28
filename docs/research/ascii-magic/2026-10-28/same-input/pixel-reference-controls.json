@@ -1,0 +1,67 @@
+[
+  {
+    "checked": false,
+    "id": "",
+    "value": ""
+  },
+  {
+    "checked": false,
+    "id": "",
+    "value": "pixel"
+  },
+  {
+    "checked": false,
+    "id": "bgMode",
+    "value": "blur"
+  },
+  {
+    "checked": false,
+    "id": "bgBlur",
+    "value": "8"
+  },
+  {
+    "checked": false,
+    "id": "bgOpacity",
+    "value": "100"
+  },
+  {
+    "checked": false,
+    "id": "fontSize",
+    "value": "11"
+  },
+  {
+    "checked": false,
+    "id": "blendMode",
+    "value": "source-over"
+  },
+  {
+    "checked": false,
+    "id": "charOpacity",
+    "value": "100"
+  },
+  {
+    "checked": false,
+    "id": "coverage",
+    "value": "100"
+  },
+  {
+    "checked": false,
+    "id": "brightness",
+    "value": "0"
+  },
+  {
+    "checked": false,
+    "id": "contrast",
+    "value": "20"
+  },
+  {
+    "checked": false,
+    "id": "advBlur-type",
+    "value": "off"
+  },
+  {
+    "checked": false,
+    "id": "crop-aspect",
+    "value": "free"
+  }
+]

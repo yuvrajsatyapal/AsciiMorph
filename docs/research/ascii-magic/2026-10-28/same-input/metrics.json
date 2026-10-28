@@ -1,0 +1,51 @@
+{
+  "method": "RGB MAE after local alpha is flattened onto black; lossy JPEG reference; no automatic pass/fail",
+  "bounds": {
+    "left": 566,
+    "top": 354,
+    "width": 128,
+    "height": 64
+  },
+  "rows": {
+    "characters": {
+      "rgbMAE": 19.543904622395832,
+      "maxRGBError": 200,
+      "referenceRange": [
+        0,
+        222
+      ],
+      "referenceSha256": "4726d28ad2a8ec9915377ebaee5afd607be90fa3fd5fc3fb2d849cf0877d4ec8",
+      "localSha256": "0f8eea6dab4c7763f0ede30c1f61631365ac59c272178d6ac71f048c364bfb38"
+    },
+    "pixel": {
+      "rgbMAE": 25.360514322916668,
+      "maxRGBError": 183,
+      "referenceRange": [
+        0,
+        232
+      ],
+      "referenceSha256": "18872497026480086d4d3e7e3498a98c60835da7c38d551c850bb58d302a42ed",
+      "localSha256": "c6e3c6849c9ad92661313b942510ea1837b6d99daf7da57e95acd8f41795c884"
+    },
+    "mosaic": {
+      "rgbMAE": 25.930013020833332,
+      "maxRGBError": 199,
+      "referenceRange": [
+        0,
+        234
+      ],
+      "referenceSha256": "cde938000775ebe020d7795f8984fbba25e12ec521c80115fbc7913dbadf0140",
+      "localSha256": "11d3840a5215765d429e07c5afafb234b0f360ad076eb76ae2a4edffb4fabc70"
+    },
+    "dither": {
+      "rgbMAE": 114.60196940104167,
+      "maxRGBError": 255,
+      "referenceRange": [
+        0,
+        255
+      ],
+      "referenceSha256": "2a0b07ec8c686f3154a8b0bdaf2ce9e67d0c74ebc721b9705f7705f089ecb38e",
+      "localSha256": "793b4d52447d12fcf94483f98653017956e109f5032aaced71287675d3241ef9"
+    }
+  }
+}

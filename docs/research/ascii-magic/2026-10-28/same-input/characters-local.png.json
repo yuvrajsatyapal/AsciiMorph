@@ -1,0 +1,52 @@
+{
+  "id": "characters",
+  "width": 128,
+  "height": 64,
+  "params": [
+    {
+      "label": "Backdrop",
+      "value": "blur"
+    },
+    {
+      "label": "Softness",
+      "value": "8"
+    },
+    {
+      "label": "Backdrop Opacity",
+      "value": "100"
+    },
+    {
+      "label": "Coverage",
+      "value": "100"
+    },
+    {
+      "label": "Blend",
+      "value": "source-over"
+    },
+    {
+      "label": "Font Size",
+      "value": "11"
+    },
+    {
+      "label": "Character Set",
+      "value": "@#S08Xx+=-;:. "
+    },
+    {
+      "label": "Ramp Preset",
+      "value": ""
+    },
+    {
+      "label": "Invert Mapping",
+      "value": "on"
+    },
+    {
+      "label": "Opacity",
+      "value": "100"
+    },
+    {
+      "label": "Random Characters",
+      "value": "on"
+    }
+  ],
+  "errors": []
+}
