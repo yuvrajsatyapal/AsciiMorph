@@ -137,6 +137,24 @@ impl TileJob {
         b[3] = b[3].min(self.settings.height as f64);
         b
     }
+    fn paint_bounds(&self) -> [f64; 4] {
+        if !matches!(self.settings.family, Family::Pixel) {
+            return self.clipped_bounds();
+        }
+        let mut b = self.tile_bounds();
+        b[0] += 0.5;
+        b[1] += 0.5;
+        b[2] = (b[2] - 0.5).min(self.settings.width as f64);
+        b[3] = (b[3] - 0.5).min(self.settings.height as f64);
+        b
+    }
+    fn paint_start(&self, edge: f64) -> usize {
+        if matches!(self.settings.family, Family::Pixel) {
+            edge.floor().max(0.) as usize
+        } else {
+            (edge - 0.5).ceil().max(0.) as usize
+        }
+    }
     fn advance(&mut self) {
         let pitch_x = 3. * self.settings.font_size as f64 * self.settings.scale as f64 / 5.;
         let pitch_y = self.settings.font_size as f64 * self.settings.scale as f64;
@@ -164,33 +182,52 @@ impl TileJob {
             }
             self.color[i] = byte(tone);
         }
-        self.color[3] = byte(sample.alpha * self.settings.opacity / 100.);
+        // Reference ink uses layer opacity; source alpha only normalizes sampled RGB.
+        let alpha = if matches!(self.settings.family, Family::Pixel) {
+            255.
+        } else {
+            sample.alpha
+        };
+        self.color[3] = byte(alpha * self.settings.opacity / 100.);
         if !self.context.occupied(self.tile_x, self.tile_y) {
             self.color[3] = 0;
         }
         if self.color[3] == 0 {
             self.color = [0; 4];
         }
-        let b = self.clipped_bounds();
-        self.paint_x = (b[0] - 0.5).ceil().max(0.) as usize;
-        self.paint_y = (b[1] - 0.5).ceil().max(0.) as usize;
+        let b = self.paint_bounds();
+        self.paint_x = self.paint_start(b[0]);
+        self.paint_y = self.paint_start(b[1]);
         self.sampler = None;
         self.painting = true;
     }
     fn paint_one(&mut self) {
-        let b = self.clipped_bounds();
-        let x_end = (b[2] - 0.5).ceil().min(self.settings.width as f64) as usize;
-        let y_end = (b[3] - 0.5).ceil().min(self.settings.height as f64) as usize;
+        let b = self.paint_bounds();
+        let inset = matches!(self.settings.family, Family::Pixel);
+        let offset = if inset { 0. } else { 0.5 };
+        let x_end = (b[2] - offset).ceil().min(self.settings.width as f64) as usize;
+        let y_end = (b[3] - offset).ceil().min(self.settings.height as f64) as usize;
         if self.paint_x >= x_end || self.paint_y >= y_end {
             self.painting = false;
             self.advance();
             return;
         }
         let i = (self.paint_y * self.settings.width as usize + self.paint_x) * 4;
-        self.composer.layer_mut()[i..i + 4].copy_from_slice(&self.color);
+        let mut color = self.color;
+        if inset {
+            let x = self.paint_x as f64;
+            let y = self.paint_y as f64;
+            let coverage =
+                (b[2].min(x + 1.) - b[0].max(x)).max(0.) * (b[3].min(y + 1.) - b[1].max(y)).max(0.);
+            color[3] = byte(color[3] as f64 * coverage + 1e-10);
+            if color[3] == 0 {
+                color = [0; 4];
+            }
+        }
+        self.composer.layer_mut()[i..i + 4].copy_from_slice(&color);
         self.paint_x += 1;
         if self.paint_x >= x_end {
-            self.paint_x = (b[0] - 0.5).ceil().max(0.) as usize;
+            self.paint_x = self.paint_start(b[0]);
             self.paint_y += 1;
         }
     }
@@ -220,8 +257,19 @@ impl TileJob {
                 continue;
             }
             if self.sampler.is_none() {
-                let b = self.clipped_bounds();
+                let mut b = self.clipped_bounds();
                 let scale = self.settings.scale as f64;
+                if matches!(self.settings.family, Family::Pixel) {
+                    let full = self.tile_bounds();
+                    let (w, h) = self.geometry.extent();
+                    let x = ((full[0] + full[2]) / (2. * scale))
+                        .floor()
+                        .min((w - 1) as f64);
+                    let y = ((full[1] + full[3]) / (2. * scale))
+                        .floor()
+                        .min((h - 1) as f64);
+                    b = [x * scale, y * scale, (x + 1.) * scale, (y + 1.) * scale];
+                }
                 let mut a =
                     AreaSampler::new(b[0] / scale, b[1] / scale, b[2] / scale, b[3] / scale)?;
                 a.begin(&self.geometry);
@@ -302,5 +350,114 @@ impl PixelJob {
     }
     pub fn take_frame(&mut self) -> Option<StyleFrame> {
         self.tiles.take_frame()
+    }
+}
+
+#[cfg(test)]
+mod parity_tests {
+    use super::*;
+    use crate::character::Crop;
+    use crate::styles::StyleJob;
+    fn settings(family: Family, w: u32, h: u32, scale: u32) -> StyleSettings {
+        StyleSettings {
+            family,
+            width: w,
+            height: h,
+            scale,
+            rotation: 0,
+            seed: 0,
+            time_us: 0.,
+            crop: Crop {
+                x: 0.,
+                y: 0.,
+                width: 1.,
+                height: 1.,
+            },
+            atlas_count: 0,
+            atlas_origin_x: 0.,
+            atlas_origin_y: 0.,
+            space_index: 65535,
+            font_size: 5,
+            brightness: 0.,
+            contrast: 0.,
+            invert: false,
+            opacity: 100.,
+        }
+    }
+    fn source(w: u32, h: u32, pixels: Vec<u8>) -> SourceImage {
+        SourceImage::new(w, h, pixels, MAX_SOURCE_BYTES).unwrap()
+    }
+    fn pixel(rgba: &[u8], w: usize, x: usize, y: usize) -> [u8; 4] {
+        rgba[(y * w + x) * 4..(y * w + x) * 4 + 4]
+            .try_into()
+            .unwrap()
+    }
+
+    fn render_transparent(src: &SourceImage, s: StyleSettings, work: u32) -> Vec<u8> {
+        let mut j = StyleJob::new(src, s, None, 0).unwrap();
+        j.configure_context(crate::style_context::StyleContext {
+            backdrop: 0,
+            ..Default::default()
+        });
+        while j.step(src, None, work).unwrap() == JobStatus::Pending {}
+        j.take_frame().unwrap().rgba
+    }
+
+    #[test]
+    fn pixel_inset_keeps_six_tenths_pitch_with_fractional_edge_coverage() {
+        let src = source(20, 22, [255, 255, 255, 255].repeat(20 * 22));
+        let mut s = settings(Family::Pixel, 20, 22, 1);
+        s.font_size = 11;
+        let out = render_transparent(&src, s, 1);
+        assert_eq!(pixel(&out, 20, 0, 0), [255, 255, 255, 64]);
+        assert_eq!(pixel(&out, 20, 1, 1), [255, 255, 255, 255]);
+        assert_eq!(pixel(&out, 20, 6, 1)[3], 26); // right edge at 6.1
+        assert_eq!(pixel(&out, 20, 7, 1)[3], 230); // next cell starts at 7.1
+        assert_eq!(pixel(&out, 20, 1, 10)[3], 128);
+        assert_eq!(pixel(&out, 20, 1, 11)[3], 128);
+    }
+
+    #[test]
+    fn pixel_samples_center_instead_of_area_average() {
+        let mut data = [0, 0, 255, 255].repeat(20 * 22);
+        data[(5 * 20 + 3) * 4..(5 * 20 + 3) * 4 + 4].copy_from_slice(&[255, 0, 0, 255]);
+        let src = source(20, 22, data);
+        let mut s = settings(Family::Pixel, 20, 22, 1);
+        s.font_size = 11;
+        assert_eq!(
+            pixel(&render_transparent(&src, s, 7), 20, 2, 2),
+            [255, 0, 0, 255]
+        );
+    }
+
+    #[test]
+    fn pixel_quantization_thresholds_are_applied_after_tone() {
+        for (input, expected) in [
+            (25, 0),
+            (26, 51),
+            (127, 102),
+            (128, 153),
+            (229, 204),
+            (230, 255),
+        ] {
+            let src = source(20, 22, [input, input, input, 255].repeat(20 * 22));
+            let mut s = settings(Family::Pixel, 20, 22, 1);
+            s.font_size = 11;
+            assert_eq!(
+                pixel(&render_transparent(&src, s, 7), 20, 2, 2),
+                [expected, expected, expected, 255]
+            );
+        }
+    }
+    #[test]
+    fn reference_pixel_ink_opacity_is_independent_of_source_alpha() {
+        let source =
+            SourceImage::new(20, 22, [128, 0, 0, 128].repeat(20 * 22), MAX_SOURCE_BYTES).unwrap();
+        let settings = settings(Family::Pixel, 20, 22, 1);
+        let out = render_transparent(&source, settings, 1);
+        assert_eq!(
+            &out[(2 * 20 + 1) * 4..(2 * 20 + 1) * 4 + 4],
+            &[153, 0, 0, 255]
+        );
     }
 }

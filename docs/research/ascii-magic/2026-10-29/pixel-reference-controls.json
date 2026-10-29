@@ -1,0 +1,38 @@
+[
+  {
+    "id": "bgMode",
+    "value": "blur"
+  },
+  {
+    "id": "bgBlur",
+    "value": "8"
+  },
+  {
+    "id": "bgOpacity",
+    "value": "100"
+  },
+  {
+    "id": "fontSize",
+    "value": "11"
+  },
+  {
+    "id": "blendMode",
+    "value": "source-over"
+  },
+  {
+    "id": "charOpacity",
+    "value": "100"
+  },
+  {
+    "id": "coverage",
+    "value": "100"
+  },
+  {
+    "id": "brightness",
+    "value": "0"
+  },
+  {
+    "id": "contrast",
+    "value": "20"
+  }
+]

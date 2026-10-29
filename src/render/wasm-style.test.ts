@@ -33,29 +33,27 @@ it.each(["pixel", "mosaic"] as const)(
         ),
       });
       const base = styleId === "pixel" ? fixtures.cases[0] : fixtures.cases[1];
-      const id = e.beginStyle(
-        validateStyleSettings(
-          {
-            ...base.settings,
-            parameters: {
-              ...base.settings.parameters,
-              brightness: 0,
-              invert: false,
-              charOpacity: 100,
-              ...(styleId === "mosaic" ? { mosaicShape: "square" } : {}),
-            },
+      const settings = validateStyleSettings(
+        {
+          ...base.settings,
+          parameters: {
+            ...base.settings.parameters,
+            brightness: 0,
+            invert: false,
+            charOpacity: 100,
+            ...(styleId === "mosaic" ? { mosaicShape: "square" } : {}),
           },
-          f.source,
-        ),
+        },
+        f.source,
       );
+      const full = renderFrame(e, settings);
+      const id = e.beginStyle(settings);
       while (e.step(id, 4096) === "pending") {}
       e.beginThumbnail(id, 8);
       while (e.step(id, 1) === "pending") {}
       const frame = e.takeThumbnail(id);
       expect([frame.width, frame.height]).toEqual([8, 6]);
-      const color =
-        styleId === "pixel" ? [153, 153, 153, 255] : [128, 128, 128, 255];
-      expect(frame.rgba.every((v, i) => v === color[i % 4])).toBe(true);
+      expect([...frame.rgba]).toEqual(boxThumbnail(full, 8, 6));
     } finally {
       e.dispose();
     }
@@ -125,6 +123,7 @@ it("converts a real 1000 square Pixel profile with bounded thumbnail dimensions"
         height: source.height,
       },
     );
+    const full = renderFrame(e, settings);
     const id = e.beginStyle(settings);
     while (e.step(id, 4096) === "pending") {}
     const fullCapacity = memory!.buffer.byteLength;
@@ -136,9 +135,7 @@ it("converts a real 1000 square Pixel profile with bounded thumbnail dimensions"
     expect([frame.width, frame.height]).toEqual([192, 192]);
     expect(turns).toBeGreaterThan(100);
     expect(peakCapacity).toBeGreaterThanOrEqual(fullCapacity);
-    expect(frame.rgba.every((v, i) => v === [153, 153, 153, 255][i % 4])).toBe(
-      true,
-    );
+    expect([...frame.rgba]).toEqual(boxThumbnail(full, 192, 192));
   } finally {
     e.dispose();
   }
@@ -331,18 +328,17 @@ it("reads positive real native Pixel and Mosaic frames", async () => {
       while (e.step(id, 4096) === "pending") {}
       const frame = e.takeStyleFrame(id);
       expect([frame.width, frame.height]).toEqual([17, 13]);
-      expect([...frame.rgba.slice(0, 4)]).toEqual(
-        styleId === "pixel" ? [153, 153, 153, 255] : [128, 128, 128, 255],
-      );
-      expect(
-        frame.rgba.every(
-          (v, i) =>
-            v ===
-            (styleId === "pixel" ? [153, 153, 153, 255] : [128, 128, 128, 255])[
-              i % 4
-            ],
-        ),
-      ).toBe(true);
+      if (styleId === "pixel") {
+        expect([...frame.rgba.slice(0, 4)]).toEqual([134, 134, 134, 255]);
+        const interior = (2 * frame.width + 2) * 4;
+        expect([...frame.rgba.slice(interior, interior + 4)]).toEqual([
+          153, 153, 153, 255,
+        ]);
+      } else {
+        expect(
+          frame.rgba.every((v, i) => v === [128, 128, 128, 255][i % 4]),
+        ).toBe(true);
+      }
     }
   } finally {
     e.dispose();
@@ -480,3 +476,44 @@ it("old WASM rejects additive settings before allocating a native stage", async 
     e.dispose();
   }
 });
+
+// Independent box integration checks thumbnail conversion against the actual full frame,
+// including inset borders. Inputs in these tests are fully opaque.
+function boxThumbnail(
+  frame: RgbaFrameV1,
+  width: number,
+  height: number,
+): number[] {
+  expect(frame.rgba.every((v, i) => i % 4 !== 3 || v === 255)).toBe(true);
+  const out: number[] = [];
+  for (let y = 0; y < height; y++)
+    for (let x = 0; x < width; x++) {
+      const left = (x * frame.width) / width,
+        right = ((x + 1) * frame.width) / width;
+      const top = (y * frame.height) / height,
+        bottom = ((y + 1) * frame.height) / height;
+      const sum = [0, 0, 0];
+      for (let sy = Math.floor(top); sy < Math.ceil(bottom); sy++) {
+        for (let sx = Math.floor(left); sx < Math.ceil(right); sx++) {
+          const area =
+            (Math.min(right, sx + 1) - Math.max(left, sx)) *
+            (Math.min(bottom, sy + 1) - Math.max(top, sy));
+          const i = (sy * frame.width + sx) * 4;
+          for (let c = 0; c < 3; c++) sum[c] += frame.rgba[i + c] * area;
+        }
+      }
+      const area = (right - left) * (bottom - top);
+      out.push(...sum.map((v) => Math.round(v / area)), 255);
+    }
+  return out;
+}
+import type { RgbaFrameV1, StyleSettingsV1 } from "./style-contract";
+import type { CharacterEngine } from "./wasm-character";
+function renderFrame(
+  e: CharacterEngine,
+  settings: StyleSettingsV1,
+): RgbaFrameV1 {
+  const id = e.beginStyle(settings);
+  while (e.step(id, 4096) === "pending") {}
+  return e.takeStyleFrame(id);
+}

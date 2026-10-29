@@ -88,9 +88,7 @@ fn baseline_and_distinct_merged_geometry() {
     p.contrast = 20.;
     let mut m = p.clone();
     m.family = Family::Mosaic { shape: 0 };
-    assert!(render(&solid, p, 7)
-        .chunks_exact(4)
-        .all(|v| v == [153, 153, 153, 255]));
+    assert_eq!(pixel(&render(&solid, p, 7), 17, 2, 2), [153, 153, 153, 255]);
     assert!(render(&solid, m, 7)
         .chunks_exact(4)
         .all(|v| v == [128, 128, 128, 255]));
@@ -184,9 +182,13 @@ fn hand_computed_quantization_and_control_extremes() {
         (230, 255),
         (255, 255),
     ] {
-        let src = source(1, 1, vec![input, input, input, 255]);
-        let out = render(&src, settings(Family::Pixel, 1, 1, 1), 1);
-        assert_eq!(out, [expected, expected, expected, 255], "source={input}");
+        let src = source(17, 13, [input, input, input, 255].repeat(17 * 13));
+        let out = render(&src, settings(Family::Pixel, 17, 13, 1), 1);
+        assert_eq!(
+            pixel(&out, 17, 1, 1),
+            [expected, expected, expected, 255],
+            "source={input}"
+        );
     }
     let src = source(17, 13, [128, 128, 128, 255].repeat(17 * 13));
     for size in [3, 11, 80] {
@@ -198,19 +200,13 @@ fn hand_computed_quantization_and_control_extremes() {
     }
     let mut s = settings(Family::Pixel, 17, 13, 1);
     s.brightness = 100.;
-    assert!(render(&src, s, 7)
-        .chunks_exact(4)
-        .all(|p| p == [255, 255, 255, 255]));
+    assert_eq!(pixel(&render(&src, s, 7), 17, 1, 1), [255, 255, 255, 255]);
     let mut s = settings(Family::Pixel, 17, 13, 1);
     s.brightness = -100.;
-    assert!(render(&src, s, 7)
-        .chunks_exact(4)
-        .all(|p| p == [0, 0, 0, 255]));
+    assert_eq!(pixel(&render(&src, s, 7), 17, 1, 1), [0, 0, 0, 255]);
     let mut s = settings(Family::Pixel, 17, 13, 1);
     s.invert = true;
-    assert!(render(&src, s, 7)
-        .chunks_exact(4)
-        .all(|p| p == [102, 102, 102, 255]));
+    assert_eq!(pixel(&render(&src, s, 7), 17, 1, 1), [102, 102, 102, 255]);
     let dark = source(1, 1, vec![64, 64, 64, 255]);
     let mut low = settings(Family::Mosaic { shape: 0 }, 1, 1, 1);
     low.contrast = -100.;
@@ -221,9 +217,10 @@ fn hand_computed_quantization_and_control_extremes() {
     for (opacity, expected) in [(0., 128), (50., 141), (100., 153)] {
         let mut s = settings(Family::Pixel, 17, 13, 1);
         s.opacity = opacity;
-        assert!(render(&src, s, 7)
-            .chunks_exact(4)
-            .all(|p| p == [expected, expected, expected, 255]));
+        assert_eq!(
+            pixel(&render(&src, s, 7), 17, 1, 1),
+            [expected, expected, expected, 255]
+        );
     }
 }
 
@@ -269,12 +266,17 @@ fn merged_partial_tiles_use_entire_clipped_area() {
 fn full_blur_context_alpha_and_zero_opacity() {
     let clear = source(3, 3, [255, 0, 255, 0].repeat(9));
     for family in [Family::Pixel, Family::Mosaic { shape: 2 }] {
-        let out = render(&clear, settings(family, 3, 3, 1), 7);
-        assert!(out.iter().all(|b| *b == 0));
+        let out = render(&clear, settings(family.clone(), 3, 3, 1), 7);
+        if matches!(family, Family::Pixel) {
+            assert!(out.chunks_exact(4).all(|p| p[..3] == [0, 0, 0]));
+            assert_eq!(pixel(&out, 3, 1, 1), [0, 0, 0, 255]);
+        } else {
+            assert!(out.iter().all(|b| *b == 0));
+        }
     }
     let src = source(3, 3, [128, 0, 0, 128].repeat(9));
     let out = render(&src, settings(Family::Pixel, 3, 3, 1), 1);
-    assert!(out.chunks_exact(4).all(|p| p == [145, 0, 0, 192]));
+    assert_eq!(pixel(&out, 3, 1, 1), [153, 0, 0, 255]);
     let mut zero = settings(Family::Mosaic { shape: 0 }, 3, 3, 1);
     zero.opacity = 0.;
     let out = render(&src, zero, 7);

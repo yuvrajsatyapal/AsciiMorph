@@ -1,0 +1,15 @@
+# Existing-style visual corrections
+
+Continue the 28 October parity plan, in user order Pixel, Mosaic, Characters, Dither; only then remaining core families and workflows in the saved order. Existing source captures are diagnostic, not accepted reference oracles.
+
+## Evidence and correction sequence
+
+Public renderer script observed on the reference page on 29 October: `/app/_next/static/chunks/3h-myp5srmnc2.js`. Static source inspection supplies hypotheses; visible same-input comparison remains required. Readable diagnostic copy stays in `/tmp/asciimorph-reference-source/renderer-readable.js`.
+
+Pixel retains 0.6F × F pitch. At normal size, draw rectangle begins at cell origin +0.5 in both axes and ends at the far edge -0.5; use fractional destination-pixel coverage. Sample floor(cell center) clamped to source extent, not area average. Apply contrast/brightness, optional inversion, then round to nearest multiple of 51. Transparent hidden source RGB is zero at browser image-data boundary. Pixel ink alpha comes from layer opacity rather than source alpha (the reference fill style uses charOpacity directly); transparent hidden RGB normalizes to black. Quantization formula is already correct. Add distinct coverage, center-vs-area and palette-threshold regressions; establish red before implementation. Export scale changes pitch, while the reference's literal half-pixel inset stays in output coordinates.
+
+Mosaic draws origin +1 with dimensions merged pitch -2 and corner radius 0.2 × min(merged pitch). Wide/Tall skip alternating base cells, and sample only their originating base cell. Sampling starts at floored base-cell bounds, steps max(1,floor(base source width/3)) in both axes; clamp tone per tap before averaging, then invert and round. Add independent sparse/clamp/shape/coverage regressions before implementing.
+
+Existing independent-profile tests asserting gapless area-filled tiles are superseded only by verified corrections; preserve memory, cancellation, cooperative stepping, crop/rotation and preview/export checks. Do not claim visual acceptance from unit tests. Update comparison evidence without replacing historical captures.
+
+Characters and Dither require separate investigations and written numerical findings before changes. Dither Strength zero still quantizes in the reference; isolate diffusion scaling and sampling before changing it.

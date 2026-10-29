@@ -97,7 +97,8 @@ fn exact_stage_ownership_and_real_pixel_frame_release_without_retained_allocatio
             .flat_map(u32::to_le_bytes)
             .collect::<Vec<_>>()
     );
-    assert_eq!(&frame[16..], [0, 0, 0, 255]);
+    // Quarter coverage at the half-pixel inset over the original [1, 2, 3] backdrop.
+    assert_eq!(&frame[16..], [1, 1, 2, 255]);
     s.release(id).unwrap();
     assert_eq!(s.storage_bytes(), before);
     s.unstage(p).unwrap();
