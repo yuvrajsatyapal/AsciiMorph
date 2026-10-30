@@ -8,6 +8,8 @@ use crate::{
     character::{JobStatus, RenderError},
     source::SourceImage,
 };
+#[path = "mosaic_raster.rs"]
+mod raster;
 #[derive(Debug)]
 pub struct MosaicJob {
     pub(crate) tiles: TileJob,
@@ -71,29 +73,15 @@ impl SparseTile {
     }
 }
 
-/// Integrate the circle's horizontal span across the destination pixel. Straight
-/// edges retain exact fractional coverage; only curved edge pixels need quadrature.
-pub(crate) fn rounded_coverage(bounds: [f64; 4], radius: f64, x: usize, y: usize) -> f64 {
-    let [left, top, right, bottom] = bounds;
-    let radius = radius.min((right - left) / 2.).min((bottom - top) / 2.);
-    let (x, y) = (x as f64, y as f64);
-    let width = (right.min(x + 1.) - left.max(x)).max(0.);
-    let height = (bottom.min(y + 1.) - top.max(y)).max(0.);
-    if radius <= 0.
-        || (x >= left + radius && x + 1. <= right - radius)
-        || (y >= top + radius && y + 1. <= bottom - radius)
-    {
-        return width * height;
-    }
-    let y0 = top.max(y);
-    let mut area = 0.;
-    for i in 0..32 {
-        let py = y0 + height * (i as f64 + 0.5) / 32.;
-        let dy = (top + radius - py).max(py - (bottom - radius)).max(0.);
-        let inset = radius - (radius * radius - dy * dy).max(0.).sqrt();
-        area += ((right - inset).min(x + 1.) - (left + inset).max(x)).max(0.);
-    }
-    area * height / 32.
+/// Rasterize the rounded path with the same fixed-point coverage rules as Canvas.
+pub(crate) fn rounded_coverage(
+    bounds: [f64; 4],
+    radius: f64,
+    x: usize,
+    y: usize,
+    clip: [usize; 2],
+) -> f64 {
+    raster::coverage(bounds, radius, x, y, clip)
 }
 impl MosaicJob {
     pub fn new(source: &SourceImage, s: StyleSettings, other: usize) -> Result<Self, RenderError> {
@@ -128,5 +116,95 @@ impl MosaicJob {
     }
     pub fn take_frame(&mut self) -> Option<StyleFrame> {
         self.tiles.take_frame()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::rounded_coverage;
+
+    #[test]
+    fn large_tiles_match_canvas_rle_and_direct_pair_blitters() {
+        let b = [1., 1., 38.6, 32.];
+        assert_eq!(
+            (255. * rounded_coverage(b, 6.6, 35, 1, [256, 128])).round() as u8,
+            0
+        );
+        assert_eq!(
+            (255. * rounded_coverage(b, 6.6, 36, 2, [256, 128])).round() as u8,
+            33
+        );
+    }
+
+    #[test]
+    fn conic_subdivision_preserves_canvas_float_operation_order() {
+        assert_eq!(
+            (255. * rounded_coverage([25., 1., 47., 39.], 4.8, 46, 4, [256, 128])).round() as u8,
+            184
+        );
+    }
+
+    #[test]
+    fn skipped_flat_quadratic_steps_keep_the_original_snapped_origin() {
+        // Independently measured with ctx.roundRect(1,1,0.4,2,0.48), white fill.
+        assert_eq!(
+            (255. * rounded_coverage([1., 1., 1.4, 3.], 0.48, 1, 1, [10, 10])).round() as u8,
+            120
+        );
+        assert_eq!(
+            (255. * rounded_coverage([1., 1., 1.4, 3.], 0.48, 1, 2, [10, 10])).round() as u8,
+            96
+        );
+    }
+
+    #[test]
+    fn rounded_tiles_match_independent_canvas_alpha_masks() {
+        for (mx, my, expected) in [
+            (
+                1,
+                1,
+                &include_bytes!("../../../tests/fixtures/render/styles/mosaic-square-canvas.alpha")
+                    [..],
+            ),
+            (
+                2,
+                1,
+                &include_bytes!("../../../tests/fixtures/render/styles/mosaic-wide-canvas.alpha")[..],
+            ),
+            (
+                1,
+                2,
+                &include_bytes!("../../../tests/fixtures/render/styles/mosaic-tall-canvas.alpha")[..],
+            ),
+        ] {
+            let mut actual = vec![0u8; 128 * 64];
+            for row in (0..6).step_by(my) {
+                for col in (0..20).step_by(mx) {
+                    let left = col as f64 * 6.6 + 1.;
+                    let top = row as f64 * 11. + 1.;
+                    let w = 6.6 * mx as f64;
+                    let h = 11. * my as f64;
+                    let bounds = [left, top, left + w - 2., top + h - 2.];
+                    for y in (top.floor() as usize)..(bounds[3].ceil() as usize).min(64) {
+                        for x in (left.floor() as usize)..(bounds[2].ceil() as usize).min(128) {
+                            actual[y * 128 + x] = (255.
+                                * rounded_coverage(bounds, 0.2 * w.min(h), x, y, [128, 64]))
+                            .round() as u8;
+                        }
+                    }
+                }
+            }
+            let mismatches = actual.iter().zip(expected).filter(|(a, b)| a != b).count();
+            assert_eq!(
+                mismatches,
+                0,
+                "{mx}x{my}: first mismatch {:?}",
+                actual
+                    .iter()
+                    .zip(expected)
+                    .position(|(a, b)| a != b)
+                    .map(|i| (i % 128, i / 128, actual[i], expected[i]))
+            );
+        }
     }
 }

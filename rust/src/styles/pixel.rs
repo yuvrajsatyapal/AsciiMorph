@@ -245,6 +245,7 @@ impl TileJob {
                     0.2 * (full[2] - full[0]).min(full[3] - full[1]),
                     self.paint_x,
                     self.paint_y,
+                    [self.settings.width as usize, self.settings.height as usize],
                 )
             } else {
                 (b[2].min(x + 1.) - b[0].max(x)).max(0.) * (b[3].min(y + 1.) - b[1].max(y)).max(0.)
@@ -297,8 +298,10 @@ impl TileJob {
                         [
                             bounds[0],
                             bounds[1],
-                            (bounds[0] + base_width).min(w as f64 * scale),
-                            (bounds[1] + base_height).min(h as f64 * scale),
+                            ((self.tile_x * self.multiplier_x + 1) as f64 * base_width)
+                                .min(w as f64 * scale),
+                            ((self.tile_y * self.multiplier_y + 1) as f64 * base_height)
+                                .min(h as f64 * scale),
                         ],
                         scale,
                     ));
@@ -495,6 +498,25 @@ mod parity_tests {
     }
 
     #[test]
+    fn mosaic_sparse_bounds_use_next_cell_origin_before_flooring() {
+        let mut rgba = vec![0; 128 * 22 * 4];
+        for y in 0..22 {
+            for x in 0..128 {
+                let i = (y * 128 + x) * 4;
+                rgba[i] = if x == 98 { 255 } else { 0 };
+                rgba[i + 3] = 255;
+            }
+        }
+        let src = source(128, 22, rgba);
+        let mut s = settings(Family::Mosaic { shape: 0 }, 128, 22, 1);
+        s.font_size = 11;
+        // floor((14 + 1) * 6.6) = 99, while floor(14 * 6.6 + 6.6) = 98.
+        // The last sparse tap at98 must contribute to the four-tap average.
+        let out = render_transparent(&src, s, 7);
+        assert_eq!(pixel(&out, 128, 95, 5), [64, 0, 0, 255]);
+    }
+
+    #[test]
     fn mosaic_tiles_have_one_pixel_insets_and_rounded_corners() {
         let src = source(40, 22, [255, 255, 255, 255].repeat(40 * 22));
         let mut s = settings(Family::Mosaic { shape: 0 }, 40, 22, 1);
@@ -503,7 +525,8 @@ mod parity_tests {
         assert_eq!(pixel(&out, 40, 0, 5), [0; 4]);
         assert_eq!(pixel(&out, 40, 3, 3), [255; 4]);
         assert!(pixel(&out, 40, 1, 1)[3] > 0 && pixel(&out, 40, 1, 1)[3] < 255);
-        assert_eq!(pixel(&out, 40, 5, 5)[3], 153);
+        // Canvas quantizes the vertical edge to 1/256 before converting to alpha.
+        assert_eq!(pixel(&out, 40, 5, 5)[3], 152);
     }
 
     #[test]

@@ -13,3 +13,9 @@ Mosaic draws origin +1 with dimensions merged pitch -2 and corner radius 0.2 × 
 Existing independent-profile tests asserting gapless area-filled tiles are superseded only by verified corrections; preserve memory, cancellation, cooperative stepping, crop/rotation and preview/export checks. Do not claim visual acceptance from unit tests. Update comparison evidence without replacing historical captures.
 
 Characters and Dither require separate investigations and written numerical findings before changes. Dither Strength zero still quantizes in the reference; isolate diffusion scaling and sampling before changing it.
+
+## Mosaic corner rasterization, 30 October
+
+Independent Chromium white-mask captures reproduce 1,666 differing square-tile alpha pixels. The first is (1,1): geometric integration162 versus Canvas170. Skia converts circular conics to quadratic splines at tolerance0.25, subdivides those into fixed-point edges, snaps Y to quarters and curved X to sixteenths, and accumulates byte trapezoid coverage. Smooth edge transitions can extrapolate to the next integer scanline. True circle integration therefore cannot reproduce the observed mask.
+
+Implementation plan: first freeze square/wide/tall128×64 browser masks and demonstrate RED; replace geometric integration with a bounded native rounded-path scan converter using the above rules; require exact masks before checking the real gradient export; rebuild WASM and run preview/download equality checks. Preserve sparse sampling, tone, cooperative work limits, memory admission and cancellation. Attribute any Skia-derived arithmetic. Do not change acceptance thresholds. Continue Characters only after Mosaic's lossless comparison passes.

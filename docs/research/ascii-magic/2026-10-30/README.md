@@ -1,5 +1,7 @@
 # Pixel accepted fixture and Mosaic correction checkpoint
 
+Later 30 October update: the canonical Mosaic corner fix now matches every reference RGBA byte. Broader scaled coverage still has open findings. See the [Mosaic antialiasing evidence and remaining work](mosaic-aa/README.md); the checkpoint below is retained as historical evidence.
+
 The full requested sequence remains unfinished. Pixel matches the fresh lossless reference exactly on the canonical 128×64 fixture at 1×. Mosaic sampling and geometry corrections are implemented, but its corner antialiasing has not passed visual acceptance. Characters, Dither, remaining core styles, stacked effects, text/masks/lighting, animation exports, recipes/library/Flow remain open in that order.
 
 ## Shared backdrop and Pixel
