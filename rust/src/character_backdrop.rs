@@ -153,6 +153,18 @@ impl CompleteCharactersJob {
             g.configure_context(c);
         }
     }
+    pub(crate) fn batch_storage_bytes() -> usize {
+        std::mem::size_of::<crate::webgl_glyph::Batch>()
+    }
+    pub(crate) fn configure_webgl_batch(
+        &mut self,
+        atlas: &ReferenceAtlas,
+    ) -> Result<(), RenderError> {
+        self.glyph
+            .as_mut()
+            .ok_or(RenderError::InvalidInput)?
+            .configure_webgl_batch(atlas)
+    }
     pub(crate) fn capacity_excess_bytes(&self) -> usize {
         self.capacity_excess_bytes
     }
@@ -259,7 +271,12 @@ impl CompleteCharactersJob {
         Ok(self.status())
     }
     fn resize_pixel(&mut self, source: &SourceImage) {
-        resize_pixel_into(
+        let resize = if self.context.is_some() {
+            resize_canvas_pixel_into
+        } else {
+            resize_pixel_into
+        };
+        resize(
             &mut self.a,
             self.cursor,
             source,
@@ -337,6 +354,49 @@ impl CompleteCharactersJob {
             self.phase = Phase::Done;
         }
     }
+}
+// The reference export prepares a bilinear RGBA8 source before the backdrop filter.
+fn resize_canvas_pixel_into(
+    a: &mut [[f32; 4]],
+    cursor: usize,
+    source: &SourceImage,
+    geometry: &Geometry,
+    rotation: u16,
+    scale: u8,
+) {
+    let (pw, ph) = geometry.extent();
+    let w = pw * scale as usize;
+    let x = ((cursor % w) as f64 + 0.5) / scale as f64 - 0.5;
+    let y = ((cursor / w) as f64 + 0.5) / scale as f64 - 0.5;
+    let ix = x.floor();
+    let iy = y.floor();
+    // Canvas's low-quality bitmap sampler stores each fractional weight in four bits.
+    let fx = ((x - ix) * 16.).floor() / 16.;
+    let fy = ((y - iy) * 16.).floor() / 16.;
+    let mut p = [0.; 4];
+    for (dx, dy, weight) in [
+        (0., 0., (1. - fx) * (1. - fy)),
+        (1., 0., fx * (1. - fy)),
+        (0., 1., (1. - fx) * fy),
+        (1., 1., fx * fy),
+    ] {
+        let c = geometry.pixel(
+            source,
+            rotation,
+            (ix + dx).clamp(0., (pw - 1) as f64) as usize,
+            (iy + dy).clamp(0., (ph - 1) as f64) as usize,
+        );
+        for k in 0..3 {
+            p[k] += ((c[k] as u32 * c[3] as u32 + 127) / 255) as f64 * weight;
+        }
+        p[3] += c[3] as f64 * weight;
+    }
+    a[cursor] = [
+        p[0].floor() as f32,
+        p[1].floor() as f32,
+        p[2].floor() as f32,
+        p[3].floor() as f32 / 255.,
+    ];
 }
 /// Original-source premultiplied bilinear interpolation; shared with style composition.
 pub(crate) fn resize_pixel_into(
@@ -449,7 +509,99 @@ mod tests {
     use super::*;
     use crate::character::Crop;
     #[test]
-    fn context_backdrop_matches_full_independent_canvas_gradient() {
+    fn context_resize_retains_canvas_rounded_partial_alpha_ink() {
+        // Independent Canvas low-quality resize of [1,1,1,173] over black is [1,1,1,255].
+        let source = SourceImage::new(1, 1, vec![1, 1, 1, 173], MAX_SOURCE_BYTES).unwrap();
+        for scale in 1..=4u8 {
+            let settings = ReferenceCharactersSettings {
+                version: 1,
+                frame_width: scale as u32,
+                frame_height: scale as u32,
+                font_size: 3.,
+                render_scale: scale,
+                brightness: 0.,
+                contrast: 0.,
+                rotation: 0,
+                backdrop: ReferenceBackdrop::Blur,
+                crop: Crop {
+                    x: 0.,
+                    y: 0.,
+                    width: 1.,
+                    height: 1.,
+                },
+            };
+            let g = geometry(&source, &settings).unwrap();
+            let mut a = vec![[0.; 4]; scale as usize * scale as usize];
+            for i in 0..a.len() {
+                resize_canvas_pixel_into(&mut a, i, &source, &g, 0, scale);
+                assert_eq!(a[i], [1., 1., 1., 173f32 / 255.], "scale{scale},pixel{i}");
+            }
+        }
+    }
+    #[test]
+    fn context_bilinear_resize_matches_canvas_before_filter() {
+        let mut pixels = Vec::new();
+        for y in 0..64u8 {
+            for x in 0..128u8 {
+                pixels.extend([2 * x, 4 * y, 255 - 2 * x, if x < 13 { 0 } else { 255 }]);
+            }
+        }
+        let source = SourceImage::new(128, 64, pixels, MAX_SOURCE_BYTES).unwrap();
+        for scale in 1..=4 {
+            let w = 128 * scale;
+            let h = 64 * scale;
+            let g = geometry(
+                &source,
+                &ReferenceCharactersSettings {
+                    version: 1,
+                    frame_width: w,
+                    frame_height: h,
+                    font_size: 80.,
+                    render_scale: scale as u8,
+                    brightness: 0.,
+                    contrast: 0.,
+                    rotation: 0,
+                    backdrop: ReferenceBackdrop::Blur,
+                    crop: Crop {
+                        x: 0.,
+                        y: 0.,
+                        width: 1.,
+                        height: 1.,
+                    },
+                },
+            )
+            .unwrap();
+            let mut a = vec![[0.; 4]; (w * h) as usize];
+            let expected: &[u8] = match scale {
+                1 => include_bytes!(
+                    "../../tests/fixtures/render/backdrop/canvas-gradient-low-scaled-1.rgba"
+                ),
+                2 => include_bytes!(
+                    "../../tests/fixtures/render/backdrop/canvas-gradient-low-scaled-2.rgba"
+                ),
+                3 => include_bytes!(
+                    "../../tests/fixtures/render/backdrop/canvas-gradient-low-scaled-3.rgba"
+                ),
+                _ => include_bytes!(
+                    "../../tests/fixtures/render/backdrop/canvas-gradient-low-scaled-4.rgba"
+                ),
+            };
+            for i in 0..a.len() {
+                resize_canvas_pixel_into(&mut a, i, &source, &g, 0, scale as u8);
+                for k in 0..3 {
+                    assert_eq!(
+                        a[i][k].round() as u8,
+                        expected[i * 4 + k],
+                        "scale{scale} pixel({},{}), channel{k}",
+                        i % (w as usize),
+                        i / (w as usize)
+                    );
+                }
+            }
+        }
+    }
+    #[test]
+    fn context_scaled_backdrop_matches_full_independent_canvas_gradient() {
         let mut pixels = Vec::new();
         for y in 0..64u8 {
             for x in 0..128u8 {
@@ -458,38 +610,54 @@ mod tests {
         }
         let src = SourceImage::new(128, 64, pixels, MAX_SOURCE_BYTES).unwrap();
         let atlas = ReferenceAtlas::new(2, 1, 1, vec![0, 0], 0., 0., 65535).unwrap();
-        let settings = ReferenceCharactersSettings {
-            version: 1,
-            frame_width: 128,
-            frame_height: 64,
-            font_size: 80.,
-            render_scale: 1,
-            brightness: 0.,
-            contrast: 0.,
-            crop: Crop {
-                x: 0.,
-                y: 0.,
-                width: 1.,
-                height: 1.,
-            },
-            rotation: 0,
-            backdrop: ReferenceBackdrop::Blur,
-        };
-        let expected =
-            include_bytes!("../../tests/fixtures/render/backdrop/canvas-gradient-blur8.rgba");
-        for work in [1, 4096] {
-            let mut job = CompleteCharactersJob::new(&src, settings.clone(), &atlas, 0).unwrap();
-            job.configure_context(crate::style_context::StyleContext::default());
-            while job.step(&src, &atlas, work).unwrap() == JobStatus::Pending {}
-            let out = job.take_frame().unwrap().rgba;
-            let first = out.iter().zip(expected).position(|(a, b)| a != b);
-            assert!(
-                first.is_none(),
-                "first byte mismatch {:?}",
-                first.map(|i| (i, out[i], expected[i]))
-            );
-            job.cancel();
-            assert_eq!(job.storage_bytes(), 0);
+        for scale in 1..=4 {
+            let settings = ReferenceCharactersSettings {
+                version: 1,
+                frame_width: 128 * scale,
+                frame_height: 64 * scale,
+                font_size: 80.,
+                render_scale: scale as u8,
+                brightness: 0.,
+                contrast: 0.,
+                crop: Crop {
+                    x: 0.,
+                    y: 0.,
+                    width: 1.,
+                    height: 1.,
+                },
+                rotation: 0,
+                backdrop: ReferenceBackdrop::Blur,
+            };
+            let expected: &[u8] = match scale {
+                1 => include_bytes!(
+                    "../../tests/fixtures/render/backdrop/canvas-gradient-low-blur8-1.rgba"
+                ),
+                2 => include_bytes!(
+                    "../../tests/fixtures/render/backdrop/canvas-gradient-low-blur8-2.rgba"
+                ),
+                3 => include_bytes!(
+                    "../../tests/fixtures/render/backdrop/canvas-gradient-low-blur8-3.rgba"
+                ),
+                _ => include_bytes!(
+                    "../../tests/fixtures/render/backdrop/canvas-gradient-low-blur8-4.rgba"
+                ),
+            };
+            for work in [1, 4096] {
+                let mut job =
+                    CompleteCharactersJob::new(&src, settings.clone(), &atlas, 0).unwrap();
+                job.configure_context(crate::style_context::StyleContext::default());
+                while job.step(&src, &atlas, work).unwrap() == JobStatus::Pending {}
+                let out = job.take_frame().unwrap().rgba;
+                let first = out.iter().zip(expected).position(|(a, b)| a != b);
+
+                assert!(
+                    first.is_none(),
+                    "scale {scale} first byte mismatch {:?}",
+                    first.map(|i| (i, out[i], expected[i]))
+                );
+                job.cancel();
+                assert_eq!(job.storage_bytes(), 0);
+            }
         }
     }
 

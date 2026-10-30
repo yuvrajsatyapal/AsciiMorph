@@ -4,7 +4,7 @@ import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "./tests/e2e",
   testMatch: "characters/complete-context.spec.ts",
-  grep: /pinned software Characters reference/,
+  grep: /pinned software Characters/,
   workers: 1,
   timeout: 120000,
   use: {

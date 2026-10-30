@@ -464,6 +464,10 @@ impl RenderSession {
         } else {
             None
         };
+        let batch = u32_at(b, 24)? == 1;
+        if batch && !extended {
+            return Err(RenderError::InvalidInput);
+        }
         let (mut settings, count, x, y, space) =
             decode_reference_settings(if extended { &b[..112] } else { b })?;
         if extended {
@@ -494,6 +498,12 @@ impl RenderSession {
             };
         let other = self.admission_bytes() - source.storage_bytes() - calibration.masks.capacity();
         let peak = CompleteCharactersJob::estimated_peak_bytes(source, &settings, &atlas, other)?
+            .checked_add(if batch {
+                CompleteCharactersJob::batch_storage_bytes()
+            } else {
+                0
+            })
+            .ok_or(RenderError::BudgetExceeded)?
             .checked_add(if context.is_some() {
                 CompleteCharactersJob::context_storage_bytes()
             } else {
@@ -507,6 +517,9 @@ impl RenderSession {
         let mut job = CompleteCharactersJob::new(source, settings.clone(), &atlas, other)?;
         if let Some(c) = context {
             job.configure_context(c);
+        }
+        if batch {
+            job.configure_webgl_batch(&atlas)?;
         }
         let reserved_bytes = reserved_bytes
             .checked_add(job.capacity_excess_bytes())
@@ -1013,7 +1026,7 @@ pub fn decode_reference_settings(
     }
     let count = u32_at(b, 16)?;
     let space = u32_at(b, 28)?;
-    if !(2..=256).contains(&count) || (space != 65535 && space >= count) || u32_at(b, 24)? != 0 {
+    if !(2..=256).contains(&count) || (space != 65535 && space >= count) || u32_at(b, 24)? > 1 {
         return Err(RenderError::InvalidInput);
     }
     let f = |i: usize| f64::from_le_bytes(b[32 + i * 8..40 + i * 8].try_into().unwrap());

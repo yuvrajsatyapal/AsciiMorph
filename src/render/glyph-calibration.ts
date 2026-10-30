@@ -426,6 +426,18 @@ async function measureReference(
       version: 1,
       calibration,
       ...geometry,
+      ...(input.fontPolicy === "reference-system-monospace" &&
+      Number.isInteger(left) &&
+      Number.isInteger(top) &&
+      left >= -2 &&
+      top >= -2 &&
+      left + width + 2 <= Math.ceil(1.1 * input.fontSize) + 4 &&
+      top + height + 2 <= Math.ceil(1.3 * input.fontSize) + 4 &&
+      glyphs.length <=
+        Math.floor(2048 / (Math.ceil(1.1 * input.fontSize) + 4)) *
+          Math.floor(2048 / (Math.ceil(1.3 * input.fontSize) + 4))
+        ? { softwareWebglBatch: true as const }
+        : {}),
       placement: "top-start-ltr",
       ordering: "input",
       fontPolicy: input.fontPolicy,

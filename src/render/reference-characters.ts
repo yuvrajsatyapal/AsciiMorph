@@ -31,6 +31,8 @@ export interface ReferenceCharacterAtlasV1 {
   originY: number;
   placement: "top-start-ltr";
   ordering: "input";
+  /** Captured padded-atlas shader geometry; omitted for independent atlas profiles. */
+  softwareWebglBatch?: true;
   fontPolicy: "reference-system-monospace" | "verified-family";
   /** Exactly the literal U+0020 entry, or the transparent sentinel when absent. */
   spaceIndexOr65535: number;
@@ -98,16 +100,17 @@ type Fields = Record<string, unknown>;
 function fail(field: string): never {
   throw new Error(`Invalid reference Characters ${field}`);
 }
-function object(value: unknown, keys: string): Fields {
+function object(value: unknown, keys: string, optional = ""): Fields {
   if (!value || typeof value !== "object" || Array.isArray(value))
     fail("object");
   const s = value as Fields,
-    allowed = keys.split(" ");
+    required = keys.split(" "),
+    allowed = [...required, ...optional.split(" ").filter(Boolean)];
   if (
     Reflect.ownKeys(s).some(
       (k) => typeof k !== "string" || !allowed.includes(k),
     ) ||
-    allowed.some((k) => !Object.hasOwn(s, k))
+    required.some((k) => !Object.hasOwn(s, k))
   )
     fail("fields");
   return s;
@@ -231,6 +234,7 @@ export function validateReferenceCharacterAtlas(
   const a = object(
     value,
     "version calibration originX originY placement ordering fontPolicy spaceIndexOr65535",
+    "softwareWebglBatch",
   );
   if (
     a.version !== 1 ||
@@ -241,6 +245,8 @@ export function validateReferenceCharacterAtlas(
     )
   )
     fail("atlas profile");
+  if (Object.hasOwn(a, "softwareWebglBatch") && a.softwareWebglBatch !== true)
+    fail("software WebGL batch mode");
   const c = validateGlyphCalibration(a.calibration);
   number(a.originX, -c.maskWidth, c.maskWidth, "originX");
   number(a.originY, -c.maskHeight, c.maskHeight, "originY");

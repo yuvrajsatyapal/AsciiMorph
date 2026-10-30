@@ -4,6 +4,7 @@
 pub(crate) struct CanvasBlur {
     weights: [f64; 337],
     radius: usize,
+    divisor: f64,
 }
 
 #[cfg(test)]
@@ -49,6 +50,7 @@ impl CanvasBlur {
         let mut result = Self {
             weights: [0.; 337],
             radius,
+            divisor: widths.iter().product::<usize>() as f64,
         };
         let triangle = |n: isize| {
             if n < 0 {
@@ -57,7 +59,7 @@ impl CanvasBlur {
                 ((n + 1) * (n + 2)) as f64 / 2.
             }
         };
-        let divisor = widths.iter().product::<usize>() as f64;
+
         for t in 0..=2 * radius {
             let mut count = 0.;
             for mask in 0u32..8 {
@@ -70,7 +72,7 @@ impl CanvasBlur {
                 count += if mask.count_ones() % 2 == 0 { 1. } else { -1. }
                     * triangle(t as isize - shift as isize);
             }
-            result.weights[t] = count / divisor;
+            result.weights[t] = count;
         }
         result
     }
@@ -103,11 +105,21 @@ impl CanvasBlur {
             }
         }
         // Raster filters serialize premultiplied channels between the axes.
+        // Skia ScaledDividerU32: integer half and rounded 32-bit reciprocal.
+        // A floating quotient differs at the one-count boundary on scaled inputs.
+        let divide = |sum: f64| {
+            let divisor = self.divisor as u64;
+            if divisor == 1 {
+                return sum.round() as f32;
+            }
+            let factor = (4294967296. / self.divisor).round() as u64;
+            (((sum.round() as u64 + ((divisor + 1) >> 1)) * factor) >> 32) as f32
+        };
         b[cursor] = [
-            sum[0].round() as f32,
-            sum[1].round() as f32,
-            sum[2].round() as f32,
-            (sum[3] * 255.).round() as f32 / 255.,
+            divide(sum[0]),
+            divide(sum[1]),
+            divide(sum[2]),
+            divide(sum[3] * 255.) / 255.,
         ];
     }
 }

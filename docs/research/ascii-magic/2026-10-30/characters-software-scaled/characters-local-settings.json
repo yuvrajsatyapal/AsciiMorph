@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "frameWidth": 128,
+  "frameHeight": 64,
+  "fontSize": 11,
+  "renderScale": 1,
+  "brightness": 0,
+  "contrast": 20,
+  "crop": {
+    "x": 0,
+    "y": 0,
+    "width": 1,
+    "height": 1
+  },
+  "rotation": 0,
+  "backdrop": "blur",
+  "styleContext": {
+    "version": 1,
+    "backdrop": "blur",
+    "blend": "source-over",
+    "softness": 8,
+    "backgroundOpacity": 100,
+    "opacity": 100,
+    "coverage": 100,
+    "invert": false,
+    "random": false,
+    "seed": 0
+  }
+}

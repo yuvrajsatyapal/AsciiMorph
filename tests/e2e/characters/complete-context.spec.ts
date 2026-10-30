@@ -987,7 +987,7 @@ test("pinned software Characters reference exports equal actual Worker frames ex
     !process.env.CHARACTERS_REFERENCE_DIR,
     "Run explicitly with the pinned reference manifest",
   );
-  const { readFile } = await import("node:fs/promises");
+  const { readFile, writeFile } = await import("node:fs/promises");
   const sharp = (await import("sharp")).default;
   const directory = resolve(process.env.CHARACTERS_REFERENCE_DIR!);
   const manifest = JSON.parse(
@@ -1007,7 +1007,11 @@ test("pinned software Characters reference exports equal actual Worker frames ex
   };
   expect(manifest.backend.rectangleAlpha).toBe(38);
   expect(manifest.backend.renderer).toContain("SwiftShader");
-  expect(manifest.cases).toHaveLength(16);
+  const referenceScales = (process.env.CHARACTERS_REFERENCE_SCALES ?? "1,2")
+    .split(",")
+    .map(Number);
+  expect(["1,2", "1,2,3,4"]).toContain(referenceScales.join(","));
+  expect(manifest.cases).toHaveLength(8 * referenceScales.length);
   const { createHash } = await import("node:crypto");
   expect(manifest.browser).toBe(browser.version());
   expect(manifest.sourceSha256).toBe(
@@ -1020,7 +1024,9 @@ test("pinned software Characters reference exports equal actual Worker frames ex
   ).toEqual(
     [3, 11, 17, 47]
       .flatMap((f) =>
-        ["none", "blur"].flatMap((b) => [1, 2].map((s) => `${f}-${b}-${s}`)),
+        ["none", "blur"].flatMap((b) =>
+          referenceScales.map((s) => `${f}-${b}-${s}`),
+        ),
       )
       .sort(),
   );
@@ -1176,6 +1182,23 @@ test("pinned software Characters reference exports equal actual Worker frames ex
           }
           results.push({
             file: c.file,
+            diagnostic:
+              c.fontSize === 11 && c.scale === 2
+                ? {
+                    rgba: Array.from(preview.frame.rgba),
+                    width,
+                    height,
+                    originX: atlas.originX,
+                    originY: atlas.originY,
+                    maskWidth: atlas.calibration.maskWidth,
+                    maskHeight: atlas.calibration.maskHeight,
+                    masks: Array.from(atlas.calibration.masks),
+                    glyphs: atlas.calibration.glyphs,
+                    grid: preview.frame.grid
+                      ? Array.from(preview.frame.grid.glyphIndices)
+                      : null,
+                  }
+                : null,
             differingBytes,
             alphaErrors,
             first,
@@ -1192,6 +1215,43 @@ test("pinned software Characters reference exports equal actual Worker frames ex
     },
     { cases, sourceRgba },
   );
+  for (const c of output) {
+    if (c.diagnostic) {
+      await writeFile(
+        info.outputPath(c.file + ".atlas.json"),
+        JSON.stringify(c.diagnostic),
+      );
+      await info.attach(c.file.replace("reference-export", "local"), {
+        body: await sharp(Buffer.from(c.diagnostic.rgba), {
+          raw: {
+            width: c.diagnostic.width,
+            height: c.diagnostic.height,
+            channels: 4,
+          },
+        })
+          .png()
+          .toBuffer(),
+        contentType: "image/png",
+      });
+      const { originX, originY, maskWidth, maskHeight, masks, glyphs, grid } =
+        c.diagnostic;
+      const atlas = {
+        originX,
+        originY,
+        maskWidth,
+        maskHeight,
+        masks,
+        glyphs,
+        grid,
+      };
+      await info.attach(c.file + ".atlas.json", {
+        body: JSON.stringify(atlas),
+        contentType: "application/json",
+      });
+      // Keep the exact comparison report compact.
+      c.diagnostic = null;
+    }
+  }
   await info.attach("software-reference-results.json", {
     body: JSON.stringify(output, null, 2),
     contentType: "application/json",
@@ -1200,5 +1260,141 @@ test("pinned software Characters reference exports equal actual Worker frames ex
   for (const c of output) {
     expect(c.differingBytes, JSON.stringify(c)).toBe(0);
     expect(c.previewExportDifferences, JSON.stringify(c)).toBe(0);
+  }
+});
+
+test("pinned software Characters padded batches match independent GL at every scale", async ({
+  page,
+}, info) => {
+  test.skip(
+    !info.project.use.launchOptions?.args?.includes("--use-angle=swiftshader"),
+    "Run with playwright.characters-parity.config.ts for the pinned software target",
+  );
+  await page.goto(base);
+  const results = await page.evaluate(async () => {
+    const serviceUrl = "/src/render/service.ts",
+      calibratorUrl = "/src/render/glyph-calibration.ts",
+      contextUrl = "/src/render/style-context.ts",
+      oracleUrl = "/tests/e2e/characters/webgl-batch-oracle.ts";
+    const { createRenderService } = (await import(
+      /* @vite-ignore */ serviceUrl
+    )) as typeof import("../../../src/render/service");
+    const { createGlyphCalibrator } = (await import(
+      /* @vite-ignore */ calibratorUrl
+    )) as typeof import("../../../src/render/glyph-calibration");
+    const { STYLE_CONTEXT_DEFAULTS } = (await import(
+      /* @vite-ignore */ contextUrl
+    )) as typeof import("../../../src/render/style-context");
+    const { drawIndependentBatch } = (await import(
+      /* @vite-ignore */ oracleUrl
+    )) as typeof import("./webgl-batch-oracle");
+    const service = createRenderService(),
+      calibrator = createGlyphCalibrator(),
+      rgba = new Uint8ClampedArray(128 * 64 * 4);
+    for (let y = 0; y < 64; y++)
+      for (let x = 0; x < 128; x++)
+        rgba.set(
+          [2 * x, 4 * y, 255 - 2 * x, x < 13 ? 0 : 255],
+          (y * 128 + x) * 4,
+        );
+    const source = { id: "batch-oracle", revision: 1, width: 128, height: 64 };
+    const results = [];
+    try {
+      await service.setSource({ ...source, rgba });
+      for (const fontSize of [3, 11, 17, 47])
+        for (const scale of [1, 2, 3, 4] as const) {
+          const font = fontSize * scale;
+          const atlas = await calibrator.calibrateReferenceCharacters({
+            fontFamily: '"Courier New", Courier, monospace',
+            fontSize: font,
+            cellWidth: 0.6 * fontSize * scale,
+            cellHeight: font,
+            ramp: "@#S08Xx+=-;:. ",
+            fontRevision: "batch-oracle",
+            fontPolicy: "reference-system-monospace",
+          });
+          if (!atlas.softwareWebglBatch)
+            throw Error("Captured atlas did not opt into batch geometry");
+          await service.setAtlas(atlas);
+          for (const backdrop of ["none", "blur"] as const) {
+            const request = {
+              jobId: `batch-p-${fontSize}-${scale}-${backdrop}`,
+              revision: 0,
+              sourceId: source.id,
+              sourceRevision: 1,
+              source,
+              calibrationId: atlas.calibration.id,
+              timeUs: 0,
+              settings: {
+                version: 1 as const,
+                frameWidth: 128 * scale,
+                frameHeight: 64 * scale,
+                fontSize,
+                renderScale: scale,
+                brightness: 0,
+                contrast: 20,
+                rotation: 0 as const,
+                crop: { x: 0, y: 0, width: 1, height: 1 },
+                backdrop,
+                styleContext: { ...STYLE_CONTEXT_DEFAULTS, backdrop },
+              },
+            };
+            const preview = await service.renderCharactersPreview(request);
+            const exported = await service.renderCharactersExport({
+              ...request,
+              jobId: request.jobId.replace("-p-", "-e-"),
+              outputWidth: 128 * scale,
+              outputHeight: 64 * scale,
+            });
+            const expected = drawIndependentBatch({
+              fontSize,
+              scale,
+              backdrop,
+              originX: atlas.originX,
+              originY: atlas.originY,
+              maskWidth: atlas.calibration.maskWidth,
+              maskHeight: atlas.calibration.maskHeight,
+              masks: atlas.calibration.masks,
+              glyphs: atlas.calibration.glyphs,
+              grid: preview.frame.grid!.glyphIndices,
+            });
+            if (
+              expected.length !== preview.frame.rgba.length ||
+              expected.length !== exported.frame.rgba.length
+            )
+              throw Error("Different full RGBA lengths");
+            let differingBytes = 0,
+              previewExportDifferences = 0,
+              first = -1;
+            for (let i = 0; i < expected.length; i++) {
+              if (expected[i] !== preview.frame.rgba[i]) {
+                differingBytes++;
+                if (first < 0) first = i;
+              }
+              if (preview.frame.rgba[i] !== exported.frame.rgba[i])
+                previewExportDifferences++;
+            }
+            results.push({
+              fontSize,
+              scale,
+              backdrop,
+              differingBytes,
+              previewExportDifferences,
+              first,
+              actual: preview.frame.rgba[first],
+              expected: expected[first],
+            });
+          }
+        }
+      return results;
+    } finally {
+      await service.dispose();
+      calibrator.clearGlyphCalibrationCache();
+    }
+  });
+  console.log(JSON.stringify(results));
+  for (const result of results) {
+    expect(result.differingBytes, JSON.stringify(result)).toBe(0);
+    expect(result.previewExportDifferences, JSON.stringify(result)).toBe(0);
   }
 });

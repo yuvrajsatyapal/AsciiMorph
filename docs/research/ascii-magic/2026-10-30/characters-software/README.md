@@ -1,4 +1,4 @@
-# Characters software target — open acceptance gate
+# Characters software target — implemented scope accepted, 31 October
 
 This is a new, consistently captured target. Historical Metal/GPU and diagnostic captures remain separate. Mosaic's closed 72-case gate is unchanged.
 
@@ -17,9 +17,9 @@ Backend: Chromium156.0.8078.4, macOS, ANGLE Vulkan SwiftShader; software 2D Canv
 
 Canvas normalized float arithmetic was cross-checked against Skia's primary [swizzler implementation](https://android.googlesource.com/platform/external/skia/+/a75c6124d4a5601f2b9254e68e814af8051f9f49/src/opts/SkSwizzler_opts.inc). The acceptance values come from actual browser output, not native arithmetic.
 
-## Remaining failing regressions
+## Historical failing checkpoint, superseded by closure below
 
-**Characters is not accepted.** All16 real reference comparisons are strict and currently fail. Details: `reference-results.json`.
+At the previous checkpoint all16 real reference comparisons failed. Those saved failing inputs remain unchanged; current `reference-results.json` records the exact passing rerun.
 
 - Default font11, blur8, scale1:47 differing pixels/8,192; maximum RGB error1; alpha exact; RGB MAE0.0028076171875. There are69 differing RGB bytes. Preview/export are identical. See `lossless-comparison.png` and `lossless-metrics.json`.
 - Transparent font11 scale1:160 differing bytes, including51 alpha bytes. Font3 scale1 first alpha mismatch is byte8671 (pixel119,16), native118 versus reference119. This is a reproducible remaining glyph rounding boundary; the small synthetic oracle does not cover every real-atlas/UV rounding case.
@@ -37,12 +37,34 @@ node scripts/compare-lossless-reference.mjs docs/research/ascii-magic/2026-10-30
 
 The matrix test checks PNG dimensions, full buffer lengths, source/image hashes, complete case identities, current browser version and actual backend before comparing every RGBA byte. It is opt-in in the general Worker suite; running it explicitly currently produces a genuine failing regression, not a passing parity claim.
 
-## Verification at checkpoint
+## Historical verification at checkpoint
 
 183 native tests;852 JS tests plus1 existing skip; production Next build, TypeScript and scoped ESLint passed. Characters Worker suite:5 passing plus the explicit reference gate skipped unless requested. The requested real reference gate fails as above. Production same-input test passes canonical Pixel/Mosaic reference RGBA and preview/PNG equality for Characters, Pixel, Mosaic and Dither. No Dither correction or later stage has begun.
 
 Independent review accepted the scoped native fixes. Its two harness findings (partial-prefix comparison and unverified consuming backend) were fixed with full geometry/length/hash checks and a pinned browser config plus live sentinels. These approvals do not close Characters.
 
-WASM SHA256:a0054ef69555b80d979064b278ed427d4453d099a6c5f065c91d57a03b05efee.
+WASM SHA256:b26606a7caee6a142901ae01f9bab13127d09c6e5f4c6043086214062774958f.
 
 Continue Characters until exact acceptance, then Dither → remaining core styles → stacked effects → text/masks/lighting → animation exports → recipes/library/Flow.
+
+## Closure, 31 October
+
+Characters is reviewed and closed for the implemented canonical software profile: standard Courier ramp, normal blend, None/Blur8, fonts3/11/17/47, owned gradient. All16 actual reference exports at1×/2× now have **zero differing RGBA bytes**. The independent32-case padded WebGL/Canvas matrix at1×–4× also has **zero differing RGBA bytes**. Every same-scale preview/export pair is identical. `reference-results.json` and `independent-results.json` record all cases.
+
+The remaining fixes were byte-first float32 normalization, exact snapped triangle/UV planes for the padded atlas (including odd triangle-strip ordering), upstream four-bit bilinear RGBA8 source preparation, rounded source premultiplication, and the blur's integer scaled divider. Captured atlases carry an explicit optional batch flag; packets without extended context retain mode0. Native memory admission charges the small owned batch state before allocation; cancellation and release regressions pass.
+
+The independent reviewer accepted the implementation after two findings were fixed: a flagged atlas without SCX had to retain mode0, and partial-alpha source taps had to use rounded premultiplication. Fresh verification:188 native tests,854 JS tests plus1 existing skip, all7 Characters Worker tests with both gates enabled, production build, TypeScript, scoped ESLint, rustfmt and diff checks passed. The fresh production app preserves exact canonical Pixel/Mosaic RGBA and all four preview/download pairs; its default Characters PNG also passes the strict lossless CLI with zero RGBA differences. The nine full-frame browser fixtures regenerate byte-for-byte.
+
+**Deferred by the user:** actual public3×/4× exports require Pro. Selecting3× opens Upgrade to Pro and leaves2× dimensions; no3×/4× public export was accepted. The user confirmed no Pro purchase and asked to leave this for now. Independent3×/4× raster/composition coverage uses measured masks and the selected native grid, so it does not establish public-app3×/4× selection/atlas parity. Non-normal blend/mask workflows, other fonts/ramps and other browser backends are not included in this closure claim.
+
+Repeat the complete gate:
+
+```sh
+CHARACTERS_REFERENCE_DIR=docs/research/ascii-magic/2026-10-30/characters-software npx playwright test --config playwright.characters-parity.config.ts
+```
+
+Future Pro-enabled expansion uses `CHARACTERS_REFERENCE_SCALES=1,2,3,4` for both capture and comparison. Until then, this explicitly deferred coverage stays unclaimed.
+
+WASM SHA256: b26606a7caee6a142901ae01f9bab13127d09c6e5f4c6043086214062774958f.
+
+Next: Dither → remaining core styles → stacked effects → text/masks/lighting → animation exports → recipes/library/Flow.

@@ -24,7 +24,7 @@ export function encodeCharactersSettings(
     s.rotation,
     a.calibration.glyphs.length,
     ["none", "solid", "blur"].indexOf(s.backdrop),
-    0,
+    a.softwareWebglBatch && s.styleContext ? 1 : 0,
     a.spaceIndexOr65535,
   ].forEach((n, i) => v.setUint32(i * 4, n, true));
   [

@@ -75,7 +75,7 @@ fn independent_112_byte_contract_and_rejections() {
         (16, 1),
         (16, 257),
         (20, 3),
-        (24, 1),
+        (24, 2),
         (28, 2),
         (28, 256),
         (28, 65534),
@@ -96,6 +96,44 @@ fn independent_112_byte_contract_and_rejections() {
     for len in [0, 32, 111, 113, 160] {
         assert!(decode_reference_settings(&vec![0; len]).is_err());
     }
+}
+#[test]
+fn batch_mode_requires_context_and_releases_all_owned_memory() {
+    let mut s = RenderSession::new(100000).unwrap();
+    upload(&mut s, 1, &src(5, 3)).unwrap();
+    upload(&mut s, 2, &atlas(2, 1, 1)).unwrap();
+    let base = s.storage_bytes();
+    let mut b = cfg(5, 3, 65535);
+    b[24..28].copy_from_slice(&1u32.to_le_bytes());
+    assert!(decode_reference_settings(&b).is_ok());
+    assert_eq!(begin(&mut s, &b), Err(RenderError::InvalidInput));
+    b.extend(*b"SCX1");
+    b.extend(1u32.to_le_bytes());
+    b.extend(0u32.to_le_bytes());
+    b.extend(0u32.to_le_bytes());
+    for value in [8f64, 100., 100., 100.] {
+        b.extend(value.to_le_bytes());
+    }
+    b.extend([0u8; 16]);
+    assert_eq!(b.len(), 176);
+    let begin_extended = |s: &mut RenderSession, b: &[u8]| {
+        let p = s.stage(b.len()).unwrap();
+        s.stage_mut(p).unwrap().copy_from_slice(b);
+        let result = s.begin_characters_extended(p, b.len());
+        s.unstage(p).unwrap();
+        result
+    };
+    let a = begin_extended(&mut s, &b).unwrap();
+    let first = s.storage_bytes();
+    let other = begin_extended(&mut s, &b).unwrap();
+    assert_eq!(s.storage_bytes() - first, first - base);
+    s.cancel(a).unwrap();
+    s.cancel(other).unwrap();
+    assert_eq!(s.storage_bytes(), base);
+    let id = begin_extended(&mut s, &b).unwrap();
+    finish(&mut s, id);
+    s.release(id).unwrap();
+    assert_eq!(s.storage_bytes(), base);
 }
 #[test]
 fn exact_native_frame_space_vs_empty_dot_and_kind_separation() {

@@ -23,9 +23,15 @@ const args = [
   "--enable-unsafe-swiftshader",
   "--disable-accelerated-2d-canvas",
 ];
+const scales = (process.env.CHARACTERS_REFERENCE_SCALES ?? "1,2")
+  .split(",")
+  .map(Number);
+if (!["1,2", "1,2,3,4"].includes(scales.join(",")))
+  throw Error("Capture requires complete scales1,2 or1,2,3,4");
 const browser = await chromium.launch({ args });
+let page;
 try {
-  const page = await browser.newPage({
+  page = await browser.newPage({
     viewport: { width: 1920, height: 1080 },
   });
   const backend = await page.evaluate(() => {
@@ -60,9 +66,15 @@ try {
         .click({ force: true });
     },
   );
-  const choosing = page.waitForEvent("filechooser");
+  await page.waitForTimeout(2000); // Wait for the public upload handler to hydrate.
+  const choosing = page.waitForEvent("filechooser").then(
+    (value) => ({ value }),
+    (error) => ({ error }),
+  );
   await page.getByRole("button", { name: "Upload", exact: true }).click();
-  await (await choosing).setFiles(fixture);
+  const chosen = await choosing;
+  if (chosen.error) throw chosen.error;
+  await chosen.value.setFiles(fixture);
   await expect
     .poll(
       () =>
@@ -84,26 +96,23 @@ try {
   console.log("source committed, Characters selected");
   async function range(id, value) {
     const control = page.locator("#" + id);
-    const { min, max } = await control.evaluate((e) => ({
+    const { min, max, step } = await control.evaluate((e) => ({
       min: Number(e.min),
       max: Number(e.max),
+      step: Number(e.step) || 1,
     }));
-    const box = await control.boundingBox();
-    let x = 8 + ((box.width - 16) * (value - min)) / (max - min);
-    for (let attempt = 0; attempt < 8; attempt++) {
-      await control.click({ position: { x, y: box.height / 2 } });
-      await page.waitForTimeout(150);
-      const actual = Number(await control.inputValue());
-      if (actual === value) {
-        console.log(id, value);
-        return;
-      }
-      x = Math.min(
-        box.width - 1,
-        Math.max(1, x + ((value - actual) * (box.width - 16)) / (max - min)),
+    const fromMin = value - min <= max - value;
+    await control.press(fromMin ? "Home" : "End");
+    await expect(control).toHaveValue(String(fromMin ? min : max));
+    const count = Math.round((fromMin ? value - min : max - value) / step);
+    for (let i = 0; i < count; i++) {
+      await control.press(fromMin ? "ArrowRight" : "ArrowLeft");
+      await expect(control).toHaveValue(
+        String((fromMin ? min : max) + (fromMin ? 1 : -1) * (i + 1) * step),
       );
     }
-    throw Error("Unable to set " + id + " to " + value);
+    await expect(control).toHaveValue(String(value));
+    console.log(id, value);
   }
   await range("brightness", 0);
   await range("contrast", 20);
@@ -145,7 +154,7 @@ try {
     await range("fontSize", fontSize);
     for (const backdrop of ["none", "blur"]) {
       await page.locator("#bgMode").selectOption(backdrop);
-      for (const scale of [1, 2]) {
+      for (const scale of scales) {
         const settings = await page
           .locator(
             "#bgMode,#bgBlur,#bgOpacity,#fontSize,#customChars,#blendMode,#charOpacity,#coverage,#brightness,#contrast",
@@ -170,11 +179,36 @@ try {
         await page
           .getByRole("button", { name: scale + "×", exact: true })
           .click();
-        const pending = page.waitForEvent("download");
+        if (
+          await page.getByRole("dialog", { name: "Upgrade to Pro" }).isVisible()
+        )
+          throw Error(
+            `${scale}× reference export requires Pro; no output at this scale was accepted`,
+          );
+        const pending = page.waitForEvent("download").then(
+          (value) => ({ value }),
+          (error) => ({ error }),
+        );
         await page
           .getByRole("button", { name: "Export PNG", exact: true })
           .click();
-        const bytes = await readFile(await (await pending).path());
+        let download;
+        try {
+          const result = await pending;
+          if (result.error) throw result.error;
+          download = result.value;
+        } catch (error) {
+          await page.screenshot({
+            path: join(directory, "capture-failure.png"),
+            fullPage: true,
+          });
+          await writeFile(
+            join(directory, "capture-failure.txt"),
+            await page.locator("body").innerText(),
+          );
+          throw error;
+        }
+        const bytes = await readFile(await download.path());
         const metadata = await sharp(bytes).metadata();
         if (
           metadata.format !== "png" ||
@@ -217,6 +251,18 @@ try {
       2,
     ) + "\n",
   );
+} catch (error) {
+  if (page) {
+    await page.screenshot({
+      path: join(directory, "capture-failure.png"),
+      fullPage: true,
+    });
+    await writeFile(
+      join(directory, "capture-failure.txt"),
+      await page.locator("body").innerText(),
+    );
+  }
+  throw error;
 } finally {
   await browser.close();
 }

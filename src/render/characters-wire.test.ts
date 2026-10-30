@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { STYLE_CONTEXT_DEFAULTS } from "./style-context";
 import {
   encodeCharactersSettings,
   decodeCharactersFrame,
@@ -59,6 +60,26 @@ function frameBytes() {
   return b;
 }
 describe("profile wire", () => {
+  it("keeps mode zero for a batch-capable atlas without extended context", () => {
+    const atlas = { ...profileAtlas(), softwareWebglBatch: true as const };
+    expect(
+      new DataView(
+        encodeCharactersSettings(profileSettings, atlas, profileSource).buffer,
+      ).getUint32(24, true),
+    ).toBe(0);
+  });
+  it("carries the explicit captured WebGL batch raster mode", () => {
+    const atlas = { ...profileAtlas(), softwareWebglBatch: true as const };
+    const bytes = encodeCharactersSettings(
+      {
+        ...profileSettings,
+        styleContext: { ...STYLE_CONTEXT_DEFAULTS, backdrop: "none" },
+      },
+      atlas,
+      profileSource,
+    );
+    expect(new DataView(bytes.buffer).getUint32(24, true)).toBe(1);
+  });
   it("encodes exact separate112 bytes and literal space at offset28", () => {
     const a = profileAtlas(),
       b = encodeCharactersSettings(profileSettings, a, profileSource),

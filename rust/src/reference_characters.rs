@@ -223,10 +223,14 @@ impl ReferenceAtlas {
         let (ix, iy) = (x.floor() as isize, y.floor() as isize);
         let fx = ((x - x.floor()) * 16.).round_ties_even() / 16.;
         let fy = ((y - y.floor()) * 16.).round_ties_even() / 16.;
-        (self.alpha(index, ix, iy) * (1. - fx) * (1. - fy)
-            + self.alpha(index, ix + 1, iy) * fx * (1. - fy)
-            + self.alpha(index, ix, iy + 1) * (1. - fx) * fy
-            + self.alpha(index, ix + 1, iy + 1) * fx * fy) as f32
+        // SwiftShader interpolates RGBA8 byte values, then normalizes in float32.
+        // Normalizing each tap in f64 first loses the upward half-byte boundary.
+        let tap = |x, y| (self.alpha(index, x, y) * 255.).round();
+        let byte = tap(ix, iy) * (1. - fx) * (1. - fy)
+            + tap(ix + 1, iy) * fx * (1. - fy)
+            + tap(ix, iy + 1) * (1. - fx) * fy
+            + tap(ix + 1, iy + 1) * fx * fy;
+        byte as f32 * (1f32 / 255.)
     }
     pub(crate) fn bilinear(&self, index: u16, x: f64, y: f64) -> f64 {
         let (ix, iy) = (x.floor() as isize, y.floor() as isize);
@@ -361,6 +365,8 @@ enum Stage {
 #[derive(Debug)]
 pub struct ReferenceCharactersJob {
     context: Option<crate::style_context::StyleContext>,
+    batch: Option<Box<crate::webgl_glyph::Batch>>,
+    batch_allowance: usize,
     settings: ReferenceCharactersSettings,
     g: Geometry,
     columns: usize,
@@ -463,6 +469,8 @@ impl ReferenceCharactersJob {
         }
         Ok(Self {
             context: None,
+            batch: None,
+            batch_allowance: budget - peak,
             settings,
             g,
             columns,
@@ -496,6 +504,10 @@ impl ReferenceCharactersJob {
     /// Heap allocations retained by this job; preflight also charges inline metadata/serialization.
     pub fn storage_bytes(&self) -> usize {
         self.layer.as_ref().map_or(0, |l| l.storage_bytes())
+            + self
+                .batch
+                .as_ref()
+                .map_or(0, |_| std::mem::size_of::<crate::webgl_glyph::Batch>())
     }
     pub fn status(&self) -> JobStatus {
         match self.stage {
@@ -505,6 +517,7 @@ impl ReferenceCharactersJob {
         }
     }
     pub fn cancel(&mut self) {
+        self.batch = None;
         if self.stage != Stage::Done {
             self.stage = Stage::Cancelled;
             self.layer = None;
@@ -584,6 +597,29 @@ impl ReferenceCharactersJob {
     pub(crate) fn configure_context(&mut self, c: crate::style_context::StyleContext) {
         self.context = Some(c);
     }
+    pub(crate) fn configure_webgl_batch(
+        &mut self,
+        atlas: &ReferenceAtlas,
+    ) -> Result<(), RenderError> {
+        let batch = crate::webgl_glyph::Batch::new(
+            self.settings.font_size * self.settings.render_scale as f64,
+        );
+        if atlas.origin_x.fract() != 0.
+            || atlas.origin_y.fract() != 0.
+            || atlas.origin_x < -2.
+            || atlas.origin_y < -2.
+            || atlas.origin_x + atlas.width as f64 + 2. > batch.size[0] as f64
+            || atlas.origin_y + atlas.height as f64 + 2. > batch.size[1] as f64
+            || atlas.count as usize > (2048 / batch.size[0]) * (2048 / batch.size[1])
+        {
+            return Err(RenderError::InvalidInput);
+        }
+        if std::mem::size_of::<crate::webgl_glyph::Batch>() > self.batch_allowance {
+            return Err(RenderError::BudgetExceeded);
+        }
+        self.batch = Some(Box::new(batch));
+        Ok(())
+    }
     fn select(&mut self, source: &SourceImage, atlas: &ReferenceAtlas) {
         let (column, row) = (self.cell % self.columns, self.cell / self.columns);
         let p = self.pixel(source, column, row);
@@ -634,6 +670,30 @@ impl ReferenceCharactersJob {
         }
         self.anchor_x = column as f64 * self.settings.cell_width() + atlas.origin_x;
         self.anchor_y = row as f64 * self.settings.cell_height() + atlas.origin_y;
+        if let Some(batch) = self.batch.as_mut() {
+            let factor =
+                259. * (self.settings.contrast + 255.) / (255. * (259. - self.settings.contrast));
+            let colors = std::array::from_fn::<_, 4, _>(|k| {
+                if k == 3 {
+                    (self.opacity * self.context.unwrap().opacity / 100.) as f32
+                } else {
+                    ((factor * (self.color[k] as f64 - 128.)
+                        + 128.
+                        + 255. * self.settings.brightness / 100.)
+                        .clamp(0., 255.)
+                        / 255.) as f32
+                }
+            });
+            batch.select(
+                self.glyph,
+                [
+                    column as f64 * self.settings.cell_width(),
+                    row as f64 * self.settings.cell_height(),
+                ],
+                [self.settings.frame_width, self.settings.frame_height],
+                colors,
+            );
+        }
         self.left = self
             .anchor_x
             .floor()
@@ -656,11 +716,35 @@ impl ReferenceCharactersJob {
         }
     }
     fn paint_software_webgl(&mut self, atlas: &ReferenceAtlas) {
-        let a = atlas.software_webgl_alpha(
-            self.glyph,
-            self.paint_x as f64 - self.anchor_x,
-            self.paint_y as f64 - self.anchor_y,
-        ) * (self.opacity * self.context.unwrap().opacity / 100.) as f32;
+        let sample = self.batch.as_ref().map(|batch| {
+            let values = batch.at(self.paint_x, self.paint_y);
+            let tx = values[0] * 2048.
+                - 0.5
+                - (batch.slot[0] * batch.size[0] + 2) as f32
+                - atlas.origin_x as f32;
+            let ty = values[1] * 2048.
+                - 0.5
+                - (batch.slot[1] * batch.size[1] + 2) as f32
+                - atlas.origin_y as f32;
+            let ix = tx.floor() as isize;
+            let iy = ty.floor() as isize;
+            let fx = tx - tx.floor();
+            let fy = ty - ty.floor();
+            let tap = |x, y| (atlas.alpha(self.glyph, x, y) * 255.).round() as f32;
+            let t0 = tap(ix, iy) + fx * (tap(ix + 1, iy) - tap(ix, iy));
+            let t1 = tap(ix, iy + 1) + fx * (tap(ix + 1, iy + 1) - tap(ix, iy + 1));
+            ((t0 + fy * (t1 - t0)) * (1f32 / 255.) * values[5], values)
+        });
+        let a = sample.map_or_else(
+            || {
+                atlas.software_webgl_alpha(
+                    self.glyph,
+                    self.paint_x as f64 - self.anchor_x,
+                    self.paint_y as f64 - self.anchor_y,
+                ) * (self.opacity * self.context.unwrap().opacity / 100.) as f32
+            },
+            |s| s.0,
+        );
         let offset = (self.paint_y * self.settings.frame_width as usize + self.paint_x) * 4;
         let rgba = &mut self.layer.as_mut().unwrap().rgba;
         let dst_alpha = rgba[offset + 3];
@@ -672,7 +756,7 @@ impl ReferenceCharactersJob {
                 + 128.
                 + 255. * self.settings.brightness / 100.)
                 .clamp(0., 255.);
-            let color = (tone / 255.) as f32;
+            let color = sample.map_or((tone / 255.) as f32, |s| s.1[2 + channel]);
             let dst = (rgba[offset + channel] as f32 * dst_alpha as f32 / 255.).round();
             let premul = (color * a * 255. + dst * (1. - a)).round_ties_even();
             rgba[offset + channel] = if alpha == 0 {
@@ -799,6 +883,79 @@ mod context_parity_tests {
 #[cfg(test)]
 mod webgl_parity_tests {
     use super::*;
+    #[test]
+    fn captured_font22_batch_matches_full_independent_gl_frame() {
+        let mut pixels = Vec::new();
+        for y in 0..64u8 {
+            for x in 0..128u8 {
+                pixels.extend([2 * x, 4 * y, 255 - 2 * x, if x < 13 { 0 } else { 255 }]);
+            }
+        }
+        let source = SourceImage::new(128, 64, pixels, MAX_SOURCE_BYTES).unwrap();
+        let atlas = ReferenceAtlas::new(
+            14,
+            14,
+            22,
+            include_bytes!("../../tests/fixtures/render/characters/font22-batch.mask").to_vec(),
+            0.,
+            0.,
+            13,
+        )
+        .unwrap();
+        let settings = ReferenceCharactersSettings {
+            version: 1,
+            frame_width: 256,
+            frame_height: 128,
+            font_size: 11.,
+            render_scale: 2,
+            brightness: 0.,
+            contrast: 20.,
+            rotation: 0,
+            backdrop: ReferenceBackdrop::None,
+            crop: Crop {
+                x: 0.,
+                y: 0.,
+                width: 1.,
+                height: 1.,
+            },
+        };
+        let mut job = ReferenceCharactersJob::new(&source, settings, &atlas, 0).unwrap();
+        job.configure_context(crate::style_context::StyleContext {
+            backdrop: 0,
+            ..Default::default()
+        });
+        job.configure_webgl_batch(&atlas).unwrap();
+        while job.step(&source, &atlas, 1).unwrap() == JobStatus::Pending {}
+        let out = job.take_glyph_layer().unwrap().rgba;
+        let expected = include_bytes!("../../tests/fixtures/render/characters/font22-batch.rgba");
+        let first = out.iter().zip(expected).position(|(a, b)| a != b);
+        assert!(
+            first.is_none(),
+            "first mismatch {:?}",
+            first.map(|i| (i, out[i], expected[i]))
+        );
+    }
+    #[test]
+    fn sampler_normalization_matches_independent_rgba32f_readback() {
+        // Chromium156 SwiftShader, RGBA8 LINEAR texture sampled into RGBA32F.
+        // Probe includes a half-byte boundary that changes RGBA8 output.
+        let mask = vec![0, 0, 0, 0, 0, 17, 139, 0, 0, 241, 53, 0, 0, 0, 0, 0];
+        let atlas =
+            ReferenceAtlas::new(2, 4, 4, [mask.clone(), mask].concat(), 0., 0., 65535).unwrap();
+        for (x, y, expected) in [
+            (1., 1., 0.06666667014360428f32),
+            (1.5, 1., 0.30588236451148987),
+            (1., 1.5, 0.5058823823928833),
+            (1.5, 1.5, 0.44117650389671326),
+            (1.3125, 1.6875, 0.5589154958724976),
+        ] {
+            assert_eq!(
+                atlas.software_webgl_alpha(0, x, y).to_bits(),
+                expected.to_bits(),
+                "({x},{y})"
+            );
+        }
+    }
     #[test]
     fn context_glyph_interpolation_equals_software_webgl_all_scales() {
         check(true, false);
