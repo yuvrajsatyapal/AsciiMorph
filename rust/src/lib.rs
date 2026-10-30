@@ -165,4 +165,5 @@ mod tests {
     }
 }
 
+mod canvas_blur;
 pub mod style_context;

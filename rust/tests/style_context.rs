@@ -1,5 +1,38 @@
 use asciimorph_engine::style_context::{blend_pixel, StyleContext};
 #[test]
+fn canvas_opaque_source_over_uses_premultiplied_byte_products() {
+    let mut p = [51, 0, 204, 128];
+    StyleContext::default().composite(&mut p, [21., 10., 95., 1.]);
+    assert_eq!(p, [35, 5, 149, 255]);
+}
+#[test]
+fn image_backdrops_draw_over_opaque_black_before_layer_blending() {
+    for backdrop in [2, 3] {
+        for (opacity, expected) in [
+            (0., [0, 0, 0, 255]),
+            (50., [20, 40, 60, 255]),
+            (100., [40, 80, 120, 255]),
+        ] {
+            let c = StyleContext {
+                backdrop,
+                background_opacity: opacity,
+                ..StyleContext::default()
+            };
+            let mut p = [0; 4];
+            c.composite(&mut p, [40., 80., 120., 0.5]);
+            assert_eq!(p, expected);
+        }
+    }
+    let c = StyleContext {
+        backdrop: 1,
+        background_opacity: 0.,
+        ..StyleContext::default()
+    };
+    let mut p = [0; 4];
+    c.composite(&mut p, [0., 0., 0., 1.]);
+    assert_eq!(p, [0, 0, 0, 255]);
+}
+#[test]
 fn blend_alpha_and_coverage_endpoints() {
     let mut p = [200, 100, 0, 128];
     blend_pixel(&mut p, [0., 0., 128., 128. / 255.], 0);

@@ -77,7 +77,9 @@ it("reads real native Braille preview/export, thumbnail, atlas capture and relea
       const frame = e.takeStyleFrame(id);
       expect([frame.width, frame.height]).toEqual([17 * scale, 13 * scale]);
       expect(
-        frame.rgba.every((v, i) => v === [128, 128, 128, 255][i % 4]),
+        frame.rgba.every((v, i) =>
+          i % 4 === 3 ? v === 255 : v <= 128 && v === frame.rgba[i - (i % 4)],
+        ),
       ).toBe(true);
       expect(() => e.takeStyleFrame(id)).toThrow();
       const thumbnail = e.beginStyle(settings);
@@ -86,9 +88,26 @@ it("reads real native Braille preview/export, thumbnail, atlas capture and relea
       while (e.step(thumbnail, 1) === "pending") {}
       const image = e.takeThumbnail(thumbnail);
       expect([image.width, image.height]).toEqual([8, 6]);
-      expect(
-        image.rgba.every((v, i) => v === [128, 128, 128, 255][i % 4]),
-      ).toBe(true);
+      // Integrate the actual opaque frame, including darkened filter margins.
+      const expected: number[] = [];
+      for (let y = 0; y < 6; y++)
+        for (let x = 0; x < 8; x++) {
+          const left = (x * frame.width) / 8,
+            right = ((x + 1) * frame.width) / 8;
+          const top = (y * frame.height) / 6,
+            bottom = ((y + 1) * frame.height) / 6;
+          let sum = 0;
+          for (let sy = Math.floor(top); sy < Math.ceil(bottom); sy++)
+            for (let sx = Math.floor(left); sx < Math.ceil(right); sx++) {
+              const area =
+                (Math.min(right, sx + 1) - Math.max(left, sx)) *
+                (Math.min(bottom, sy + 1) - Math.max(top, sy));
+              sum += area * frame.rgba[(sy * frame.width + sx) * 4];
+            }
+          const gray = Math.round(sum / ((right - left) * (bottom - top)));
+          expected.push(gray, gray, gray, 255);
+        }
+      expect([...image.rgba]).toEqual(expected);
       const cancelled = e.beginStyle(settings);
       e.cancel(cancelled);
       expect(() => e.takeStyleFrame(cancelled)).toThrow();

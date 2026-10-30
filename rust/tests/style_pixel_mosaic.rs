@@ -81,6 +81,68 @@ fn pixel(rgba: &[u8], w: usize, x: usize, y: usize) -> [u8; 4] {
 }
 
 #[test]
+fn gradient_backdrop_matches_chromium_canvas_bytes() {
+    use asciimorph_engine::styles::compose::FrameComposer;
+    let mut data = Vec::new();
+    for y in 0..64u8 {
+        for x in 0..128u8 {
+            data.extend([2 * x, 4 * y, 255 - 2 * x, if x < 13 { 0 } else { 255 }]);
+        }
+    }
+    let src = source(128, 64, data);
+    let mut job = FrameComposer::new(
+        &src,
+        settings(Family::Pixel, 128, 64, 1),
+        vec![0; 128 * 64 * 4],
+        0,
+    )
+    .unwrap();
+    while job.step(&src, 7).unwrap() == JobStatus::Pending {}
+    let out = job.take_frame().unwrap().rgba;
+    let expected =
+        include_bytes!("../../tests/fixtures/render/backdrop/canvas-gradient-blur8.rgba");
+    let differences: Vec<_> = out
+        .iter()
+        .zip(expected)
+        .enumerate()
+        .filter(|(_, (a, b))| a != b)
+        .take(10)
+        .collect();
+    assert!(differences.is_empty(), "{differences:?}");
+}
+
+#[test]
+fn backdrop_matches_canvas_blur_at_edges_and_corners() {
+    use asciimorph_engine::styles::compose::FrameComposer;
+    let src = source(101, 101, [255, 255, 255, 255].repeat(101 * 101));
+    for work in [1, 4096] {
+        let mut job = FrameComposer::new(
+            &src,
+            settings(Family::Pixel, 101, 101, 1),
+            vec![0; 101 * 101 * 4],
+            0,
+        )
+        .unwrap();
+        while job.step(&src, work).unwrap() == JobStatus::Pending {}
+        let out = job.take_frame().unwrap().rgba;
+        // Chromium 156 Canvas2D: white 101-square drawImage with blur(8px),
+        // onto opaque black. These include filter outsets beyond the canvas.
+        for (x, edge, corner) in [
+            (0, 134, 70),
+            (1, 147, 84),
+            (7, 213, 178),
+            (8, 221, 191),
+            (15, 251, 247),
+            (22, 255, 255),
+            (50, 255, 255),
+        ] {
+            assert_eq!(pixel(&out, 101, x, 50), [edge, edge, edge, 255]);
+            assert_eq!(pixel(&out, 101, x, x), [corner, corner, corner, 255]);
+        }
+    }
+}
+
+#[test]
 fn baseline_and_distinct_merged_geometry() {
     let solid = source(17, 13, [128, 128, 128, 255].repeat(17 * 13));
     let mut p = settings(Family::Pixel, 17, 13, 1);
@@ -89,9 +151,7 @@ fn baseline_and_distinct_merged_geometry() {
     let mut m = p.clone();
     m.family = Family::Mosaic { shape: 0 };
     assert_eq!(pixel(&render(&solid, p, 7), 17, 2, 2), [153, 153, 153, 255]);
-    assert!(render(&solid, m, 7)
-        .chunks_exact(4)
-        .all(|v| v == [128, 128, 128, 255]));
+    assert_eq!(pixel(&render(&solid, m, 7), 17, 2, 3), [128, 128, 128, 255]);
     let mut colors = Vec::new();
     for _y in 0..5 {
         for x in 0..6 {
@@ -105,9 +165,9 @@ fn baseline_and_distinct_merged_geometry() {
     let src = source(6, 5, colors);
     let square = render(&src, settings(Family::Mosaic { shape: 0 }, 6, 5, 1), 7);
     let wide = render(&src, settings(Family::Mosaic { shape: 1 }, 6, 5, 1), 7);
-    assert_eq!(pixel(&square, 6, 0, 0), [255, 0, 0, 255]);
-    assert_eq!(pixel(&square, 6, 5, 4), [0, 0, 255, 255]);
-    assert!(wide.chunks_exact(4).all(|v| v == [128, 0, 128, 255]));
+    assert_eq!(pixel(&square, 6, 1, 2), [255, 0, 0, 255]);
+    assert_eq!(pixel(&square, 6, 4, 2), [0, 0, 255, 255]);
+    assert_eq!(pixel(&wide, 6, 4, 2), [255, 0, 0, 255]);
 }
 
 #[test]
@@ -194,9 +254,11 @@ fn hand_computed_quantization_and_control_extremes() {
     for size in [3, 11, 80] {
         let mut s = settings(Family::Mosaic { shape: 0 }, 17, 13, 1);
         s.font_size = size;
-        assert!(render(&src, s, 7)
+        let out = render(&src, s.clone(), 7);
+        assert_eq!(out, render(&src, s, 1));
+        assert!(out
             .chunks_exact(4)
-            .all(|p| p == [128, 128, 128, 255]));
+            .all(|p| p[0] <= 128 && p[0] == p[1] && p[1] == p[2] && p[3] == 255));
     }
     let mut s = settings(Family::Pixel, 17, 13, 1);
     s.brightness = 100.;
@@ -207,14 +269,15 @@ fn hand_computed_quantization_and_control_extremes() {
     let mut s = settings(Family::Pixel, 17, 13, 1);
     s.invert = true;
     assert_eq!(pixel(&render(&src, s, 7), 17, 1, 1), [102, 102, 102, 255]);
-    let dark = source(1, 1, vec![64, 64, 64, 255]);
-    let mut low = settings(Family::Mosaic { shape: 0 }, 1, 1, 1);
+    let dark = source(9, 9, [64, 64, 64, 255].repeat(81));
+    let mut low = settings(Family::Mosaic { shape: 0 }, 9, 9, 1);
     low.contrast = -100.;
     let mut high = low.clone();
     high.contrast = 100.;
-    assert_eq!(render(&dark, low, 7), [100, 100, 100, 255]);
-    assert_eq!(render(&dark, high, 7), [0, 0, 0, 255]);
-    for (opacity, expected) in [(0., 128), (50., 141), (100., 153)] {
+    assert_eq!(pixel(&render(&dark, low, 7), 9, 1, 2), [100, 100, 100, 255]);
+    assert_eq!(pixel(&render(&dark, high, 7), 9, 1, 2), [0, 0, 0, 255]);
+    // Canvas blur(8px) on this 17x13 constant fixture is 36 at (1,1).
+    for (opacity, expected) in [(0., 36), (50., 95), (100., 153)] {
         let mut s = settings(Family::Pixel, 17, 13, 1);
         s.opacity = opacity;
         assert_eq!(
@@ -225,7 +288,7 @@ fn hand_computed_quantization_and_control_extremes() {
 }
 
 #[test]
-fn merged_partial_tiles_use_entire_clipped_area() {
+fn merged_partial_tiles_sample_only_the_originating_base_cell() {
     let mut wide = Vec::new();
     for _ in 0..5 {
         for x in 0..17 {
@@ -241,8 +304,8 @@ fn merged_partial_tiles_use_entire_clipped_area() {
         settings(Family::Mosaic { shape: 1 }, 17, 5, 1),
         7,
     );
-    assert_eq!(pixel(&wide, 17, 12, 0), [153, 0, 102, 255]);
-    assert_eq!(pixel(&wide, 17, 16, 4), [153, 0, 102, 255]);
+    assert_eq!(pixel(&wide, 17, 14, 2), [255, 0, 0, 255]);
+    assert_eq!(pixel(&wide, 17, 16, 2), [255, 0, 0, 255]);
     let mut tall = Vec::new();
     for y in 0..13 {
         for _ in 0..17 {
@@ -258,8 +321,8 @@ fn merged_partial_tiles_use_entire_clipped_area() {
         settings(Family::Mosaic { shape: 2 }, 17, 13, 1),
         7,
     );
-    assert_eq!(pixel(&tall, 17, 0, 9), [255, 0, 0, 255]);
-    assert_eq!(pixel(&tall, 17, 16, 12), [0, 0, 255, 255]);
+    assert_eq!(pixel(&tall, 17, 1, 7), [255, 0, 0, 255]);
+    assert_eq!(pixel(&tall, 17, 1, 12), [0, 0, 255, 255]);
 }
 
 #[test]
@@ -271,7 +334,7 @@ fn full_blur_context_alpha_and_zero_opacity() {
             assert!(out.chunks_exact(4).all(|p| p[..3] == [0, 0, 0]));
             assert_eq!(pixel(&out, 3, 1, 1), [0, 0, 0, 255]);
         } else {
-            assert!(out.iter().all(|b| *b == 0));
+            assert!(out.chunks_exact(4).all(|p| p == [0, 0, 0, 255]));
         }
     }
     let src = source(3, 3, [128, 0, 0, 128].repeat(9));
@@ -280,7 +343,8 @@ fn full_blur_context_alpha_and_zero_opacity() {
     let mut zero = settings(Family::Mosaic { shape: 0 }, 3, 3, 1);
     zero.opacity = 0.;
     let out = render(&src, zero, 7);
-    assert!(out.chunks_exact(4).all(|p| p == [128, 0, 0, 128]));
+    // A 3-square image contributes only one red level after blur and crop.
+    assert!(out.chunks_exact(4).all(|p| p == [1, 0, 0, 255]));
 }
 
 #[test]
@@ -295,10 +359,21 @@ fn rational_pitch_and_crop_rotation_keep_complete_margins() {
     let mut s = settings(Family::Mosaic { shape: 0 }, 9, 3, 1);
     s.font_size = 3;
     let out = render(&src, s, 7);
-    assert_eq!(pixel(&out, 9, 0, 0), pixel(&out, 9, 1, 0));
-    assert_eq!(pixel(&out, 9, 2, 0), pixel(&out, 9, 3, 0));
-    assert_eq!(pixel(&out, 9, 5, 0), pixel(&out, 9, 6, 0));
-    assert_ne!(pixel(&out, 9, 1, 0), pixel(&out, 9, 2, 0));
+    assert!(out
+        .chunks_exact(4)
+        .all(|p| p[1] == 0 && p[2] == 0 && p[3] == 255));
+    assert_eq!(
+        out,
+        render(
+            &src,
+            {
+                let mut s = settings(Family::Mosaic { shape: 0 }, 9, 3, 1);
+                s.font_size = 3;
+                s
+            },
+            1
+        )
+    );
     let mut s = settings(Family::Pixel, 3, 9, 1);
     s.font_size = 3;
     s.rotation = 90;

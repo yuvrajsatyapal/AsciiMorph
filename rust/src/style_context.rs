@@ -81,11 +81,28 @@ impl StyleContext {
             || (self.coverage > 0. && self.hash(x, y) as f64 / 4294967296. < self.coverage / 100.)
     }
     pub fn composite(&self, p: &mut [u8], mut bg: [f32; 4]) {
-        let k = self.background_opacity as f32 / 100.;
-        for v in &mut bg {
-            *v *= k;
+        if self.backdrop >= 2 {
+            // The image (including filtered transparent outsets) is drawn onto
+            // an opaque black canvas. Opacity attenuates premultiplied RGB only.
+            let k = self.background_opacity as f32 / 100.;
+            for v in &mut bg[..3] {
+                *v *= k;
+            }
+            bg[3] = 1.;
         }
         p[3] = (p[3] as f64 * self.opacity / 100.).round() as u8;
+        if self.backdrop != 0 && self.blend == 0 {
+            // Canvas raster source-over quantizes the premultiplied ink and
+            // backdrop products separately, using 0..256 coverage factors.
+            let alpha = p[3] as u32;
+            for k in 0..3 {
+                let ink = p[k] as u32 * (alpha + 1) >> 8;
+                let behind = bg[k].round().clamp(0., 255.) as u32 * (256 - alpha) >> 8;
+                p[k] = (ink + behind).min(255) as u8;
+            }
+            p[3] = 255;
+            return;
+        }
         blend_pixel(p, bg, self.blend);
     }
 }

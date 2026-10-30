@@ -31,7 +31,7 @@ pub struct FrameComposer {
     phase: Phase,
     cursor: usize,
     pass: usize,
-    sum: [f64; 4],
+    blur: crate::canvas_blur::CanvasBlur,
 }
 impl FrameComposer {
     pub fn estimated_peak_bytes(
@@ -105,10 +105,11 @@ impl FrameComposer {
             phase: Phase::Resize,
             cursor: 0,
             pass: 0,
-            sum: [0.; 4],
+            blur: crate::canvas_blur::CanvasBlur::new(8.),
         })
     }
     pub(crate) fn configure_context(&mut self, c: crate::style_context::StyleContext) {
+        self.blur = crate::canvas_blur::CanvasBlur::new(c.softness);
         self.context = c;
     }
     pub fn storage_bytes(&self) -> usize {
@@ -184,23 +185,20 @@ impl FrameComposer {
                     }
                 }
                 Phase::Blur => {
-                    crate::character_backdrop::blur_pixel_radius_into(
-                        &mut self.a,
+                    self.blur.pixel(
+                        &self.a,
                         &mut self.b,
                         self.width,
                         self.height,
-                        self.scale,
-                        self.context.softness,
                         self.pass,
                         self.cursor,
-                        &mut self.sum,
                     );
                     self.cursor += 1;
                     if self.cursor == self.a.len() {
                         std::mem::swap(&mut self.a, &mut self.b);
                         self.cursor = 0;
                         self.pass += 1;
-                        if self.pass == 6 {
+                        if self.pass == 2 {
                             self.b = Vec::new();
                             self.phase = Phase::Composite;
                         }

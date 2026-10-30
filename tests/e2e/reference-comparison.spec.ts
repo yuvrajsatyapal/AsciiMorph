@@ -153,6 +153,19 @@ test("same-input captures use accepted current-style frames and identical PNG ex
           }),
     });
     expect(accepted.settings).not.toHaveProperty("styleContext");
+    if (styleId === "pixel") {
+      // Real reference export captured at these exact controls and 1x on 30 Oct.
+      const reference = await sharp(
+        resolve(
+          "docs/research/ascii-magic/2026-10-30/pixel-reference-export.png",
+        ),
+      )
+        .ensureAlpha()
+        .raw()
+        .toBuffer({ resolveWithObject: true });
+      expect([reference.info.width, reference.info.height]).toEqual([128, 64]);
+      expect(Buffer.from(accepted.rgba)).toEqual(reference.data);
+    }
     // Canvas stores premultiplied bytes; compare its readback after the same browser boundary.
     const painted = await page.evaluate((rgba) => {
       const c = document.createElement("canvas");

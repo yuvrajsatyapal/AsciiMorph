@@ -329,15 +329,18 @@ it("reads positive real native Pixel and Mosaic frames", async () => {
       const frame = e.takeStyleFrame(id);
       expect([frame.width, frame.height]).toEqual([17, 13]);
       if (styleId === "pixel") {
-        expect([...frame.rgba.slice(0, 4)]).toEqual([134, 134, 134, 255]);
+        expect([...frame.rgba.slice(0, 4)]).toEqual([61, 61, 61, 255]);
         const interior = (2 * frame.width + 2) * 4;
         expect([...frame.rgba.slice(interior, interior + 4)]).toEqual([
           153, 153, 153, 255,
         ]);
       } else {
-        expect(
-          frame.rgba.every((v, i) => v === [128, 128, 128, 255][i % 4]),
-        ).toBe(true);
+        const interior = (3 * frame.width + 2) * 4;
+        expect([...frame.rgba.slice(interior, interior + 4)]).toEqual([
+          128, 128, 128, 255,
+        ]);
+        // Independent Canvas blur(8px) on the constant 17x13 source.
+        expect([...frame.rgba.slice(0, 4)]).toEqual([31, 31, 31, 255]);
       }
     }
   } finally {
@@ -391,7 +394,11 @@ it("captures additive backdrop, coverage, blend and opacity in actual WASM jobs"
       backdrop: "original",
       coverage: 0,
     });
-    expect([...original]).toEqual([...rgba]);
+    expect([...original]).toEqual(
+      [...rgba].map((v, i) =>
+        i % 4 === 3 ? 255 : Math.round((v * 128) / 255),
+      ),
+    );
     expect(
       run({
         ...STYLE_CONTEXT_DEFAULTS,

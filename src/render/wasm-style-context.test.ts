@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { it, expect } from "vitest";
 import { createCharacterEngine } from "./wasm-character";
 import { STYLE_CONTEXT_DEFAULTS as d } from "./style-context";
-it("Characters inversion changes only selected glyphs, seeded random is reproducible, blur8 equals v1", async () => {
+it("Characters inversion changes only selected glyphs, seeded random is reproducible, and default context preserves the glyph grid", async () => {
   const e = await createCharacterEngine(
     readFileSync("public/wasm/asciimorph_engine.wasm"),
   );
@@ -59,7 +59,9 @@ it("Characters inversion changes only selected glyphs, seeded random is reproduc
     };
     const baseline = run(),
       extended = run({ ...d });
-    expect(extended.rgba).toEqual(baseline.rgba);
+    // Corrected Canvas byte composition supersedes the legacy floating-point
+    // backdrop blend. Glyph selection and tone must remain unchanged.
+    expect(extended.grid).toEqual(baseline.grid);
     const normal = run({ ...d, backdrop: "none" }),
       inverted = run({ ...d, backdrop: "none", invert: true });
     expect(inverted.grid!.foreground).toEqual(normal.grid!.foreground);

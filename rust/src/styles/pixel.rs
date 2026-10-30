@@ -25,6 +25,7 @@ pub(crate) struct TileJob {
     identity: (usize, u32, u32, usize, usize),
     composer: FrameComposer,
     sampler: Option<AreaSampler>,
+    sparse: Option<super::mosaic::SparseTile>,
     tile_x: usize,
     tile_y: usize,
     paint_x: usize,
@@ -102,6 +103,7 @@ impl TileJob {
             identity: source_identity(source),
             composer,
             sampler: None,
+            sparse: None,
             tile_x: 0,
             tile_y: 0,
             paint_x: 0,
@@ -138,10 +140,20 @@ impl TileJob {
         b
     }
     fn paint_bounds(&self) -> [f64; 4] {
-        if !matches!(self.settings.family, Family::Pixel) {
-            return self.clipped_bounds();
-        }
         let mut b = self.tile_bounds();
+        if matches!(self.settings.family, Family::Mosaic { .. }) {
+            b[0] += 1.;
+            b[1] += 1.;
+            b[2] -= 1.;
+            b[3] -= 1.;
+            if b[0] > b[2] {
+                b.swap(0, 2);
+            }
+            if b[1] > b[3] {
+                b.swap(1, 3);
+            }
+            return b;
+        }
         b[0] += 0.5;
         b[1] += 0.5;
         b[2] = (b[2] - 0.5).min(self.settings.width as f64);
@@ -149,11 +161,7 @@ impl TileJob {
         b
     }
     fn paint_start(&self, edge: f64) -> usize {
-        if matches!(self.settings.family, Family::Pixel) {
-            edge.floor().max(0.) as usize
-        } else {
-            (edge - 0.5).ceil().max(0.) as usize
-        }
+        edge.floor().max(0.) as usize
     }
     fn advance(&mut self) {
         let pitch_x = 3. * self.settings.font_size as f64 * self.settings.scale as f64 / 5.;
@@ -189,6 +197,21 @@ impl TileJob {
             sample.alpha
         };
         self.color[3] = byte(alpha * self.settings.opacity / 100.);
+        self.start_paint();
+    }
+    fn finish_sparse_sample(&mut self) {
+        let rgb = self.sparse.take().unwrap().rgb();
+        for (i, value) in rgb.iter().enumerate() {
+            self.color[i] = byte(if self.settings.invert {
+                255. - value
+            } else {
+                *value
+            });
+        }
+        self.color[3] = byte(255. * self.settings.opacity / 100.);
+        self.start_paint();
+    }
+    fn start_paint(&mut self) {
         if !self.context.occupied(self.tile_x, self.tile_y) {
             self.color[3] = 0;
         }
@@ -203,10 +226,8 @@ impl TileJob {
     }
     fn paint_one(&mut self) {
         let b = self.paint_bounds();
-        let inset = matches!(self.settings.family, Family::Pixel);
-        let offset = if inset { 0. } else { 0.5 };
-        let x_end = (b[2] - offset).ceil().min(self.settings.width as f64) as usize;
-        let y_end = (b[3] - offset).ceil().min(self.settings.height as f64) as usize;
+        let x_end = b[2].ceil().min(self.settings.width as f64) as usize;
+        let y_end = b[3].ceil().min(self.settings.height as f64) as usize;
         if self.paint_x >= x_end || self.paint_y >= y_end {
             self.painting = false;
             self.advance();
@@ -214,11 +235,20 @@ impl TileJob {
         }
         let i = (self.paint_y * self.settings.width as usize + self.paint_x) * 4;
         let mut color = self.color;
-        if inset {
+        {
             let x = self.paint_x as f64;
             let y = self.paint_y as f64;
-            let coverage =
-                (b[2].min(x + 1.) - b[0].max(x)).max(0.) * (b[3].min(y + 1.) - b[1].max(y)).max(0.);
+            let coverage = if matches!(self.settings.family, Family::Mosaic { .. }) {
+                let full = self.tile_bounds();
+                super::mosaic::rounded_coverage(
+                    b,
+                    0.2 * (full[2] - full[0]).min(full[3] - full[1]),
+                    self.paint_x,
+                    self.paint_y,
+                )
+            } else {
+                (b[2].min(x + 1.) - b[0].max(x)).max(0.) * (b[3].min(y + 1.) - b[1].max(y)).max(0.)
+            };
             color[3] = byte(color[3] as f64 * coverage + 1e-10);
             if color[3] == 0 {
                 color = [0; 4];
@@ -254,6 +284,34 @@ impl TileJob {
             if self.painting {
                 self.paint_one();
                 remaining -= 1;
+                continue;
+            }
+            if matches!(self.settings.family, Family::Mosaic { .. }) {
+                if self.sparse.is_none() {
+                    let bounds = self.tile_bounds();
+                    let scale = self.settings.scale as f64;
+                    let (w, h) = self.geometry.extent();
+                    let base_width = 0.6 * self.settings.font_size as f64 * scale;
+                    let base_height = self.settings.font_size as f64 * scale;
+                    self.sparse = Some(super::mosaic::SparseTile::new(
+                        [
+                            bounds[0],
+                            bounds[1],
+                            (bounds[0] + base_width).min(w as f64 * scale),
+                            (bounds[1] + base_height).min(h as f64 * scale),
+                        ],
+                        scale,
+                    ));
+                }
+                let done =
+                    self.sparse
+                        .as_mut()
+                        .unwrap()
+                        .step(source, &self.geometry, &self.settings);
+                remaining -= 1;
+                if done {
+                    self.finish_sparse_sample();
+                }
                 continue;
             }
             if self.sampler.is_none() {
@@ -311,6 +369,7 @@ impl TileJob {
     pub(crate) fn cancel(&mut self) {
         self.cancelled = true;
         self.sampler = None;
+        self.sparse = None;
         self.composer.cancel();
     }
     pub(crate) fn take_frame(&mut self) -> Option<StyleFrame> {
@@ -401,6 +460,50 @@ mod parity_tests {
         });
         while j.step(src, None, work).unwrap() == JobStatus::Pending {}
         j.take_frame().unwrap().rgba
+    }
+
+    #[test]
+    fn mosaic_uses_sparse_originating_base_cell_and_clamps_each_tap() {
+        let mut data = Vec::new();
+        for _y in 0..22 {
+            for x in 0..40 {
+                data.extend(if x == 0 {
+                    [255, 0, 0, 255]
+                } else if x >= 6 {
+                    [0, 0, 255, 255]
+                } else {
+                    [0, 0, 0, 255]
+                });
+            }
+        }
+        let src = source(40, 22, data);
+        for shape in [0, 1, 2] {
+            let mut s = settings(Family::Mosaic { shape }, 40, 22, 1);
+            s.font_size = 11;
+            s.contrast = 100.;
+            let out = render_transparent(&src, s, 1);
+            assert_eq!(
+                pixel(
+                    &out,
+                    40,
+                    if shape == 1 { 9 } else { 3 },
+                    if shape == 2 { 15 } else { 5 }
+                ),
+                [85, 0, 0, 255]
+            );
+        }
+    }
+
+    #[test]
+    fn mosaic_tiles_have_one_pixel_insets_and_rounded_corners() {
+        let src = source(40, 22, [255, 255, 255, 255].repeat(40 * 22));
+        let mut s = settings(Family::Mosaic { shape: 0 }, 40, 22, 1);
+        s.font_size = 11;
+        let out = render_transparent(&src, s, 7);
+        assert_eq!(pixel(&out, 40, 0, 5), [0; 4]);
+        assert_eq!(pixel(&out, 40, 3, 3), [255; 4]);
+        assert!(pixel(&out, 40, 1, 1)[3] > 0 && pixel(&out, 40, 1, 1)[3] < 255);
+        assert_eq!(pixel(&out, 40, 5, 5)[3], 153);
     }
 
     #[test]

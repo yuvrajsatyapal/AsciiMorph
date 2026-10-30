@@ -185,9 +185,9 @@ fn calculated_and_native_capacity_peak_for_million_pixels() {
 }
 
 #[test]
-fn opaque_constant_source_fills_margins_of_tiny_frame() {
+fn tiny_frame_crops_transparent_filter_outsets_over_black() {
     let src = source(1, 1, [12, 34, 56, 255], MAX_SOURCE_BYTES);
     let mut j = FrameComposer::new(&src, settings(1, 1, 1, 0, full()), vec![0; 4], 0).unwrap();
     while j.step(&src, 1).unwrap() == JobStatus::Pending {}
-    assert_eq!(j.take_frame().unwrap().rgba, [12, 34, 56, 255]);
+    assert_eq!(j.take_frame().unwrap().rgba, [0, 0, 0, 255]);
 }

@@ -1,0 +1,2 @@
+# Preserve raw image oracle bytes and show them as binary in diffs.
+*.rgba binary

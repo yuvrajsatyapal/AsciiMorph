@@ -1,5 +1,7 @@
 # Pixel and Mosaic native profiles
 
+30 October correction: the shared style backdrop now uses transparent blur outsets over opaque black with Canvas byte composition. Pixel's canonical 128×64 lossless reference comparison passes exactly. Mosaic now uses sparse originating-cell sampling and rounded, inset tiles; corner antialiasing still prevents full visual acceptance. See the [current evidence and outstanding work](../research/ascii-magic/2026-10-30/README.md). The independent-profile description below is historical and its area/gapless/clamped-backdrop behavior is superseded by these verified corrections.
+
 Native style dispatch 10 (Pixel) and 11 (Mosaic) implement the closed independent version 1 contracts in [initial-family-contracts.json](../research/ascii-magic/2026-10-20/initial-family-contracts.json). Other new style dispatch IDs remain unavailable. This checkpoint does not enable their Studio catalog entries or claim reference-output equivalence.
 
 Both profiles use exact-area, alpha-weighted sampling with unrounded intermediate RGB; rational cell pitch `3F/5 × F`; clipped partial cells; crop before quarter-turn rotation; and source-scaled output. Pixel quantizes each toned channel to six levels. Mosaic rounds toned channels once and samples complete square, wide, or tall merged rectangles. Pixel centers select half-open tile ownership. The complete result includes the shared original-source premultiplied resize, six-pass fixed blur 8 approximation, and straight-alpha source-over composition.

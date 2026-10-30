@@ -147,7 +147,11 @@ fn partial_crop_rotation_scale_and_cooperative_steps() {
             s.contrast = 20.;
             let out = render(&source, s.clone(), &a, 1);
             assert_eq!(out.len(), s.width as usize * s.height as usize * 4);
-            assert!(out.chunks_exact(4).all(|v| v == [128, 128, 128, 255]));
+            // Partial cells reveal the darkened filter border; complete glyphs
+            // retain their tone and every backdrop pixel is opaque.
+            assert!(out
+                .chunks_exact(4)
+                .all(|v| v[0] <= 128 && v[0] == v[1] && v[1] == v[2] && v[3] == 255));
             assert_eq!(out, render(&source, s, &a, 999));
         }
     }
@@ -161,7 +165,7 @@ fn partial_crop_rotation_scale_and_cooperative_steps() {
     };
     assert!(render(&source, s, &a, 5)
         .chunks_exact(4)
-        .all(|v| v == [128, 128, 128, 255]));
+        .all(|v| v[0] <= 128 && v[0] == v[1] && v[1] == v[2] && v[3] == 255));
 }
 #[test]
 fn alpha_hidden_rgb_and_zero_threshold() {
@@ -182,7 +186,9 @@ fn alpha_hidden_rgb_and_zero_threshold() {
     let out = render(&source, s.clone(), &a, 7);
     assert!(out.chunks_exact(4).all(|v| v[1] == 0 && v[2] == 0));
     let clear = src(255, 255, 0);
-    assert!(render(&clear, s, &a, 1).iter().all(|&v| v == 0));
+    assert!(render(&clear, s, &a, 1)
+        .chunks_exact(4)
+        .all(|p| p == [0, 0, 0, 255]));
 }
 #[test]
 fn atlas_rejections_identity_and_cancellation_release() {
