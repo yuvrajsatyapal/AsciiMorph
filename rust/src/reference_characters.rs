@@ -217,6 +217,17 @@ impl ReferenceAtlas {
             + x as usize] as f64
             / 255.
     }
+    // Canonical software WebGL sampler uses nearest 1/16 texture weights.
+    // Keep the historical exact sampler for requests without captured context.
+    fn software_webgl_alpha(&self, index: u16, x: f64, y: f64) -> f32 {
+        let (ix, iy) = (x.floor() as isize, y.floor() as isize);
+        let fx = ((x - x.floor()) * 16.).round_ties_even() / 16.;
+        let fy = ((y - y.floor()) * 16.).round_ties_even() / 16.;
+        (self.alpha(index, ix, iy) * (1. - fx) * (1. - fy)
+            + self.alpha(index, ix + 1, iy) * fx * (1. - fy)
+            + self.alpha(index, ix, iy + 1) * (1. - fx) * fy
+            + self.alpha(index, ix + 1, iy + 1) * fx * fy) as f32
+    }
     pub(crate) fn bilinear(&self, index: u16, x: f64, y: f64) -> f64 {
         let (ix, iy) = (x.floor() as isize, y.floor() as isize);
         let (fx, fy) = (x - x.floor(), y - y.floor());
@@ -616,6 +627,11 @@ impl ReferenceCharactersJob {
             self.color[2],
             p[3],
         ]);
+        if self.context.is_some() {
+            // The batch uploads floating tone colors; postpone tone rounding to
+            // the RGBA8 framebuffer, keeping raw source bytes here.
+            self.color.copy_from_slice(&p[..3]);
+        }
         self.anchor_x = column as f64 * self.settings.cell_width() + atlas.origin_x;
         self.anchor_y = row as f64 * self.settings.cell_height() + atlas.origin_y;
         self.left = self
@@ -639,7 +655,49 @@ impl ReferenceCharactersJob {
             self.stage = Stage::Paint;
         }
     }
+    fn paint_software_webgl(&mut self, atlas: &ReferenceAtlas) {
+        let a = atlas.software_webgl_alpha(
+            self.glyph,
+            self.paint_x as f64 - self.anchor_x,
+            self.paint_y as f64 - self.anchor_y,
+        ) * (self.opacity * self.context.unwrap().opacity / 100.) as f32;
+        let offset = (self.paint_y * self.settings.frame_width as usize + self.paint_x) * 4;
+        let rgba = &mut self.layer.as_mut().unwrap().rgba;
+        let dst_alpha = rgba[offset + 3];
+        let alpha = (a * 255. + dst_alpha as f32 * (1. - a)).round_ties_even() as u8;
+        for channel in 0..3 {
+            let factor =
+                259. * (self.settings.contrast + 255.) / (255. * (259. - self.settings.contrast));
+            let tone = (factor * (self.color[channel] as f64 - 128.)
+                + 128.
+                + 255. * self.settings.brightness / 100.)
+                .clamp(0., 255.);
+            let color = (tone / 255.) as f32;
+            let dst = (rgba[offset + channel] as f32 * dst_alpha as f32 / 255.).round();
+            let premul = (color * a * 255. + dst * (1. - a)).round_ties_even();
+            rgba[offset + channel] = if alpha == 0 {
+                0
+            } else {
+                ((premul * (1. / 255.)) * (1. / (alpha as f32 * (1. / 255.))) * 255.)
+                    .round_ties_even()
+                    .clamp(0., 255.) as u8
+            };
+        }
+        rgba[offset + 3] = alpha;
+        self.paint_x += 1;
+        if self.paint_x >= self.right {
+            self.paint_x = self.left;
+            self.paint_y += 1;
+        }
+        if self.paint_y >= self.bottom {
+            self.next_cell();
+        }
+    }
     fn paint(&mut self, atlas: &ReferenceAtlas) {
+        if self.context.is_some() {
+            self.paint_software_webgl(atlas);
+            return;
+        }
         // Destination/mask centers both have +.5; their difference cancels that offset.
         let a = atlas.bilinear(
             self.glyph,
@@ -735,5 +793,210 @@ mod context_parity_tests {
         while job.step(&src, &atlas, 1).unwrap() == JobStatus::Pending {}
         let grid = job.take_glyph_layer().unwrap().grid.unwrap();
         assert_eq!(grid.glyph_indices, [65535, 1, 0]);
+    }
+}
+
+#[cfg(test)]
+mod webgl_parity_tests {
+    use super::*;
+    #[test]
+    fn context_glyph_interpolation_equals_software_webgl_all_scales() {
+        check(true, false);
+    }
+    #[test]
+    fn context_glyph_premultiplied_color_equals_software_webgl_all_scales() {
+        check(false, false);
+    }
+    #[test]
+    fn context_webgl_layer_composes_exactly_onto_opaque_canvas() {
+        check(false, true);
+    }
+    #[test]
+    fn complete_context_grid_placement_clipping_and_overlap_equal_webgl() {
+        let mask = [0, 0, 0, 0, 0, 17, 139, 0, 0, 241, 53, 0, 0, 0, 0, 0];
+        let mut pixels = Vec::new();
+        for _ in 0..3 {
+            for x in 0..7 {
+                pixels.extend(match x {
+                    2 => [72, 160, 220, 212],
+                    4 => [220, 99, 31, 173],
+                    _ => [0, 0, 0, 255],
+                });
+            }
+        }
+        let source = SourceImage::new(7, 3, pixels, 268_435_456).unwrap();
+        let expected = include_bytes!("../../tests/fixtures/render/characters/webgl-grid.rgba");
+        let mut start = 0;
+        for scale in 1..=4u8 {
+            let side = 4 * scale as usize;
+            let mask = (0..side * side)
+                .map(|i| mask[i / side / scale as usize * 4 + i % side / scale as usize])
+                .collect::<Vec<_>>();
+            for (x, y) in [(-1.5, -0.6), (0., 0.), (0.4, 0.6), (3.6, 1.3)] {
+                let atlas = ReferenceAtlas::new(
+                    2,
+                    side as u16,
+                    side as u16,
+                    [mask.clone(), mask.clone()].concat(),
+                    x * scale as f64,
+                    y * scale as f64,
+                    65535,
+                )
+                .unwrap();
+                let settings = ReferenceCharactersSettings {
+                    version: 1,
+                    frame_width: 7 * scale as u32,
+                    frame_height: 3 * scale as u32,
+                    font_size: 3.,
+                    render_scale: scale,
+                    brightness: 0.,
+                    contrast: 20.,
+                    rotation: 0,
+                    crop: crate::character::Crop {
+                        x: 0.,
+                        y: 0.,
+                        width: 1.,
+                        height: 1.,
+                    },
+                    backdrop: ReferenceBackdrop::None,
+                };
+                let mut job = crate::character_backdrop::CompleteCharactersJob::new(
+                    &source, settings, &atlas, 0,
+                )
+                .unwrap();
+                job.configure_context(crate::style_context::StyleContext {
+                    backdrop: 0,
+                    ..Default::default()
+                });
+                while job.step(&source, &atlas, 1).unwrap() == JobStatus::Pending {}
+                let out = job.take_frame().unwrap();
+                for (i, (a, b)) in out
+                    .rgba
+                    .iter()
+                    .zip(&expected[start..start + out.rgba.len()])
+                    .enumerate()
+                {
+                    assert_eq!(a, b, "scale{scale}, origin({x},{y}) byte{i}");
+                }
+                start += out.rgba.len();
+            }
+        }
+        assert_eq!(start, expected.len());
+    }
+    fn check(alpha_only: bool, opaque: bool) {
+        let mask = vec![0, 0, 0, 0, 0, 17, 139, 0, 0, 241, 53, 0, 0, 0, 0, 0];
+
+        let source = SourceImage::new(16, 8, [72, 160, 220, 212].repeat(128), 268_435_456).unwrap();
+        let settings = ReferenceCharactersSettings {
+            version: 1,
+            frame_width: 16,
+            frame_height: 8,
+            font_size: 3.,
+            render_scale: 1,
+            brightness: 0.,
+            contrast: 20.,
+            rotation: 0,
+            crop: crate::character::Crop {
+                x: 0.,
+                y: 0.,
+                width: 1.,
+                height: 1.,
+            },
+            backdrop: ReferenceBackdrop::None,
+        };
+        let expected: &[u8] = if opaque {
+            include_bytes!("../../tests/fixtures/render/characters/webgl-software-opaque.rgba")
+        } else {
+            include_bytes!("../../tests/fixtures/render/characters/webgl-software.rgba")
+        };
+        let offsets = [
+            (0., 0.3),
+            (0.1, 0.3),
+            (0.2, 0.3),
+            (0.3, 0.3),
+            (0.4, 0.3),
+            (0.5, 0.3),
+            (0.6, 0.3),
+            (0.7, 0.3),
+            (0.8, 0.3),
+            (0.9, 0.3),
+            (-1.7, -0.6),
+            (13.4, 5.2),
+            (0.03125, 0.96875),
+        ];
+        let mut start = 0;
+        for opacity in [100., 50., 99., 0.] {
+            for scale in 1..=4u8 {
+                let side = 4 * scale as usize;
+                let scaled = (0..side * side)
+                    .map(|i| mask[(i / side / scale as usize) * 4 + i % side / scale as usize])
+                    .collect::<Vec<_>>();
+                let atlas = ReferenceAtlas::new(
+                    2,
+                    side as u16,
+                    side as u16,
+                    [scaled.clone(), scaled].concat(),
+                    0.,
+                    0.,
+                    65535,
+                )
+                .unwrap();
+                let mut settings = settings.clone();
+                settings.frame_width *= scale as u32;
+                settings.frame_height *= scale as u32;
+                settings.render_scale = scale;
+                let pixels = (settings.frame_width * settings.frame_height) as usize;
+                for (case, (x, y)) in offsets.into_iter().enumerate() {
+                    let mut job =
+                        ReferenceCharactersJob::new(&source, settings.clone(), &atlas, 0).unwrap();
+                    job.configure_context(crate::style_context::StyleContext {
+                        opacity,
+                        ..Default::default()
+                    });
+                    job.min = 0.;
+                    job.max = 255.;
+                    job.select(&source, &atlas);
+                    job.anchor_x = x * scale as f64;
+                    job.anchor_y = y * scale as f64;
+                    job.left = 0;
+                    job.right = settings.frame_width as usize;
+                    job.bottom = settings.frame_height as usize;
+                    job.paint_x = 0;
+                    job.paint_y = 0;
+                    for _ in 0..pixels {
+                        job.paint(&atlas);
+                    }
+                    if opaque {
+                        let c = crate::style_context::StyleContext {
+                            opacity,
+                            ..Default::default()
+                        };
+                        for pixel in job.layer.as_mut().unwrap().rgba.chunks_exact_mut(4) {
+                            c.composite_webgl(pixel, [37., 91., 203., 1.]);
+                        }
+                    }
+                    let actual = &job.layer.as_ref().unwrap().rgba;
+                    for (i, (&a, &b)) in actual
+                        .iter()
+                        .zip(&expected[start..start + pixels * 4])
+                        .enumerate()
+                    {
+                        if (i % 4 == 3) != alpha_only {
+                            continue;
+                        }
+                        assert_eq!(
+                            a,
+                            b,
+                            "scale {scale}, case {case}, pixel ({},{}), channel {}",
+                            i / 4 % settings.frame_width as usize,
+                            i / 4 / settings.frame_width as usize,
+                            i % 4
+                        );
+                    }
+                    start += pixels * 4;
+                }
+            }
+        }
+        assert_eq!(start, expected.len());
     }
 }

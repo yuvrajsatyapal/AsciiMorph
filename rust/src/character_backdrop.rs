@@ -319,7 +319,7 @@ impl CompleteCharactersJob {
         let layer = self.layer.as_mut().unwrap();
         let p = &mut layer.rgba[self.cursor * 4..self.cursor * 4 + 4];
         if let Some(c) = self.context {
-            c.composite(p, backdrop);
+            c.composite_webgl(p, backdrop);
         } else {
             source_over(p, backdrop);
         }

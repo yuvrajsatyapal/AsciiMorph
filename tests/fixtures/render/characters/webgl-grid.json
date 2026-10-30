@@ -1,0 +1,82 @@
+[
+  {
+    "scale": 1,
+    "originX": -1.5,
+    "originY": -0.6
+  },
+  {
+    "scale": 1,
+    "originX": 0,
+    "originY": 0
+  },
+  {
+    "scale": 1,
+    "originX": 0.4,
+    "originY": 0.6
+  },
+  {
+    "scale": 1,
+    "originX": 3.6,
+    "originY": 1.3
+  },
+  {
+    "scale": 2,
+    "originX": -1.5,
+    "originY": -0.6
+  },
+  {
+    "scale": 2,
+    "originX": 0,
+    "originY": 0
+  },
+  {
+    "scale": 2,
+    "originX": 0.4,
+    "originY": 0.6
+  },
+  {
+    "scale": 2,
+    "originX": 3.6,
+    "originY": 1.3
+  },
+  {
+    "scale": 3,
+    "originX": -1.5,
+    "originY": -0.6
+  },
+  {
+    "scale": 3,
+    "originX": 0,
+    "originY": 0
+  },
+  {
+    "scale": 3,
+    "originX": 0.4,
+    "originY": 0.6
+  },
+  {
+    "scale": 3,
+    "originX": 3.6,
+    "originY": 1.3
+  },
+  {
+    "scale": 4,
+    "originX": -1.5,
+    "originY": -0.6
+  },
+  {
+    "scale": 4,
+    "originX": 0,
+    "originY": 0
+  },
+  {
+    "scale": 4,
+    "originX": 0.4,
+    "originY": 0.6
+  },
+  {
+    "scale": 4,
+    "originX": 3.6,
+    "originY": 1.3
+  }
+]

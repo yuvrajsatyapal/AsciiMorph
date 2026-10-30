@@ -107,3 +107,6 @@ await writeFile(
   JSON.stringify(metrics, null, 2) + "\n",
 );
 console.log(JSON.stringify(metrics.styles, null, 2));
+// This is an acceptance gate: any differing channel (including alpha) fails.
+if (Object.values(metrics.styles).some((result) => !result.exact))
+  process.exitCode = 1;

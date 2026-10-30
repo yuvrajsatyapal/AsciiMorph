@@ -1,0 +1,16 @@
+{
+  "method": "Unflattened lossless RGBA; full frame",
+  "styles": {
+    "characters-11-blur-1": {
+      "width": 128,
+      "height": 64,
+      "rgbMAE": 0.0028076171875,
+      "maxRGBError": 1,
+      "maxAlphaError": 0,
+      "differingPixels": 47,
+      "exact": false,
+      "referenceSha256": "cfd62292ecc0843b020e75e3ae0d4bff67d70f2691cb22686a596256a3dce821",
+      "localSha256": "2dda5476cf700b7000951a10dfdd9b501a05c922c84e9181b4ff192ea4f9390a"
+    }
+  }
+}

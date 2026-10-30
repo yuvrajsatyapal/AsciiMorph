@@ -80,6 +80,32 @@ impl StyleContext {
         self.coverage >= 100.
             || (self.coverage > 0. && self.hash(x, y) as f64 / 4294967296. < self.coverage / 100.)
     }
+    /// A WebGL RGBA8 layer already rounded premultiplied ink. Recover those
+    /// bytes and use Canvas image source-over rather than paint coverage math.
+    pub(crate) fn composite_webgl(&self, p: &mut [u8], bg: [f32; 4]) {
+        if self.blend == 0 && self.backdrop != 0 {
+            let alpha = p[3] as u32;
+            let k = if self.backdrop >= 2 {
+                self.background_opacity as f32 / 100.
+            } else {
+                1.
+            };
+            for channel in 0..3 {
+                let ink = (p[channel] as f32 * alpha as f32 / 255.).round() as u32;
+                let behind = (bg[channel] * k).round().clamp(0., 255.) as u32;
+                let product = behind * (255 - alpha) + 128;
+                let product = (product + (product >> 8)) >> 8;
+                p[channel] = (ink + product).min(255) as u8;
+            }
+            p[3] = 255;
+        } else {
+            Self {
+                opacity: 100.,
+                ..*self
+            }
+            .composite(p, bg);
+        }
+    }
     pub fn composite(&self, p: &mut [u8], mut bg: [f32; 4]) {
         if self.backdrop >= 2 {
             // The image (including filtered transparent outsets) is drawn onto

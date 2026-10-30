@@ -429,24 +429,14 @@ test("exact project adapter drives four controls and normalized S1/S3/S4 geometr
       const contrast = await render(change({ contrast: -30 }), 1);
       const b = baseline.frame,
         grid = b.grid!;
-      const mean = (data: Uint8Array, channel: number) => {
-        let sum = 0;
-        for (let i = channel; i < data.length; i += 4) sum += data[i];
-        return sum / (data.length / 4);
-      };
       const metrics = [scale3, scale4].map((r) => ({
         scale: r.frame.width / 97,
         frame: [r.frame.width, r.frame.height],
         grid: [r.frame.grid!.width, r.frame.grid!.height],
         cell: [r.frame.grid!.cellWidth, r.frame.grid!.cellHeight],
-        meanDelta: [0, 1, 2, 3].map((c) =>
-          Math.abs(mean(r.frame.rgba, c) - mean(b.rgba, c)),
-        ),
-        toneMeanDelta: [0, 1, 2, 3].map((c) =>
-          Math.abs(
-            mean(r.frame.grid!.foreground, c) - mean(grid.foreground, c),
-          ),
-        ),
+        indicesExact: same(r.frame.grid!.glyphIndices, grid.glyphIndices),
+        foregroundExact: same(r.frame.grid!.foreground, grid.foreground),
+        alphaExact: same(r.frame.grid!.alpha, grid.alpha),
       }));
       const resource = {
         source,
@@ -579,8 +569,9 @@ test("exact project adapter drives four controls and normalized S1/S3/S4 geometr
   for (const metric of evidence.metrics) {
     expect(metric.grid).toEqual([50, 20]);
     expect(metric.frame).toEqual(metric.scale === 3 ? [291, 201] : [388, 268]);
-    for (const delta of metric.meanDelta) expect(delta).toBeLessThan(6);
-    for (const delta of metric.toneMeanDelta) expect(delta).toBeLessThan(3);
+    expect(metric.indicesExact).toBe(true);
+    expect(metric.foregroundExact).toBe(true);
+    expect(metric.alphaExact).toBe(true);
   }
   expect(evidence.margin[0]).toBeCloseTo(1);
   expect(evidence.margin[1]).toBeCloseTo(3);
@@ -847,4 +838,367 @@ test("captured active and pending exports survive real measured font/ramp edits 
   expect(result.changedFrame).toBe(true);
   expect(result.oldResultIds).toEqual(["active-a", "pending-a"]);
   expect(result.sourceReplacement).toBe("Cancelled");
+});
+
+test("captured Characters Worker matches independent WebGL grid bytes at every scale and exports the same frame", async ({
+  page,
+}) => {
+  const { readFile } = await import("node:fs/promises");
+  const grid = JSON.parse(
+    await readFile(
+      resolve("tests/fixtures/render/characters/webgl-grid.json"),
+      "utf8",
+    ),
+  ) as { scale: 1 | 2 | 3 | 4; originX: number; originY: number }[];
+  const expected = Array.from(
+    await readFile(resolve("tests/fixtures/render/characters/webgl-grid.rgba")),
+  );
+  await page.goto(base);
+  const result = await page.evaluate(
+    async ({ grid, expected }) => {
+      const serviceUrl = "/src/render/service.ts",
+        contextUrl = "/src/render/style-context.ts";
+      const { createRenderService } = (await import(
+        /* @vite-ignore */ serviceUrl
+      )) as typeof import("../../../src/render/service");
+      const { STYLE_CONTEXT_DEFAULTS } = (await import(
+        /* @vite-ignore */ contextUrl
+      )) as typeof import("../../../src/render/style-context");
+      const service = createRenderService();
+      const source = { id: "webgl-grid", revision: 1, width: 7, height: 3 };
+      const pixels = [];
+      for (let y = 0; y < 3; y++)
+        for (let x = 0; x < 7; x++)
+          pixels.push(
+            ...(x === 2
+              ? [72, 160, 220, 212]
+              : x === 4
+                ? [220, 99, 31, 173]
+                : [0, 0, 0, 255]),
+          );
+      const mask = [0, 0, 0, 0, 0, 17, 139, 0, 0, 241, 53, 0, 0, 0, 0, 0];
+      const same = (a: ArrayLike<number>, b: ArrayLike<number>) =>
+        a.length === b.length && Array.from(a).every((v, i) => v === b[i]);
+      const results = [];
+      let offset = 0;
+      try {
+        await service.setSource({
+          ...source,
+          rgba: new Uint8ClampedArray(pixels),
+        });
+        for (const [index, c] of grid.entries()) {
+          const side = 4 * c.scale,
+            width = 7 * c.scale,
+            height = 3 * c.scale;
+          const scaled = Array.from(
+            { length: side * side },
+            (_, i) =>
+              mask[
+                Math.floor(Math.floor(i / side) / c.scale) * 4 +
+                  Math.floor((i % side) / c.scale)
+              ],
+          );
+          const id = `grid-${index}`;
+          await service.setAtlas({
+            version: 1,
+            originX: c.originX * c.scale,
+            originY: c.originY * c.scale,
+            spaceIndexOr65535: 65535,
+            placement: "top-start-ltr",
+            ordering: "input",
+            fontPolicy: "reference-system-monospace",
+            calibration: {
+              version: 1,
+              id,
+              fontKey: "controlled-mask",
+              glyphs: ["#", "."],
+              cellWidth: 0.6 * 3 * c.scale,
+              cellHeight: 3 * c.scale,
+              maskWidth: side,
+              maskHeight: side,
+              masks: new Uint8Array([...scaled, ...scaled]),
+              coverage: new Float32Array([0.5, 0.5]),
+              shapes: new Float32Array(18),
+            },
+          });
+          const request = {
+            jobId: `p-${index}`,
+            revision: index,
+            sourceId: source.id,
+            sourceRevision: 1,
+            calibrationId: id,
+            source,
+            settings: {
+              version: 1 as const,
+              frameWidth: width,
+              frameHeight: height,
+              fontSize: 3,
+              renderScale: c.scale,
+              brightness: 0,
+              contrast: 20,
+              rotation: 0 as const,
+              crop: { x: 0, y: 0, width: 1, height: 1 },
+              backdrop: "none" as const,
+              styleContext: {
+                ...STYLE_CONTEXT_DEFAULTS,
+                backdrop: "none" as const,
+              },
+            },
+            timeUs: 0,
+          };
+          const preview = await service.renderCharactersPreview(request);
+          const exported = await service.renderCharactersExport({
+            ...request,
+            jobId: `e-${index}`,
+            outputWidth: width,
+            outputHeight: height,
+          });
+          results.push({
+            index,
+            scale: c.scale,
+            oracle: same(
+              preview.frame.rgba,
+              expected.slice(offset, offset + width * height * 4),
+            ),
+            export: same(preview.frame.rgba, exported.frame.rgba),
+          });
+          offset += width * height * 4;
+        }
+        return { results, consumed: offset };
+      } finally {
+        await service.dispose();
+      }
+    },
+    { grid, expected },
+  );
+  expect(result.results).toHaveLength(16);
+  expect(result.consumed).toBe(expected.length);
+  for (const c of result.results) {
+    expect(c.oracle, JSON.stringify(c)).toBe(true);
+    expect(c.export, JSON.stringify(c)).toBe(true);
+  }
+});
+
+test("pinned software Characters reference exports equal actual Worker frames exactly", async ({
+  page,
+  browser,
+}, info) => {
+  test.skip(
+    !process.env.CHARACTERS_REFERENCE_DIR,
+    "Run explicitly with the pinned reference manifest",
+  );
+  const { readFile } = await import("node:fs/promises");
+  const sharp = (await import("sharp")).default;
+  const directory = resolve(process.env.CHARACTERS_REFERENCE_DIR!);
+  const manifest = JSON.parse(
+    await readFile(resolve(directory, "reference-manifest.json"), "utf8"),
+  ) as {
+    browser: string;
+    sourceSha256: string;
+    backend: { rectangleAlpha: number; renderer: string };
+    cases: {
+      file: string;
+      sha256: string;
+      settings: Record<string, string>;
+      fontSize: number;
+      backdrop: "none" | "blur";
+      scale: 1 | 2 | 3 | 4;
+    }[];
+  };
+  expect(manifest.backend.rectangleAlpha).toBe(38);
+  expect(manifest.backend.renderer).toContain("SwiftShader");
+  expect(manifest.cases).toHaveLength(16);
+  const { createHash } = await import("node:crypto");
+  expect(manifest.browser).toBe(browser.version());
+  expect(manifest.sourceSha256).toBe(
+    createHash("sha256")
+      .update(await readFile(resolve("tests/fixtures/gradient.png")))
+      .digest("hex"),
+  );
+  expect(
+    manifest.cases.map((c) => `${c.fontSize}-${c.backdrop}-${c.scale}`).sort(),
+  ).toEqual(
+    [3, 11, 17, 47]
+      .flatMap((f) =>
+        ["none", "blur"].flatMap((b) => [1, 2].map((s) => `${f}-${b}-${s}`)),
+      )
+      .sort(),
+  );
+  const cases = await Promise.all(
+    manifest.cases.map(async (c) => {
+      expect(c.settings).toMatchObject({
+        bgMode: c.backdrop,
+        fontSize: String(c.fontSize),
+        customChars: "@#S08Xx+=-;:. ",
+        brightness: "0",
+        contrast: "20",
+        charOpacity: "100",
+        coverage: "100",
+        blendMode: "source-over",
+      });
+      if (c.backdrop === "blur")
+        expect(c.settings).toMatchObject({ bgBlur: "8", bgOpacity: "100" });
+      const file = await readFile(resolve(directory, c.file));
+      expect(createHash("sha256").update(file).digest("hex")).toBe(c.sha256);
+      const image = await sharp(file)
+        .ensureAlpha()
+        .raw()
+        .toBuffer({ resolveWithObject: true });
+      expect([
+        image.info.width,
+        image.info.height,
+        image.info.channels,
+      ]).toEqual([128 * c.scale, 64 * c.scale, 4]);
+      expect(image.data.length).toBe(128 * 64 * c.scale * c.scale * 4);
+      return { ...c, rgba: Array.from(image.data) };
+    }),
+  );
+  const sourceRgba = Array.from(
+    await sharp(resolve("tests/fixtures/gradient.png"))
+      .ensureAlpha()
+      .raw()
+      .toBuffer(),
+  );
+  await page.goto(base);
+  const actualBackend = await page.evaluate(() => {
+    const c = document.createElement("canvas");
+    c.width = 128;
+    c.height = 64;
+    const ctx = c.getContext("2d")!;
+    ctx.fillStyle = "white";
+    ctx.fillRect(13.7, 0.5, 5.6, 10);
+    const gl = document
+      .createElement("canvas")
+      .getContext("webgl2", { antialias: false, premultipliedAlpha: true });
+    const ext = gl?.getExtension("WEBGL_debug_renderer_info");
+    return {
+      rectangleAlpha: ctx.getImageData(13, 0, 1, 1).data[3],
+      renderer: ext ? gl!.getParameter(ext.UNMASKED_RENDERER_WEBGL) : null,
+    };
+  });
+  expect(actualBackend).toEqual(manifest.backend);
+  const output = await page.evaluate(
+    async ({ cases, sourceRgba }) => {
+      const serviceUrl = "/src/render/service.ts",
+        calibratorUrl = "/src/render/glyph-calibration.ts",
+        contextUrl = "/src/render/style-context.ts";
+      const { createRenderService } = (await import(
+        /* @vite-ignore */ serviceUrl
+      )) as typeof import("../../../src/render/service");
+      const { createGlyphCalibrator } = (await import(
+        /* @vite-ignore */ calibratorUrl
+      )) as typeof import("../../../src/render/glyph-calibration");
+      const { STYLE_CONTEXT_DEFAULTS } = (await import(
+        /* @vite-ignore */ contextUrl
+      )) as typeof import("../../../src/render/style-context");
+      const service = createRenderService(),
+        calibrator = createGlyphCalibrator();
+      const source = {
+        id: "reference-gradient",
+        revision: 1,
+        width: 128,
+        height: 64,
+      };
+      const results = [];
+      try {
+        await service.setSource({
+          ...source,
+          rgba: new Uint8ClampedArray(sourceRgba),
+        });
+        for (const [index, c] of cases.entries()) {
+          const font = c.fontSize * c.scale;
+          const atlas = await calibrator.calibrateReferenceCharacters({
+            fontFamily: '"Courier New", Courier, monospace',
+            fontSize: font,
+            cellWidth: 0.6 * c.fontSize * c.scale,
+            cellHeight: font,
+            ramp: "@#S08Xx+=-;:. ",
+            fontRevision: "software-reference",
+            fontPolicy: "reference-system-monospace",
+          });
+          await service.setAtlas(atlas);
+          const width = 128 * c.scale,
+            height = 64 * c.scale;
+          const request = {
+            jobId: `reference-p-${index}`,
+            revision: index,
+            sourceId: source.id,
+            sourceRevision: 1,
+            calibrationId: atlas.calibration.id,
+            source,
+            timeUs: 0,
+            settings: {
+              version: 1 as const,
+              frameWidth: width,
+              frameHeight: height,
+              fontSize: c.fontSize,
+              renderScale: c.scale,
+              brightness: 0,
+              contrast: 20,
+              rotation: 0 as const,
+              crop: { x: 0, y: 0, width: 1, height: 1 },
+              backdrop: c.backdrop,
+              styleContext: { ...STYLE_CONTEXT_DEFAULTS, backdrop: c.backdrop },
+            },
+          };
+          const preview = await service.renderCharactersPreview(request);
+          const exported = await service.renderCharactersExport({
+            ...request,
+            jobId: `reference-e-${index}`,
+            outputWidth: width,
+            outputHeight: height,
+          });
+          const length = width * height * 4;
+          if (
+            c.rgba.length !== length ||
+            preview.frame.rgba.length !== length ||
+            exported.frame.rgba.length !== length ||
+            preview.frame.width !== width ||
+            preview.frame.height !== height ||
+            exported.frame.width !== width ||
+            exported.frame.height !== height
+          )
+            throw Error(
+              "Reference/preview/export dimensions or lengths differ",
+            );
+          let differingBytes = 0,
+            alphaErrors = 0,
+            first = -1,
+            previewExportDifferences = 0;
+          for (let i = 0; i < c.rgba.length; i++) {
+            if (preview.frame.rgba[i] !== c.rgba[i]) {
+              differingBytes++;
+              if (first < 0) first = i;
+              if (i % 4 === 3) alphaErrors++;
+            }
+            if (preview.frame.rgba[i] !== exported.frame.rgba[i])
+              previewExportDifferences++;
+          }
+          results.push({
+            file: c.file,
+            differingBytes,
+            alphaErrors,
+            first,
+            actual: first < 0 ? null : preview.frame.rgba[first],
+            expected: first < 0 ? null : c.rgba[first],
+            previewExportDifferences,
+          });
+        }
+        return results;
+      } finally {
+        await service.dispose();
+        calibrator.clearGlyphCalibrationCache();
+      }
+    },
+    { cases, sourceRgba },
+  );
+  await info.attach("software-reference-results.json", {
+    body: JSON.stringify(output, null, 2),
+    contentType: "application/json",
+  });
+  console.log(JSON.stringify(output));
+  for (const c of output) {
+    expect(c.differingBytes, JSON.stringify(c)).toBe(0);
+    expect(c.previewExportDifferences, JSON.stringify(c)).toBe(0);
+  }
 });

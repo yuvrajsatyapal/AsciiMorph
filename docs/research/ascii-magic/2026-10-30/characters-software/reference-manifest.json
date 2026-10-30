@@ -1,0 +1,304 @@
+{
+  "url": "https://www.ascii-magic.com/app",
+  "browser": "156.0.8078.4",
+  "args": [
+    "--use-angle=swiftshader",
+    "--enable-unsafe-swiftshader",
+    "--disable-accelerated-2d-canvas"
+  ],
+  "backend": {
+    "rectangleAlpha": 38,
+    "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)"
+  },
+  "sourceSha256": "f3a9f7aceee9d9b099a8fd4cfb26842c462031657acd3563a891787399fb0eb1",
+  "cases": [
+    {
+      "file": "characters-3-none-1-reference-export.png",
+      "fontSize": 3,
+      "backdrop": "none",
+      "scale": 1,
+      "settings": {
+        "bgMode": "none",
+        "fontSize": "3",
+        "customChars": "@#S08Xx+=-;:. ",
+        "blendMode": "source-over",
+        "charOpacity": "100",
+        "coverage": "100",
+        "brightness": "0",
+        "contrast": "20"
+      },
+      "sha256": "9818f1c0183f82487383b26ad584ffd21249c3e8e03aeed00cb5d53cf7bd18a9"
+    },
+    {
+      "file": "characters-3-none-2-reference-export.png",
+      "fontSize": 3,
+      "backdrop": "none",
+      "scale": 2,
+      "settings": {
+        "bgMode": "none",
+        "fontSize": "3",
+        "customChars": "@#S08Xx+=-;:. ",
+        "blendMode": "source-over",
+        "charOpacity": "100",
+        "coverage": "100",
+        "brightness": "0",
+        "contrast": "20"
+      },
+      "sha256": "b0db45e33f15a6b73160a56309bba7f6c2cdb722009d8cec74856e5d972d03e8"
+    },
+    {
+      "file": "characters-3-blur-1-reference-export.png",
+      "fontSize": 3,
+      "backdrop": "blur",
+      "scale": 1,
+      "settings": {
+        "bgMode": "blur",
+        "bgBlur": "8",
+        "bgOpacity": "100",
+        "fontSize": "3",
+        "customChars": "@#S08Xx+=-;:. ",
+        "blendMode": "source-over",
+        "charOpacity": "100",
+        "coverage": "100",
+        "brightness": "0",
+        "contrast": "20"
+      },
+      "sha256": "48928a17e03dc44c1d2de696920be199d77529a282e9572071ee9c637397b280"
+    },
+    {
+      "file": "characters-3-blur-2-reference-export.png",
+      "fontSize": 3,
+      "backdrop": "blur",
+      "scale": 2,
+      "settings": {
+        "bgMode": "blur",
+        "bgBlur": "8",
+        "bgOpacity": "100",
+        "fontSize": "3",
+        "customChars": "@#S08Xx+=-;:. ",
+        "blendMode": "source-over",
+        "charOpacity": "100",
+        "coverage": "100",
+        "brightness": "0",
+        "contrast": "20"
+      },
+      "sha256": "6e1a72bdaf2465bed903df229b800dbd62822b0f22c50fbb80f7e6607d6c8965"
+    },
+    {
+      "file": "characters-11-none-1-reference-export.png",
+      "fontSize": 11,
+      "backdrop": "none",
+      "scale": 1,
+      "settings": {
+        "bgMode": "none",
+        "fontSize": "11",
+        "customChars": "@#S08Xx+=-;:. ",
+        "blendMode": "source-over",
+        "charOpacity": "100",
+        "coverage": "100",
+        "brightness": "0",
+        "contrast": "20"
+      },
+      "sha256": "05c42ab989ba470fe68d4948c91ab5919dc256d12956d6ecb162a0fa98668631"
+    },
+    {
+      "file": "characters-11-none-2-reference-export.png",
+      "fontSize": 11,
+      "backdrop": "none",
+      "scale": 2,
+      "settings": {
+        "bgMode": "none",
+        "fontSize": "11",
+        "customChars": "@#S08Xx+=-;:. ",
+        "blendMode": "source-over",
+        "charOpacity": "100",
+        "coverage": "100",
+        "brightness": "0",
+        "contrast": "20"
+      },
+      "sha256": "2773fa7daeb6a26cee5595f8f8cff2c4268e4c917b9e4aeb74b55b977e553c56"
+    },
+    {
+      "file": "characters-11-blur-1-reference-export.png",
+      "fontSize": 11,
+      "backdrop": "blur",
+      "scale": 1,
+      "settings": {
+        "bgMode": "blur",
+        "bgBlur": "8",
+        "bgOpacity": "100",
+        "fontSize": "11",
+        "customChars": "@#S08Xx+=-;:. ",
+        "blendMode": "source-over",
+        "charOpacity": "100",
+        "coverage": "100",
+        "brightness": "0",
+        "contrast": "20"
+      },
+      "sha256": "cfd62292ecc0843b020e75e3ae0d4bff67d70f2691cb22686a596256a3dce821"
+    },
+    {
+      "file": "characters-11-blur-2-reference-export.png",
+      "fontSize": 11,
+      "backdrop": "blur",
+      "scale": 2,
+      "settings": {
+        "bgMode": "blur",
+        "bgBlur": "8",
+        "bgOpacity": "100",
+        "fontSize": "11",
+        "customChars": "@#S08Xx+=-;:. ",
+        "blendMode": "source-over",
+        "charOpacity": "100",
+        "coverage": "100",
+        "brightness": "0",
+        "contrast": "20"
+      },
+      "sha256": "2d40646698df199a80ab920a20241e01d0797d2ac1d1c66dc27505fd88e140de"
+    },
+    {
+      "file": "characters-17-none-1-reference-export.png",
+      "fontSize": 17,
+      "backdrop": "none",
+      "scale": 1,
+      "settings": {
+        "bgMode": "none",
+        "fontSize": "17",
+        "customChars": "@#S08Xx+=-;:. ",
+        "blendMode": "source-over",
+        "charOpacity": "100",
+        "coverage": "100",
+        "brightness": "0",
+        "contrast": "20"
+      },
+      "sha256": "88f40d58efa7c512b637179d7fd84aa62a1633bccf3596fd7c2acbf8a406e866"
+    },
+    {
+      "file": "characters-17-none-2-reference-export.png",
+      "fontSize": 17,
+      "backdrop": "none",
+      "scale": 2,
+      "settings": {
+        "bgMode": "none",
+        "fontSize": "17",
+        "customChars": "@#S08Xx+=-;:. ",
+        "blendMode": "source-over",
+        "charOpacity": "100",
+        "coverage": "100",
+        "brightness": "0",
+        "contrast": "20"
+      },
+      "sha256": "667b2fb22bd10486030e85f2e3a0aabf7e015771b0692de1063577a886fe5280"
+    },
+    {
+      "file": "characters-17-blur-1-reference-export.png",
+      "fontSize": 17,
+      "backdrop": "blur",
+      "scale": 1,
+      "settings": {
+        "bgMode": "blur",
+        "bgBlur": "8",
+        "bgOpacity": "100",
+        "fontSize": "17",
+        "customChars": "@#S08Xx+=-;:. ",
+        "blendMode": "source-over",
+        "charOpacity": "100",
+        "coverage": "100",
+        "brightness": "0",
+        "contrast": "20"
+      },
+      "sha256": "64b7ab9532d8078d65b744f0c6497d09d1c34528a4d9fd6a92de8d0b4500cc3b"
+    },
+    {
+      "file": "characters-17-blur-2-reference-export.png",
+      "fontSize": 17,
+      "backdrop": "blur",
+      "scale": 2,
+      "settings": {
+        "bgMode": "blur",
+        "bgBlur": "8",
+        "bgOpacity": "100",
+        "fontSize": "17",
+        "customChars": "@#S08Xx+=-;:. ",
+        "blendMode": "source-over",
+        "charOpacity": "100",
+        "coverage": "100",
+        "brightness": "0",
+        "contrast": "20"
+      },
+      "sha256": "1b67ef6faeb4476df34bc107e9f3a019fcb824f284dffab6510eba178a2161a0"
+    },
+    {
+      "file": "characters-47-none-1-reference-export.png",
+      "fontSize": 47,
+      "backdrop": "none",
+      "scale": 1,
+      "settings": {
+        "bgMode": "none",
+        "fontSize": "47",
+        "customChars": "@#S08Xx+=-;:. ",
+        "blendMode": "source-over",
+        "charOpacity": "100",
+        "coverage": "100",
+        "brightness": "0",
+        "contrast": "20"
+      },
+      "sha256": "dad99c1cc0036fba41522aebdc31d438a7545baa2d57ce5c5926f6a5fc221d12"
+    },
+    {
+      "file": "characters-47-none-2-reference-export.png",
+      "fontSize": 47,
+      "backdrop": "none",
+      "scale": 2,
+      "settings": {
+        "bgMode": "none",
+        "fontSize": "47",
+        "customChars": "@#S08Xx+=-;:. ",
+        "blendMode": "source-over",
+        "charOpacity": "100",
+        "coverage": "100",
+        "brightness": "0",
+        "contrast": "20"
+      },
+      "sha256": "ba581065d1ba8df9a5b4c088589c19e8f67b75fd2b1bc2ab1530c2736ab1544f"
+    },
+    {
+      "file": "characters-47-blur-1-reference-export.png",
+      "fontSize": 47,
+      "backdrop": "blur",
+      "scale": 1,
+      "settings": {
+        "bgMode": "blur",
+        "bgBlur": "8",
+        "bgOpacity": "100",
+        "fontSize": "47",
+        "customChars": "@#S08Xx+=-;:. ",
+        "blendMode": "source-over",
+        "charOpacity": "100",
+        "coverage": "100",
+        "brightness": "0",
+        "contrast": "20"
+      },
+      "sha256": "c7da0c409c50882d1689232a47bd8df27dee2d4ccee5595947eb0e8cb64a35bb"
+    },
+    {
+      "file": "characters-47-blur-2-reference-export.png",
+      "fontSize": 47,
+      "backdrop": "blur",
+      "scale": 2,
+      "settings": {
+        "bgMode": "blur",
+        "bgBlur": "8",
+        "bgOpacity": "100",
+        "fontSize": "47",
+        "customChars": "@#S08Xx+=-;:. ",
+        "blendMode": "source-over",
+        "charOpacity": "100",
+        "coverage": "100",
+        "brightness": "0",
+        "contrast": "20"
+      },
+      "sha256": "d5897ce60747dfeadea17cc5ddf32742d79ac44be7bf69b188e6dc05bfbd14ea"
+    }
+  ]
+}
