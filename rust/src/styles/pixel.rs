@@ -163,6 +163,17 @@ impl TileJob {
     fn paint_start(&self, edge: f64) -> usize {
         edge.floor().max(0.) as usize
     }
+    fn paint_left(&self, edge: f64) -> usize {
+        // RLE edge extrapolation can reach the adjacent column. Mask coverage
+        // remains bounded by the path; zero coverage must preserve prior ink.
+        self.paint_start(
+            edge - if matches!(self.settings.family, Family::Mosaic { .. }) {
+                1.
+            } else {
+                0.
+            },
+        )
+    }
     fn advance(&mut self) {
         let pitch_x = 3. * self.settings.font_size as f64 * self.settings.scale as f64 / 5.;
         let pitch_y = self.settings.font_size as f64 * self.settings.scale as f64;
@@ -219,14 +230,19 @@ impl TileJob {
             self.color = [0; 4];
         }
         let b = self.paint_bounds();
-        self.paint_x = self.paint_start(b[0]);
+        self.paint_x = self.paint_left(b[0]);
         self.paint_y = self.paint_start(b[1]);
         self.sampler = None;
         self.painting = true;
     }
     fn paint_one(&mut self) {
         let b = self.paint_bounds();
-        let x_end = b[2].ceil().min(self.settings.width as f64) as usize;
+        let outset = if matches!(self.settings.family, Family::Mosaic { .. }) {
+            1.
+        } else {
+            0.
+        };
+        let x_end = (b[2].ceil() + outset).min(self.settings.width as f64) as usize;
         let y_end = b[3].ceil().min(self.settings.height as f64) as usize;
         if self.paint_x >= x_end || self.paint_y >= y_end {
             self.painting = false;
@@ -255,10 +271,12 @@ impl TileJob {
                 color = [0; 4];
             }
         }
-        self.composer.layer_mut()[i..i + 4].copy_from_slice(&color);
+        if color[3] != 0 {
+            self.composer.layer_mut()[i..i + 4].copy_from_slice(&color);
+        }
         self.paint_x += 1;
         if self.paint_x >= x_end {
-            self.paint_x = self.paint_start(b[0]);
+            self.paint_x = self.paint_left(b[0]);
             self.paint_y += 1;
         }
     }
@@ -463,6 +481,17 @@ mod parity_tests {
         });
         while j.step(src, None, work).unwrap() == JobStatus::Pending {}
         j.take_frame().unwrap().rgba
+    }
+
+    #[test]
+    fn mosaic_paints_canvas_rle_drift_outside_nominal_path_bounds() {
+        let src = source(86, 43, [255, 255, 255, 255].repeat(86 * 43));
+        let mut s = settings(Family::Mosaic { shape: 1 }, 258, 129, 3);
+        s.font_size = 11;
+        for work in [1, 4096] {
+            let out = render_transparent(&src, s.clone(), work);
+            assert_eq!(pixel(&out, 258, 0, 7), [255, 255, 255, 7]);
+        }
     }
 
     #[test]

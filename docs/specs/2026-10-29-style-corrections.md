@@ -19,3 +19,10 @@ Characters and Dither require separate investigations and written numerical find
 Independent Chromium white-mask captures reproduce 1,666 differing square-tile alpha pixels. The first is (1,1): geometric integration162 versus Canvas170. Skia converts circular conics to quadratic splines at tolerance0.25, subdivides those into fixed-point edges, snaps Y to quarters and curved X to sixteenths, and accumulates byte trapezoid coverage. Smooth edge transitions can extrapolate to the next integer scanline. True circle integration therefore cannot reproduce the observed mask.
 
 Implementation plan: first freeze square/wide/tall128×64 browser masks and demonstrate RED; replace geometric integration with a bounded native rounded-path scan converter using the above rules; require exact masks before checking the real gradient export; rebuild WASM and run preview/download equality checks. Preserve sparse sampling, tone, cooperative work limits, memory admission and cancellation. Attribute any Skia-derived arithmetic. Do not change acceptance thresholds. Continue Characters only after Mosaic's lossless comparison passes.
+
+
+## Mosaic scaled coverage closure, 30 October
+
+The 72-case Canvas alpha oracle now matches exactly after pre-snap slope preservation, original-bounds mask selection, clipped-path extrema normalization, conic Y monotonicity, and run-based clip/paint bounds corrections. Full-mask and production drift regressions were observed failing before fixes. Canonical Pixel/Mosaic lossless RGBA and all four existing preview/download pairs remain exact. Evidence and repeat commands: `docs/research/ascii-magic/2026-10-30/mosaic-scaled/README.md`.
+
+Next phase remains Characters: capture a fresh same-input reference PNG; isolate glyph layer versus backdrop errors; add failing regressions for observed differences; fix and repeat lossless, preview/export, scale and clipping checks. Investigate the historical character blur helper against the already verified shared Canvas blur. Do not change glyph selection or sampling to compensate for backdrop differences. Dither and subsequent workflows follow only after this gate.

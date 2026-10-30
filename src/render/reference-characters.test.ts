@@ -532,6 +532,18 @@ describe("exact complete Characters project adapter", () => {
         brightness: 0,
         contrast: 20,
         backdrop: "blur",
+        styleContext: {
+          version: 1,
+          backdrop: "blur",
+          softness: 8,
+          backgroundOpacity: 100,
+          blend: "source-over",
+          opacity: 100,
+          coverage: 100,
+          invert: false,
+          random: false,
+          seed: 0,
+        },
       },
       context: { version: 1, defaultsVersion: 1, bgBlur: 8, bgOpacity: 100 },
     });

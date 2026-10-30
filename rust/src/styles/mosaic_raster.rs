@@ -17,6 +17,7 @@ struct Segment {
     dy: i64,
     smooth: bool,
     remaining: bool,
+    next_edge_y: i64,
 }
 fn mul(a: i64, b: i64) -> i64 {
     (a * b) >> 16
@@ -42,11 +43,14 @@ fn div(a: i64, b: i64) -> i64 {
     }
 }
 fn segment(x: i64, y: i64, nx: i64, ny: i64) -> Option<Segment> {
+    segment_with_slope(x, y, nx, ny, None)
+}
+fn segment_with_slope(x: i64, y: i64, nx: i64, ny: i64, slope: Option<i64>) -> Option<Segment> {
     let (dx, dy) = ((nx - x) >> 10, (ny - y) >> 10);
     if dy == 0 {
         return None;
     }
-    let slope = div(dx, dy);
+    let slope = slope.unwrap_or_else(|| div(dx, dy));
     let a = (slope >> 10).abs();
     Some(Segment {
         x,
@@ -62,6 +66,7 @@ fn segment(x: i64, y: i64, nx: i64, ny: i64) -> Option<Segment> {
         },
         smooth: false,
         remaining: false,
+        next_edge_y: i64::MAX,
     })
 }
 #[derive(Clone, Copy, Default)]
@@ -117,6 +122,7 @@ impl Quadratic {
     fn next(&mut self) -> Option<Segment> {
         while self.count > 0 {
             self.count -= 1;
+            let mut slope = None;
             let (nx, ny, sx, sy) = if self.count == 0 {
                 (self.last_x, self.last_y, self.last_x, self.last_y)
             } else {
@@ -126,13 +132,16 @@ impl Quadratic {
                     && (self.dy.abs() << 6) > self.dx.abs()
                 {
                     let dy = (ny - self.sy) >> 10;
-                    let slope = if dy == 0 {
+                    let original_slope = if dy == 0 {
                         0
                     } else {
                         div((nx - self.sx) >> 10, dy)
                     };
+                    // Skia carries the pre-snap slope into updateLine; deriving
+                    // it again from the snapped endpoint changes corner bytes.
+                    slope = Some(original_slope);
                     let sy = ((ny + 32768) & !65535).min(self.last_y);
-                    (nx - mul(slope, ny - sy), sy)
+                    (nx - mul(original_slope, ny - sy), sy)
                 } else {
                     (nx, snap_y(ny).min(self.last_y))
                 };
@@ -140,7 +149,7 @@ impl Quadratic {
                 self.dy += self.ddy;
                 (nx, ny, sx, sy)
             };
-            let mut s = segment(self.sx, self.sy, sx, sy);
+            let mut s = segment_with_slope(self.sx, self.sy, sx, sy, slope);
             self.x = nx;
             self.y = ny;
             if let Some(s) = s.as_mut() {
@@ -168,6 +177,7 @@ struct Side {
     index: usize,
     quad: Quadratic,
     clip: [f32; 2],
+    clipped: bool,
 }
 impl Side {
     fn new(
@@ -185,6 +195,7 @@ impl Side {
             index: 0,
             quad: Quadratic::default(),
             clip,
+            clipped: left < 0. || top < 0. || right > clip[0] || bottom > clip[1],
         };
         let x = if is_left { left } else { right };
         let inner = if is_left { left + r } else { right - r };
@@ -207,7 +218,47 @@ impl Side {
         self.curves[self.len] = c;
         self.len += 1;
     }
-    fn push(&mut self, mut c: Curve) {
+    fn push(&mut self, c: Curve) {
+        if !c.line && self.clipped {
+            self.chop_extrema(c.p, 1);
+        } else {
+            self.push_monotonic(c);
+        }
+    }
+    // The clipping edge builder normalizes extrema before clipping even when
+    // only a distant corner of the overall path intersects the clip.
+    fn chop_extrema(&mut self, mut p: [Point; 3], axis: usize) {
+        let [a, b, c] = p.map(|p| p[axis]);
+        if b < a.min(c) || b > a.max(c) {
+            let t = (a - b) / (a - b - b + c);
+            if t > 0. && t < 1. {
+                let (mut first, mut second) = split(p, t);
+                first[1][axis] = first[2][axis];
+                second[1][axis] = second[0][axis];
+                if axis == 1 {
+                    self.chop_extrema(first, 0);
+                    self.chop_extrema(second, 0);
+                } else {
+                    self.push_monotonic(Curve {
+                        p: first,
+                        line: false,
+                    });
+                    self.push_monotonic(Curve {
+                        p: second,
+                        line: false,
+                    });
+                }
+                return;
+            }
+            p[1][axis] = if (a - b).abs() < (b - c).abs() { a } else { c };
+        }
+        if axis == 1 {
+            self.chop_extrema(p, 0);
+        } else {
+            self.push_monotonic(Curve { p, line: false });
+        }
+    }
+    fn push_monotonic(&mut self, mut c: Curve) {
         let bottom = self.clip[1];
         let right = self.clip[0];
         if c.p[0][1] >= bottom || c.p[2][1] <= 0. {
@@ -287,25 +338,47 @@ impl Side {
         // Chromium's conic subdivision multiplies the control point by its
         // weight before adding the endpoints. Preserve that float operation order.
         let weighted = p[1].map(|v| v * w);
-        let p1 = [
+        let mut p1 = [
             (p[0][0] + weighted[0]) * scale,
             (p[0][1] + weighted[1]) * scale,
         ];
-        let p3 = [
+        let mut p3 = [
             (weighted[0] + p[2][0]) * scale,
             (weighted[1] + p[2][1]) * scale,
         ];
-        let mid = [
+        let mut mid = [
             (p[0][0] + 2. * weighted[0] + p[2][0]) * scale * 0.5,
             (p[0][1] + 2. * weighted[1] + p[2][1]) * scale * 0.5,
         ];
+        // Preserve SkConic subdivision Y monotonicity before extrema chopping.
+        let between = |a: f32, b: f32, c: f32| b >= a.min(c) && b <= a.max(c);
+        if between(p[0][1], p[1][1], p[2][1]) {
+            if !between(p[0][1], mid[1], p[2][1]) {
+                mid[1] = if (mid[1] - p[0][1]).abs() < (mid[1] - p[2][1]).abs() {
+                    p[0][1]
+                } else {
+                    p[2][1]
+                };
+            }
+            if !between(p[0][1], p1[1], mid[1]) {
+                p1[1] = p[0][1];
+            }
+            if !between(mid[1], p3[1], p[2][1]) {
+                p3[1] = p[2][1];
+            }
+        }
         let w = (0.5 + 0.5 * w).sqrt();
         self.conic([p[0], p1, mid], w, depth - 1);
         self.conic([mid, p3, p[2]], w, depth - 1);
     }
     fn next(&mut self) -> Option<Segment> {
         loop {
-            if let Some(s) = self.quad.next() {
+            if let Some(mut s) = self.quad.next() {
+                s.next_edge_y = self
+                    .curves
+                    .get(self.index)
+                    .filter(|_| self.index < self.len)
+                    .map_or(i64::MAX, |c| snap_y((c.p[0][1] * 256.) as i64 * 256));
                 return Some(s);
             }
             if self.index == self.len {
@@ -315,7 +388,12 @@ impl Side {
             self.index += 1;
             if c.line {
                 let [a, b, _] = c.p.map(|p| p.map(|v| (v * 256.) as i64 * 256));
-                if let Some(s) = segment(a[0], snap_y(a[1]), b[0], snap_y(b[1])) {
+                if let Some(mut s) = segment(a[0], snap_y(a[1]), b[0], snap_y(b[1])) {
+                    s.next_edge_y = self
+                        .curves
+                        .get(self.index)
+                        .filter(|_| self.index < self.len)
+                        .map_or(i64::MAX, |c| snap_y((c.p[0][1] * 256.) as i64 * 256));
                     return Some(s);
                 }
             } else {
@@ -396,8 +474,8 @@ fn excluded(l: i64, r: i64, dy: i64, full: u8, column: i64, above: bool) -> u8 {
         ((mul(last, dy) + (dy >> 1) + (len - 2 - i) * dy) >> 8) as u8
     }
 }
-fn direct_two(a: u8, full: u8, mask: bool) -> u8 {
-    if !mask && full == 255 && a > 0 && a < 128 {
+fn direct_two(a: u8, full: u8, generic_blit: bool) -> u8 {
+    if !generic_blit && full == 255 && a > 0 && a < 128 {
         a - 1
     } else {
         a
@@ -412,8 +490,20 @@ fn trap(
     rdy: i64,
     full: u8,
     column: i64,
-    mask: bool,
+    generic_blit: bool,
 ) -> (u8, bool) {
+    if ul > ur {
+        return (0, false);
+    }
+    let (ll, lr) = if ll > lr {
+        let intersection = (ul.min(ll).max(ur.min(lr)) + ul.max(ll).min(ur.max(lr))) / 2;
+        (intersection, intersection)
+    } else {
+        (ll, lr)
+    };
+    if ul == ur && ll == lr {
+        return (0, false);
+    }
     let (ul, ll) = (ul.min(ll), ul.max(ll));
     let (ur, lr) = (ur.min(lr), ur.max(lr));
     let jl = ceil(ll);
@@ -448,7 +538,7 @@ fn trap(
                             0
                         },
                         full,
-                        mask,
+                        generic_blit,
                     ),
                     full != 255,
                 );
@@ -480,7 +570,7 @@ fn trap(
                             0
                         },
                         full,
-                        mask,
+                        generic_blit,
                     ),
                     full != 255,
                 );
@@ -555,17 +645,30 @@ pub(super) fn coverage(bounds: [f64; 4], radius: f64, x: usize, y: usize, clip: 
     let column = x as i64;
     let mut alpha = 0u8;
     let mut queued = false;
-    let width = (r.ceil().min(clip[0] as f32) - l.floor().max(0.)).max(0.) as usize;
-    let height = (b.ceil().min(clip[1] as f32) - t.floor().max(0.)).max(0.) as usize;
+    let mut carried_left = None;
+    let mut carried_right = None;
+    // Mask storage is selected from the original path bounds, before clipping.
+    let width = (r.ceil() - l.floor()).max(0.) as usize;
+    let height = (b.ceil() - t.floor()).max(0.) as usize;
     let using_mask = width <= 32 && ((width + 3) & !3) * height <= 1024;
-    let left_bound = (l.floor() as i64) * ONE;
-    let right_bound = (r.ceil() as i64) * ONE;
+    // Run-based edges may drift beyond the path box, but never the clip.
+    let left_bound = if using_mask {
+        (l.floor().max(0.) as i64) * ONE
+    } else {
+        0
+    };
+    let right_bound = if using_mask {
+        (r.ceil().min(clip[0] as f32) as i64) * ONE
+    } else {
+        clip[0] as i64 * ONE
+    };
     while scan < (target + 1) * ONE {
         while ls.end <= scan {
             let Some(next) = ln else {
                 return finish(alpha, queued && !using_mask);
             };
             ls = next;
+            carried_left = None;
             ln = left.next();
         }
         while rs.end <= scan {
@@ -573,6 +676,7 @@ pub(super) fn coverage(bounds: [f64; 4], radius: f64, x: usize, y: usize, clip: 
                 return finish(alpha, queued && !using_mask);
             };
             rs = next;
+            carried_right = None;
             rn = right.next();
         }
         let smooth = |s: Segment, n: Option<Segment>| {
@@ -583,12 +687,26 @@ pub(super) fn coverage(bounds: [f64; 4], radius: f64, x: usize, y: usize, clip: 
             }
         };
         let mut end = ls.end.min(rs.end);
-        if smooth(ls, ln) && smooth(rs, rn) {
+        let stop = (b.ceil() as i64).min(clip[1] as i64) * ONE;
+        let smooth_jump = if ls.next_edge_y.min(rs.next_edge_y) >= stop {
+            false
+        } else if ls.end + ONE < rs.end {
+            smooth(ls, ln)
+        } else if rs.end + ONE < ls.end {
+            smooth(rs, rn)
+        } else {
+            ls.next_edge_y.max(rs.next_edge_y) < stop && smooth(ls, ln) && smooth(rs, rn)
+        };
+        if smooth_jump {
             end = ceil(end)
         }
         end = end.min((b.ceil() as i64).min(clip[1] as i64) * ONE);
-        let mut lx = ls.x + mul(ls.dx, scan - ls.y);
-        let mut rx = rs.x + mul(rs.dx, scan - rs.y);
+        let mut lx = carried_left
+            .unwrap_or_else(|| ls.x + mul(ls.dx, scan - ls.y))
+            .max(left_bound);
+        let mut rx = carried_right
+            .unwrap_or_else(|| rs.x + mul(rs.dx, scan - rs.y))
+            .min(right_bound);
         while scan < end {
             let next = ceil(scan + 1).min(end);
             let height = next - scan;
@@ -608,7 +726,9 @@ pub(super) fn coverage(bounds: [f64; 4], radius: f64, x: usize, y: usize, clip: 
                         rs.dy,
                         full_alpha(height),
                         column,
-                        using_mask,
+                        // Horizontal clip wrappers dispatch pairs through the
+                        // general blitter, bypassing its direct-pair interpolation.
+                        using_mask || l < 0. || r > clip[0] as f32,
                     )
                 };
                 alpha = alpha.saturating_add(a);
@@ -618,6 +738,8 @@ pub(super) fn coverage(bounds: [f64; 4], radius: f64, x: usize, y: usize, clip: 
             lx = nx;
             rx = nr;
         }
+        carried_left = Some(lx);
+        carried_right = Some(rx);
     }
     finish(alpha, queued && !using_mask)
 }

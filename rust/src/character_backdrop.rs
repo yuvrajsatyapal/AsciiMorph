@@ -53,6 +53,7 @@ pub struct CompleteCharactersJob {
     cursor: usize,
     pass: usize,
     sum: [f64; 4],
+    canvas_blur: Option<Box<crate::canvas_blur::CanvasBlur>>,
     capacity_excess_bytes: usize,
 }
 impl CompleteCharactersJob {
@@ -138,11 +139,16 @@ impl CompleteCharactersJob {
             cursor: 0,
             pass: 0,
             sum: [0.; 4],
+            canvas_blur: None,
             capacity_excess_bytes: excess,
         })
     }
+    pub(crate) fn context_storage_bytes() -> usize {
+        std::mem::size_of::<crate::canvas_blur::CanvasBlur>()
+    }
     pub(crate) fn configure_context(&mut self, c: crate::style_context::StyleContext) {
         self.context = Some(c);
+        self.canvas_blur = Some(Box::new(crate::canvas_blur::CanvasBlur::new(c.softness)));
         if let Some(g) = self.glyph.as_mut() {
             g.configure_context(c);
         }
@@ -151,7 +157,10 @@ impl CompleteCharactersJob {
         self.capacity_excess_bytes
     }
     pub fn storage_bytes(&self) -> usize {
-        self.a.capacity() * 16
+        self.canvas_blur
+            .as_ref()
+            .map_or(0, |_| Self::context_storage_bytes())
+            + self.a.capacity() * 16
             + self.b.capacity() * 16
             + self.glyph.as_ref().map_or(0, |g| g.storage_bytes())
             + self
@@ -172,6 +181,7 @@ impl CompleteCharactersJob {
     }
     pub fn cancel(&mut self) {
         self.phase = Phase::Cancelled;
+        self.canvas_blur = None;
         self.glyph = None;
         self.layer = None;
         self.frame = None;
@@ -259,23 +269,34 @@ impl CompleteCharactersJob {
         );
     }
     fn blur_pixel(&mut self) {
-        blur_pixel_radius_into(
-            &mut self.a,
-            &mut self.b,
-            self.settings.frame_width as usize,
-            self.settings.frame_height as usize,
-            self.settings.render_scale,
-            self.context.map_or(8., |c| c.softness),
-            self.pass,
-            self.cursor,
-            &mut self.sum,
-        );
+        if self.context.is_some() {
+            self.canvas_blur.as_ref().unwrap().pixel(
+                &self.a,
+                &mut self.b,
+                self.settings.frame_width as usize,
+                self.settings.frame_height as usize,
+                self.pass,
+                self.cursor,
+            );
+        } else {
+            blur_pixel_radius_into(
+                &mut self.a,
+                &mut self.b,
+                self.settings.frame_width as usize,
+                self.settings.frame_height as usize,
+                self.settings.render_scale,
+                self.context.map_or(8., |c| c.softness),
+                self.pass,
+                self.cursor,
+                &mut self.sum,
+            );
+        }
         self.cursor += 1;
         if self.cursor == self.a.len() {
             std::mem::swap(&mut self.a, &mut self.b);
             self.cursor = 0;
             self.pass += 1;
-            if self.pass == 6 {
+            if self.pass == if self.context.is_some() { 2 } else { 6 } {
                 self.b = Vec::new();
                 self.phase = Phase::Composite;
             }
@@ -427,6 +448,51 @@ fn layer_bytes(rgba: &Vec<u8>, grid: &Option<GlyphGrid>) -> usize {
 mod tests {
     use super::*;
     use crate::character::Crop;
+    #[test]
+    fn context_backdrop_matches_full_independent_canvas_gradient() {
+        let mut pixels = Vec::new();
+        for y in 0..64u8 {
+            for x in 0..128u8 {
+                pixels.extend([2 * x, 4 * y, 255 - 2 * x, if x < 13 { 0 } else { 255 }]);
+            }
+        }
+        let src = SourceImage::new(128, 64, pixels, MAX_SOURCE_BYTES).unwrap();
+        let atlas = ReferenceAtlas::new(2, 1, 1, vec![0, 0], 0., 0., 65535).unwrap();
+        let settings = ReferenceCharactersSettings {
+            version: 1,
+            frame_width: 128,
+            frame_height: 64,
+            font_size: 80.,
+            render_scale: 1,
+            brightness: 0.,
+            contrast: 0.,
+            crop: Crop {
+                x: 0.,
+                y: 0.,
+                width: 1.,
+                height: 1.,
+            },
+            rotation: 0,
+            backdrop: ReferenceBackdrop::Blur,
+        };
+        let expected =
+            include_bytes!("../../tests/fixtures/render/backdrop/canvas-gradient-blur8.rgba");
+        for work in [1, 4096] {
+            let mut job = CompleteCharactersJob::new(&src, settings.clone(), &atlas, 0).unwrap();
+            job.configure_context(crate::style_context::StyleContext::default());
+            while job.step(&src, &atlas, work).unwrap() == JobStatus::Pending {}
+            let out = job.take_frame().unwrap().rgba;
+            let first = out.iter().zip(expected).position(|(a, b)| a != b);
+            assert!(
+                first.is_none(),
+                "first byte mismatch {:?}",
+                first.map(|i| (i, out[i], expected[i]))
+            );
+            job.cancel();
+            assert_eq!(job.storage_bytes(), 0);
+        }
+    }
+
     fn resized(
         source: &SourceImage,
         scale: u8,

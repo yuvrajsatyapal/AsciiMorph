@@ -3,6 +3,7 @@
  */
 import {
   contextFromParameters,
+  STYLE_CONTEXT_DEFAULTS,
   validateStyleContext,
   type StyleContextV1,
 } from "./style-context";
@@ -459,15 +460,10 @@ export function prepareCharactersProject(
       crop: { ...crop },
       rotation: p.rotation,
       backdrop: "blur",
-      ...(contextFromParameters(p.style.parameters, p.seed, true)
-        ? {
-            styleContext: contextFromParameters(
-              p.style.parameters,
-              p.seed,
-              true,
-            ),
-          }
-        : {}),
+      // Captured projects use current Canvas composition even at default controls.
+      styleContext: contextFromParameters(p.style.parameters, p.seed, true) ?? {
+        ...STYLE_CONTEXT_DEFAULTS,
+      },
     },
     source,
     resources.memoryBudgetBytes,

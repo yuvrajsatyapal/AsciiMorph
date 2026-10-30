@@ -493,7 +493,13 @@ impl RenderSession {
                 output_len(cols * rows)
             };
         let other = self.admission_bytes() - source.storage_bytes() - calibration.masks.capacity();
-        let peak = CompleteCharactersJob::estimated_peak_bytes(source, &settings, &atlas, other)?;
+        let peak = CompleteCharactersJob::estimated_peak_bytes(source, &settings, &atlas, other)?
+            .checked_add(if context.is_some() {
+                CompleteCharactersJob::context_storage_bytes()
+            } else {
+                0
+            })
+            .ok_or(RenderError::BudgetExceeded)?;
         if peak > self.budget {
             return Err(RenderError::BudgetExceeded);
         }

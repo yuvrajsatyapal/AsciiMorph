@@ -25,8 +25,9 @@ fn main() {
     if b[0]>b[2]{b.swap(0,2)} if b[1]>b[3]{b.swap(1,3)}
     let radius=0.2*(full[2]-full[0]).min(full[3]-full[1]);
     for y in b[1].floor().max(0.) as usize..(b[3].ceil() as usize).min(128) {
-     for x in b[0].floor().max(0.) as usize..(b[2].ceil() as usize).min(256) {
-      alpha[y*256+x]=(255.*raster::coverage(b,radius,x,y,[256,128])).round() as u8;
+     for x in (b[0].floor()-1.).max(0.) as usize..((b[2].ceil()+1.) as usize).min(256) {
+      let a=(255.*raster::coverage(b,radius,x,y,[256,128])).round() as u8;
+      if a>0 {alpha[y*256+x]=a;}
      }
     }
    }
@@ -88,6 +89,11 @@ try {
         }
     return captures;
   });
+  if (process.argv[3])
+    await writeFile(
+      resolve(process.argv[3]),
+      Buffer.concat(captures.map((c) => Buffer.from(c.alpha))),
+    );
   const results = captures.map(({ alpha, ...settings }, caseIndex) => {
     let differingPixels = 0,
       maxAlphaError = 0,
@@ -113,7 +119,7 @@ try {
     width: 256,
     height: 128,
     method:
-      "White Canvas roundRect masks versus native coverage at the family paint bounds",
+      "White Canvas roundRect masks versus native coverage including adjacent-column RLE drift",
     cases: results,
   };
   if (process.argv[2])

@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "styleId": "pixel",
+  "frameWidth": 128,
+  "frameHeight": 64,
+  "renderScale": 1,
+  "crop": {
+    "x": 0,
+    "y": 0,
+    "width": 1,
+    "height": 1
+  },
+  "rotation": 0,
+  "seed": 0,
+  "timeUs": 0,
+  "parameters": {
+    "fontSize": 11,
+    "brightness": 0,
+    "contrast": 20,
+    "invert": false,
+    "charOpacity": 100
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "method": "Unflattened lossless RGBA; full frame",
+  "styles": {
+    "pixel": {
+      "width": 128,
+      "height": 64,
+      "rgbMAE": 0,
+      "maxRGBError": 0,
+      "maxAlphaError": 0,
+      "differingPixels": 0,
+      "exact": true,
+      "referenceSha256": "0e1155952db5c70ac9c5cf1bed2d214995f02d8646a79177233786b7c8218773",
+      "localSha256": "9cb8de12f3b77802893c241ac631c9a1b460f2c953ce3f191e05546e0aea93d7"
+    },
+    "mosaic": {
+      "width": 128,
+      "height": 64,
+      "rgbMAE": 0,
+      "maxRGBError": 0,
+      "maxAlphaError": 0,
+      "differingPixels": 0,
+      "exact": true,
+      "referenceSha256": "ba4520dba25e8d840c4fa0a80950df665648e0bf0f262463024591e47adb65f1",
+      "localSha256": "389016157c2fdf1397be5c5c8f84b75c9396eeaad298853c94f3732ea82755b8"
+    }
+  }
+}

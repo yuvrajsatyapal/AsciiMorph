@@ -124,6 +124,90 @@ mod tests {
     use super::rounded_coverage;
 
     #[test]
+    fn scaled_wide_corner_matches_canvas() {
+        assert_eq!(
+            (255. * rounded_coverage([1., 1., 38.6, 32.], 6.6, 37, 3, [256, 128])).round() as u8,
+            17
+        );
+    }
+
+    #[test]
+    fn clipped_tiles_use_canvas_clipping_blitter() {
+        assert_eq!(
+            (255. * rounded_coverage([241., 1., 287., 79.], 9.6, 245, 2, [256, 128])).round() as u8,
+            80
+        );
+    }
+
+    #[test]
+    fn scaled_tiles_match_all_independent_canvas_masks() {
+        let expected =
+            include_bytes!("../../../tests/fixtures/render/styles/mosaic-scaled-canvas.alpha");
+        let mut case = 0;
+        let mut failures = vec![];
+        for font in [3., 4., 5., 11., 40., 80.] {
+            for scale in [1., 2., 3., 4.] {
+                for (mx, my) in [(1, 1), (2, 1), (1, 2)] {
+                    let (px, py) = (3. * font * scale / 5., font * scale);
+                    let mut actual = vec![0u8; 256 * 128];
+                    for row in (0..(128_f64 / py).ceil() as usize).step_by(my) {
+                        for col in (0..(256_f64 / px).ceil() as usize).step_by(mx) {
+                            let full = [
+                                col as f64 * px,
+                                row as f64 * py,
+                                (col + mx) as f64 * px,
+                                (row + my) as f64 * py,
+                            ];
+                            let mut b = [full[0] + 1., full[1] + 1., full[2] - 1., full[3] - 1.];
+                            if b[0] > b[2] {
+                                b.swap(0, 2);
+                            }
+                            if b[1] > b[3] {
+                                b.swap(1, 3);
+                            }
+                            let radius = 0.2 * (full[2] - full[0]).min(full[3] - full[1]);
+                            for y in (b[1].floor() - 1.).max(0.) as usize
+                                ..(b[3].ceil() as usize + 1).min(128)
+                            {
+                                for x in (b[0].floor() - 1.).max(0.) as usize
+                                    ..(b[2].ceil() as usize + 1).min(256)
+                                {
+                                    let a = (255. * rounded_coverage(b, radius, x, y, [256, 128]))
+                                        .round() as u8;
+                                    actual[y * 256 + x] = a.saturating_add(
+                                        ((actual[y * 256 + x] as u32 * (255 - a) as u32 + 127)
+                                            / 255) as u8,
+                                    );
+                                }
+                            }
+                        }
+                    }
+                    let oracle = &expected[case * 256 * 128..(case + 1) * 256 * 128];
+                    if let Some(i) = actual.iter().zip(oracle).position(|(a, b)| a != b) {
+                        failures.push((
+                            font,
+                            scale,
+                            mx,
+                            my,
+                            i % 256,
+                            i / 256,
+                            actual[i],
+                            oracle[i],
+                        ));
+                    }
+                    case += 1;
+                }
+            }
+        }
+        assert_eq!(case, 72);
+        assert!(
+            failures.is_empty(),
+            "{} cases differ: {failures:?}",
+            failures.len()
+        );
+    }
+
+    #[test]
     fn large_tiles_match_canvas_rle_and_direct_pair_blitters() {
         let b = [1., 1., 38.6, 32.];
         assert_eq!(

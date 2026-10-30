@@ -152,7 +152,13 @@ test("same-input captures use accepted current-style frames and identical PNG ex
                   },
           }),
     });
-    expect(accepted.settings).not.toHaveProperty("styleContext");
+    if (styleId === "characters") {
+      expect(accepted.settings.styleContext).toMatchObject({
+        backdrop: "blur",
+        softness: 8,
+        blend: "source-over",
+      });
+    } else expect(accepted.settings).not.toHaveProperty("styleContext");
     if (styleId === "pixel" || styleId === "mosaic") {
       // Real reference export captured at these exact controls and 1x on 30 Oct.
       const reference = await sharp(

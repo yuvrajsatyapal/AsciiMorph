@@ -542,8 +542,10 @@ impl ReferenceCharactersJob {
 
     fn probe(&mut self, source: &SourceImage) {
         let p = self.pixel(source, self.probe_x, self.probe_y);
-        if p[3] > 0 {
-            let l = luma(p);
+        if p[3] > 0 || self.context.is_some() {
+            // Canvas image-data readback normalizes fully transparent RGB to
+            // black, and these probes still participate in the captured range.
+            let l = if p[3] == 0 { 0. } else { luma(p) };
             self.min = self.min.min(l);
             self.max = self.max.max(l);
         }
@@ -690,4 +692,48 @@ fn filled<T: Clone>(length: usize, value: T) -> Result<Vec<T>, RenderError> {
         .map_err(|_| RenderError::BudgetExceeded)?;
     values.resize(length, value);
     Ok(values)
+}
+
+#[cfg(test)]
+mod context_parity_tests {
+    use super::*;
+    #[test]
+    fn transparent_browser_pixels_participate_as_black_in_context_range() {
+        let mut pixels = Vec::new();
+        for _ in 0..3 {
+            for x in 0..6 {
+                pixels.extend(if x < 2 {
+                    [255, 255, 255, 0]
+                } else if x < 4 {
+                    [100, 100, 100, 255]
+                } else {
+                    [200, 200, 200, 255]
+                });
+            }
+        }
+        let src = SourceImage::new(6, 3, pixels, MAX_SOURCE_BYTES).unwrap();
+        let atlas = ReferenceAtlas::new(3, 1, 1, vec![255, 128, 0], 0., 0., 65535).unwrap();
+        let s = ReferenceCharactersSettings {
+            version: 1,
+            frame_width: 6,
+            frame_height: 3,
+            font_size: 3.,
+            render_scale: 1,
+            brightness: 0.,
+            contrast: 0.,
+            rotation: 0,
+            backdrop: ReferenceBackdrop::None,
+            crop: crate::character::Crop {
+                x: 0.,
+                y: 0.,
+                width: 1.,
+                height: 1.,
+            },
+        };
+        let mut job = ReferenceCharactersJob::new(&src, s, &atlas, 0).unwrap();
+        job.configure_context(crate::style_context::StyleContext::default());
+        while job.step(&src, &atlas, 1).unwrap() == JobStatus::Pending {}
+        let grid = job.take_glyph_layer().unwrap().grid.unwrap();
+        assert_eq!(grid.glyph_indices, [65535, 1, 0]);
+    }
 }
