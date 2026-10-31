@@ -1,0 +1,287 @@
+   Compiling asciimorph_engine v0.1.0 (/Users/yuvrajsatyapal/Desktop/Projects/AsciiMorph/rust)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.64s
+     Running unittests src/lib.rs (rust/target/debug/deps/asciimorph_engine-f3e883f16f20c99b)
+
+running 83 tests
+test character_backdrop::tests::source_over_partial_alpha_and_canonical_byte_zero ... ok
+test character_backdrop::tests::context_resize_retains_canvas_rounded_partial_alpha_ink ... ok
+test character_backdrop::tests::bilinear_s4_pixel_centers_have_independent_premultiplied_weights ... ok
+test character_backdrop::tests::s1_centers_and_quarter_turns_share_glyph_crop_geometry ... ok
+test character_backdrop::tests::premultiplied_kernel_retains_exact_independent_impulse_coefficients_before_quantization ... ok
+test reference_characters::context_parity_tests::transparent_browser_pixels_participate_as_black_in_context_range ... ok
+test reference_characters::webgl_parity_tests::complete_context_grid_placement_clipping_and_overlap_equal_webgl ... ok
+test reference_characters::webgl_parity_tests::sampler_normalization_matches_independent_rgba32f_readback ... ok
+test session::retention_tests::counts_unique_capacities_and_ownership_metadata_without_arc_multiplication ... ok
+test session::retention_tests::replacement_and_second_profile_preserve_all_old_future_reservations ... ok
+test session::style_tests::extended_context_reservation_cannot_borrow_future_scratch ... ok
+test session::style_tests::finished_profile_thumbnail_is_cooperative_and_preserves_full_output_until_success ... ok
+test session::style_tests::style_admission_rechecks_source_geometry_and_captured_braille_resources ... ok
+test session::style_tests::style_and_characters_captures_share_one_mask_allocation_and_protect_each_future_peak ... ok
+test session::style_tests::style_captures_deduplicate_masks_and_survive_actual_atlas_upload_then_drop ... ok
+test session::style_tests::style_fixture_is_cooperative_and_retains_full_frame_until_release ... ok
+test session::style_tests::style_future_peak_accepts_exact_budget_and_rejects_one_byte_short ... ok
+test session::style_tests::style_source_replacement_cancels_pending_and_completed_but_failed_upload_preserves_them ... ok
+test reference_characters::webgl_parity_tests::captured_font22_batch_matches_full_independent_gl_frame ... ok
+test session::style_tests::thumbnail_area_average_ignores_transparent_colors_and_handles_nondivisible_extents ... ok
+test session::style_tests::thumbnail_cancel_and_source_replacement_release_all_conversion_storage ... ok
+test session::style_tests::thumbnail_no_upscale_and_exact_budget_accounting ... ok
+test session::style_tests::thumbnail_rejects_incomplete_legacy_released_and_invalid_size ... ok
+test session::style_tests::thumbnail_splits_multicolor_source_pixels_across_fractional_bins ... ok
+test styles::braille::spatial_tests::alpha_safe_cell_and_dot_samples_are_independent ... ok
+test styles::braille::spatial_tests::inversion_preserves_color_and_fractional_mask_alpha_rounds_once ... ok
+test styles::braille::spatial_tests::partial_dot_geometry_does_not_stretch_or_clamp ... ok
+test styles::braille::spatial_tests::quarter_turn_changes_spatial_dot_identity ... ok
+test styles::braille::spatial_tests::scaled_atlas_origin_is_already_effective_output_units ... ok
+test styles::braille::tests::row_major_bits ... ok
+test styles::dither::tests::bayer_permutations_and_palette_ties ... ok
+test styles::dither::tests::blue_noise_matches_owned_seeded_highpass_oracle ... ok
+test styles::dither::tests::bounded_rows_exact_budget_and_cancel ... ok
+test styles::dither::tests::diffusion_impulses_clip_borders_keep_f32_and_scale_error ... ok
+test styles::dither::tests::direct_invalid_native_settings_and_reservation_overflow_return_errors ... ok
+test reference_characters::webgl_parity_tests::context_glyph_interpolation_equals_software_webgl_all_scales ... ok
+test reference_characters::webgl_parity_tests::context_glyph_premultiplied_color_equals_software_webgl_all_scales ... ok
+test reference_characters::webgl_parity_tests::context_webgl_layer_composes_exactly_onto_opaque_canvas ... ok
+test styles::dither::tests::kernel_impulse_weights_and_luminance_per_channel_rules ... ok
+test styles::dither::tests::named_palette_fixture_is_exact_and_custom_boundaries_are_closed ... ok
+test styles::dither::tests::partial_alpha_backdrop_starts_with_decoded_premultiplied_bytes ... ok
+test styles::dither::tests::prepared_small_scale4_pixel12_keeps_sampler_stack_admitted ... ok
+test styles::dither::tests::reference_default_backdrop_samples_source_before_dithering ... ok
+test styles::dither::tests::reference_diffusion_starts_odd_rows_at_right_edge ... ok
+test styles::dither::tests::reference_original_samples_source_and_none_clears_dither_input ... ok
+test styles::dither::tests::reference_solid_backdrop_is_dither_input ... ok
+test styles::dither::tests::reference_strength_scales_diffusion_error_and_keeps_palette_output ... ok
+test styles::dither::tests::reference_zero_strength_still_quantizes_for_every_algorithm ... ok
+test styles::dither::tests::shared_binary_packets_reencode_exactly ... ok
+test styles::dither::tests::source_identity_partial_cells_crop_rotation_and_scale ... ok
+test styles::dither::tests::strength_zero_quantizes_tone_and_ignores_hidden_rgb ... ok
+test styles::dither::tests::transparent_cell_keeps_error_and_threshold_bias_is_before_quantization ... ok
+test styles::dither::tests::transparent_cell_propagates_error_but_emits_clear_rgba ... ok
+test styles::dither::tests::wire_roundtrip_and_rejects_malformed_animation_custom_and_numbers ... ok
+test styles::dither_sampling::tests::independent_odd_png_partial_alpha_samples_are_exact ... ok
+test styles::dither_sampling::tests::independent_png_image_full_sample_frames_are_exact ... ok
+test session::style_tests::thousand_square_thumbnail_has_measured_peak_and_bounded_source_work ... ok
+test styles::job::dither_admission_tests::dither_has_native_renderer ... ok
+test styles::mosaic::tests::clipped_tiles_use_canvas_clipping_blitter ... ok
+test styles::mosaic::tests::conic_subdivision_preserves_canvas_float_operation_order ... ok
+test styles::mosaic::tests::large_tiles_match_canvas_rle_and_direct_pair_blitters ... ok
+test character_backdrop::tests::context_bilinear_resize_matches_canvas_before_filter ... ok
+test styles::mosaic::tests::scaled_wide_corner_matches_canvas ... ok
+test styles::mosaic::tests::skipped_flat_quadratic_steps_keep_the_original_snapped_origin ... ok
+test styles::mosaic::tests::rounded_tiles_match_independent_canvas_alpha_masks ... ok
+test styles::pixel::parity_tests::mosaic_sparse_bounds_use_next_cell_origin_before_flooring ... ok
+test styles::pixel::parity_tests::mosaic_tiles_have_one_pixel_insets_and_rounded_corners ... ok
+test styles::pixel::parity_tests::mosaic_uses_sparse_originating_base_cell_and_clamps_each_tap ... ok
+test styles::pixel::parity_tests::pixel_inset_keeps_six_tenths_pitch_with_fractional_edge_coverage ... ok
+test styles::pixel::parity_tests::pixel_quantization_thresholds_are_applied_after_tone ... ok
+test styles::pixel::parity_tests::pixel_samples_center_instead_of_area_average ... ok
+test styles::pixel::parity_tests::reference_pixel_ink_opacity_is_independent_of_source_alpha ... ok
+test styles::wire::tests::shared_packets_and_malformed_mutations ... ok
+test styles::wire::tests::source_geometry_and_encode_validation ... ok
+test tests::fractional_area_and_sobel ... ok
+test tests::transparent_colors_do_not_bleed ... ok
+test canvas_blur::tests::canvas_oracles_cover_even_windows_and_softness_extrema ... ok
+test styles::dither::tests::full_plane_float32_oracles_cross_recycled_rows_with_fractional_bias ... ok
+test styles::pixel::parity_tests::mosaic_paints_canvas_rle_drift_outside_nominal_path_bounds ... ok
+test styles::dither::tests::independent_canvas_backdrop_inputs_are_exact_before_quantization ... ok
+test styles::dither::tests::every_algorithm_is_chunk_deterministic_and_preserves_alpha ... ok
+test character_backdrop::tests::context_scaled_backdrop_matches_full_independent_canvas_gradient ... ok
+test styles::mosaic::tests::scaled_tiles_match_all_independent_canvas_masks ... ok
+
+test result: ok. 83 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.18s
+
+     Running tests/character_backdrop.rs (rust/target/debug/deps/character_backdrop-1c20fccffe8300ad)
+
+running 8 tests
+test constant_partial_alpha_and_zero_grid_all_contexts ... ok
+test atlas_replacement_cancels_and_frees_all_backdrop_state ... ok
+test exact_radii_and_integer_variances ... ok
+test independent_three_uniform_box_impulse_coefficients ... ok
+test alpha_weighted_resize_and_blur_have_no_hidden_red_fringe ... ok
+test oriented_crop_resize_uses_pixel_centers_and_retains_all_margins ... ok
+test independently_enumerated_edge_kernel_matches_clamp_not_zero_padding ... ok
+test cooperative_chunk_identity_cancel_and_budget_floor ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/character_matching.rs (rust/target/debug/deps/character_matching-679059a7c15564d7)
+
+running 17 tests
+test calibration_and_job_enforce_capacity_budgets ... ok
+test braille_cell_color_uses_alpha_weights_and_independent_background_alpha ... ok
+test coverage_order_is_measured_not_character_order ... ok
+test mapping_and_output_invert_are_independent ... ok
+test braille_all_eight_dot_positions ... ok
+test diffusion_crosses_step_boundaries ... ok
+test inverse_crop_rotation_matches_standalone_preparation ... ok
+test retained_calibration_capacity_is_in_job_preflight ... ok
+test shape_error_selects_matching_orientation ... ok
+test shape_score_preserves_legacy_sum_order_and_stable_ties ... ok
+test shape_target_preserves_legacy_double_precision ... ok
+test shape_sampling_and_packing_are_chunk_invariant ... ok
+test smart_edges_require_explicit_dictionary_indices ... ok
+test tie_uses_stable_first_index ... ok
+test transparent_cell_is_sentinel ... ok
+test zero_work_identity_and_completed_take_are_explicit ... ok
+test source_traversal_is_resumable ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/character_session.rs (rust/target/debug/deps/character_session-6fecad0f317ad6fb)
+
+running 17 tests
+test budget_rejection_preserves_previous_source ... ok
+test calibration_replacement_preserves_braille_jobs ... ok
+test aggregate_jobs_and_serialization_peak_are_preflighted ... ok
+test directional_metadata_is_validated ... ok
+test failed_replacement_preserves_jobs_and_success_invalidates_ids ... ok
+test cancel_releases_job_scratch ... ok
+test invalid_stages_and_upload_headers_reject ... ok
+test live_session_cap_does_not_recycle_stale_handles ... ok
+test actual_mask_extents_and_staged_replacement_peak_keep_previous_job ... ok
+test malformed_settings_fail_before_execution ... ok
+test only_one_live_stage_can_allocate_per_session ... ok
+test required_storage_covers_shape_and_braille_variants ... ok
+test existing_f64_offsets_preserve_expanded_geometry ... ok
+test stale_handles_reject ... ok
+test required_storage_matches_actual_vectors ... ok
+test malformed_calibration_preserves_previous_dictionary_and_job ... ok
+test two_jobs_and_output_release ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/character_source.rs (rust/target/debug/deps/character_source-3580824a2a374c88)
+
+running 8 tests
+test crop_then_rotate_matches_labeled_pixels ... ok
+test full_geometry_rotation_and_crop_rounding ... ok
+test numeric_stages_preserve_float32_boundaries ... ok
+test retained_capacity_counts_toward_budget ... ok
+test expanded_logical_geometry_is_exact_and_keeps_small_source_budgets ... ok
+test rejects_bad_dimensions_and_peak_budget ... ok
+test tone_extrema_and_gamma ... ok
+test transparent_source_does_not_bleed ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/reference_characters.rs (rust/target/debug/deps/reference_characters-039af60103713f46)
+
+running 19 tests
+test brightness_preserves_reference_operation_order_at_half_byte_ties ... ok
+test alpha_rounding_zero_has_canonical_transparent_rgb ... ok
+test collapsed_crop_extent_rejects_but_nonempty_tiny_crop_is_valid ... ok
+test center_lookup_floor_grid_and_full_margins ... ok
+test color_tone_does_not_change_selection_or_partial_alpha ... ok
+test crop_uses_floor_left_ceil_right_then_inverse_quarter_rotation ... ok
+test direct_input_order_thresholds_and_counts ... ok
+test explicit_scale_divides_centers_not_grid_width ... ok
+test flat_range_and_no_eligible_probes_skip_every_cell ... ok
+test fractional_mask_has_quarter_weights_zero_outside_and_negative_origin ... ok
+test literal_space_is_explicit_and_empty_dot_retains_index ... ok
+test one_pixel_mask_half_displacement_has_four_quarter_weights ... ok
+test opaque_border_does_not_edge_clamp_and_overlap_is_row_major ... ok
+test raw_tone_vectors_use_128_pivot_and_nearest_rounding ... ok
+test preflight_charges_source_capacity_and_other_jobs_before_output_allocation ... ok
+test slices_cancel_and_identity_are_enforced_without_cloning_inputs ... ok
+test zero_grid_has_full_transparent_frame_and_nullable_grid ... ok
+test sampled_range_ignores_unprobed_extrema_and_transparent_hidden_rgb ... ok
+test constructors_reject_bad_fields_and_preflight_retained_capacity_and_budget ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.12s
+
+     Running tests/reference_session.rs (rust/target/debug/deps/reference_session-ddd6579677b08933)
+
+running 13 tests
+test cropped_rotated_scale_two_has_independent_flat_probe_bytes ... ok
+test exact_nonempty_fractional_mask_frame_from_profile_abi ... ok
+test exact_native_frame_space_vs_empty_dot_and_kind_separation ... ok
+test independent_112_byte_contract_and_rejections ... ok
+test batch_mode_requires_context_and_releases_all_owned_memory ... ok
+test nullable_grid_and_actual_extents_origin_source_geometry ... ok
+test replacement_keeps_profile_but_invalidates_legacy_and_source_cancels_both ... ok
+test maximum_count_and_explicit_sentinel_boundaries ... ok
+test stage_admission_cannot_consume_active_profile_serialization_headroom ... ok
+test zero_area_preserves_nonzero_floor_column_count ... ok
+test retained_borrowed_atlas_aggregate_jobs_rollback_and_invalidation ... ok
+test complete_context_reserves_all_active_future_scratch_before_begin ... ok
+test captured_atlases_survive_replacement_and_release_unique_storage ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/style_abi.rs (rust/target/debug/deps/style_abi-ce33834c3be74200)
+
+running 3 tests
+test style_discovery_is_additive_without_advertising_unimplemented_families ... ok
+test native_style_begin_rejects_invalid_or_disposed_handles_without_reading_pointers ... ok
+test exact_stage_ownership_and_real_pixel_frame_release_without_retained_allocations ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/style_braille.rs (rust/target/debug/deps/style_braille-1621676a329ea706)
+
+running 9 tests
+test exact_budget_and_one_byte_short ... ok
+test changed_source_releases_pending_storage ... ok
+test invert_changes_selection_but_not_full_cell_color ... ok
+test alpha_hidden_rgb_and_zero_threshold ... ok
+test atlas_rejections_identity_and_cancellation_release ... ok
+test equal_mean_cells_keep_spatial_identity ... ok
+test threshold_and_transparency ... ok
+test partial_crop_rotation_scale_and_cooperative_steps ... ok
+test all_256_spatial_patterns_and_single_dot_mapping ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.42s
+
+     Running tests/style_context.rs (rust/target/debug/deps/style_context-fec54aada6958c2b)
+
+running 5 tests
+test image_backdrops_draw_over_opaque_black_before_layer_blending ... ok
+test canvas_opaque_source_over_uses_premultiplied_byte_products ... ok
+test independently_computed_blends_and_transparent_endpoints ... ok
+test strict_context_packet_and_hash_extremes ... ok
+test blend_alpha_and_coverage_endpoints ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/style_geometry.rs (rust/target/debug/deps/style_geometry-2011cd064edc93f4)
+
+running 7 tests
+test area_sampler_keeps_fractional_ties_and_ignores_hidden_rgb ... ok
+test geometry_crop_rotation_and_export_scale ... ok
+test tiny_frame_crops_transparent_filter_outsets_over_black ... ok
+test compositor_is_bounded_one_shot_and_budgeted ... ok
+test area_sampler_partial_rectangle_and_opaque_field ... ok
+test scaled_frame_initializes_every_pixel_and_rejects_changed_source ... ok
+test calculated_and_native_capacity_peak_for_million_pixels ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/style_pixel_mosaic.rs (rust/target/debug/deps/style_pixel_mosaic-eb289ea295af7567)
+
+running 11 tests
+test exact_admission_and_changed_source ... ok
+test full_blur_context_alpha_and_zero_opacity ... ok
+test rational_pitch_and_crop_rotation_keep_complete_margins ... ok
+test merged_partial_tiles_sample_only_the_originating_base_cell ... ok
+test transparent_hidden_rgb_does_not_tint_complete_output_and_cancel_is_one_shot ... ok
+test baseline_and_distinct_merged_geometry ... ok
+test hand_computed_quantization_and_control_extremes ... ok
+test composition_transition_has_no_full_frame_allocation_in_one_work_unit ... ok
+test partial_edges_scales_and_work_budgets ... ok
+test gradient_backdrop_matches_chromium_canvas_bytes ... ok
+test backdrop_matches_canvas_blur_at_edges_and_corners ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+
+     Running tests/style_thumbnails.rs (rust/target/debug/deps/style_thumbnails-f858cf84f8ca9565)
+
+running 1 test
+test public_profile_session_converts_finished_pixel_output_and_keeps_abi_additive ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests asciimorph_engine
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

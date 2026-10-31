@@ -1,5 +1,7 @@
 # Dither static profile — 2026-10-28
 
+This is the historical local profile. Its sampling, strength, transparent diffusion and noise rules are superseded by the [31 October reference closure](dither-parity-2026-10-31.md).
+
 Implemented against [the saved contract](../specs/2026-10-27-dither.md), with the [existing-dock controls plan](../specs/2026-10-28-dither-controls.md). This verifies an independently specified local static renderer; it does not establish reference pixel equivalence.
 
 ## Delivered

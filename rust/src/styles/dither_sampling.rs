@@ -2,17 +2,16 @@
 //! RGBA8 mip reductions and four-bit bitmap filter (BSD, third-party/skia-LICENSE).
 //! A work unit reads one base pixel; the fixed stack retains no source allocation.
 use super::{geometry::FrameGeometry, sampling::AreaSample};
-use crate::{
-    character::{JobStatus, RenderError},
-    source::SourceImage,
-};
+use crate::character::{JobStatus, RenderError};
+#[cfg(test)]
+use crate::source::SourceImage;
 #[derive(Debug, Clone, Copy, Default)]
 struct Node {
     x: usize,
     y: usize,
     level: usize,
     child: usize,
-    sum: [u32; 4],
+    pixels: [[u32; 4]; 4],
 }
 #[derive(Debug)]
 pub struct ImageSampler {
@@ -22,9 +21,11 @@ pub struct ImageSampler {
     taps: [[usize; 2]; 4],
     weights: [u32; 4],
     tap: usize,
-    stack: [Node; 6],
+    stack: [Node; 8],
     depth: usize,
     sum: [u32; 4],
+    filtered: [[u32; 4]; 4],
+    fractions: [i32; 2],
 }
 impl ImageSampler {
     pub fn new(
@@ -35,25 +36,58 @@ impl ImageSampler {
         y: usize,
     ) -> Result<Self, RenderError> {
         let (width, height) = g.extent();
-        if cols == 0 || rows == 0 || x >= cols || y >= rows {
+        Self::for_extent(width, height, cols, rows, x, y)
+    }
+    pub(crate) fn for_extent(
+        width: usize,
+        height: usize,
+        cols: usize,
+        rows: usize,
+        x: usize,
+        y: usize,
+    ) -> Result<Self, RenderError> {
+        if width == 0 || height == 0 || cols == 0 || rows == 0 || x >= cols || y >= rows {
             return Err(RenderError::InvalidInput);
         }
-        let shrink = (width as f64 / cols as f64)
-            .max(height as f64 / rows as f64)
-            .max(1.);
-        let level = (shrink.log2().floor() as usize).min(width.max(height).ilog2() as usize);
-        if level >= 6 {
-            return Err(RenderError::InvalidInput);
+        let mut level = 0;
+        let (mut w, mut h) = (width, height);
+        while w > 1 || h > 1 {
+            let (next_w, next_h) = (w.div_ceil(2), h.div_ceil(2));
+            if next_w < cols || next_h < rows {
+                break;
+            }
+            level += 1;
+            if level >= 8 {
+                return Err(RenderError::InvalidInput);
+            }
+            (w, h) = (next_w, next_h);
         }
-        let (w, h) = ((width >> level).max(1), (height >> level).max(1));
         let sx = (w as f64 / cols as f64) as f32 as f64;
         let sy = (h as f64 / rows as f64) as f32 as f64;
-        let xx = (x as f64 + 0.5) * sx - 0.5;
-        let yy = (y as f64 + 0.5) * sy - 0.5;
-        let ix = xx.floor();
-        let iy = yy.floor();
-        let fx = ((xx - ix) * 16.).floor() as u32;
-        let fy = ((yy - iy) * 16.).floor() as u32;
+        let qx = Self::fixed(x, sx as f32);
+        let qy = Self::fixed(y, sy as f32);
+        let resized_decode = (1..=level).any(|l| {
+            let pw = width.div_ceil(1 << (l - 1));
+            let ph = height.div_ceil(1 << (l - 1));
+            pw % 2 != 0 || ph % 2 != 0
+        });
+        let (ix, iy, fx, fy) = if level == 0 || resized_decode {
+            (
+                (qx >> 16) as f64,
+                (qy >> 16) as f64,
+                ((qx & 65535) >> 12) as u32,
+                ((qy & 65535) >> 12) as u32,
+            )
+        } else {
+            let xx = (x as f64 + 0.5) * sx - 0.5;
+            let yy = (y as f64 + 0.5) * sy - 0.5;
+            (
+                xx.floor(),
+                yy.floor(),
+                ((xx - xx.floor()) * 16.).floor() as u32,
+                ((yy - yy.floor()) * 16.).floor() as u32,
+            )
+        };
         let taps = std::array::from_fn(|i| {
             [
                 (ix + (i % 2) as f64).clamp(0., (w - 1) as f64) as usize,
@@ -72,39 +106,71 @@ impl ImageSampler {
                 fx * fy,
             ],
             tap: 0,
-            stack: [Node::default(); 6],
+            stack: [Node::default(); 8],
             depth: 0,
             sum: [0; 4],
+            filtered: [[0; 4]; 4],
+            fractions: [(qx & 65535) - 32768, (qy & 65535) - 32768],
         })
     }
-    fn axis(n: usize) -> (&'static [u32], u32) {
-        if n == 1 {
-            (&[1], 1)
-        } else if n % 2 == 0 {
-            (&[1, 1], 2)
-        } else {
-            (&[1, 2, 1], 4)
-        }
-    }
-    fn child(&self, n: Node, i: usize) -> (usize, usize, u32, usize, u32) {
-        let w = (self.width >> (n.level - 1)).max(1);
-        let h = (self.height >> (n.level - 1)).max(1);
-        let (wx, dx) = Self::axis(w);
-        let (wy, dy) = Self::axis(h);
+    fn extent_at(&self, level: usize) -> (usize, usize) {
         (
-            if w == 1 { 0 } else { n.x * 2 + i % wx.len() },
-            if h == 1 { 0 } else { n.y * 2 + i / wx.len() },
-            wx[i % wx.len()] * wy[i / wx.len()],
-            wx.len() * wy.len(),
-            dx * dy,
+            self.width.div_ceil(1 << level),
+            self.height.div_ceil(1 << level),
         )
     }
+    fn fixed(position: usize, scale: f32) -> i32 {
+        (65536.0f32 * ((position as f32 + 0.5) * scale) + 0.5).floor() as i32 - 32768
+    }
+    fn child(&self, n: Node, i: usize) -> (usize, usize) {
+        let (w, h) = self.extent_at(n.level - 1);
+        let (dw, dh) = self.extent_at(n.level);
+        if w == 2 * dw && h == 2 * dh {
+            return (n.x * 2 + i % 2, n.y * 2 + i / 2);
+        }
+        let qx = Self::fixed(n.x, w as f32 / dw as f32);
+        let qy = Self::fixed(n.y, h as f32 / dh as f32);
+        (
+            ((qx >> 16) + (i % 2) as i32).clamp(0, w as i32 - 1) as usize,
+            ((qy >> 16) + (i / 2) as i32).clamp(0, h as i32 - 1) as usize,
+        )
+    }
+    fn bilerp(pixels: [[u32; 4]; 4], tx: i32, ty: i32) -> [u32; 4] {
+        let multiply = |a: i32, b: i32| (a * b + 16384) >> 15;
+        std::array::from_fn(|k| {
+            let horizontal = |left: u32, right: u32| {
+                let (left, right) = (left as i32, right as i32);
+                (multiply(tx, (right - left) * 128) + (right + left) * 128 + 1) >> 1
+            };
+            let top = horizontal(pixels[0][k], pixels[1][k]);
+            let bottom = horizontal(pixels[2][k], pixels[3][k]);
+            ((multiply(ty, bottom - top) + bottom + top + 128) >> 8) as u32
+        })
+    }
+    fn reduce(&self, n: Node) -> [u32; 4] {
+        let (w, h) = self.extent_at(n.level - 1);
+        let (dw, dh) = self.extent_at(n.level);
+        if w == 2 * dw && h == 2 * dh {
+            return std::array::from_fn(|k| n.pixels.iter().map(|p| p[k]).sum::<u32>() >> 2);
+        }
+        let qx = Self::fixed(n.x, w as f32 / dw as f32);
+        let qy = Self::fixed(n.y, h as f32 / dh as f32);
+        Self::bilerp(n.pixels, (qx & 65535) - 32768, (qy & 65535) - 32768)
+    }
+    #[cfg(test)]
     pub fn step(
         &mut self,
         source: &SourceImage,
         g: &FrameGeometry,
         rotation: u32,
         work: u32,
+    ) -> Result<JobStatus, RenderError> {
+        self.step_pixels(work, |x, y| g.pixel(source, rotation, x, y))
+    }
+    pub(crate) fn step_pixels(
+        &mut self,
+        work: u32,
+        pixel: impl Fn(usize, usize) -> [u8; 4],
     ) -> Result<JobStatus, RenderError> {
         for _ in 0..work {
             if self.tap == 4 {
@@ -122,7 +188,7 @@ impl ImageSampler {
             }
             while self.stack[self.depth - 1].level > 0 {
                 let n = self.stack[self.depth - 1];
-                let (x, y, _, _, _) = self.child(n, n.child);
+                let (x, y) = self.child(n, n.child);
                 self.stack[self.depth - 1].child += 1;
                 self.stack[self.depth] = Node {
                     x,
@@ -133,7 +199,7 @@ impl ImageSampler {
                 self.depth += 1;
             }
             let n = self.stack[self.depth - 1];
-            let p = g.pixel(source, rotation, n.x, n.y);
+            let p = pixel(n.x, n.y);
             let mut value = std::array::from_fn(|k| {
                 if k == 3 {
                     p[3] as u32
@@ -144,6 +210,7 @@ impl ImageSampler {
             loop {
                 self.depth -= 1;
                 if self.depth == 0 {
+                    self.filtered[self.tap] = value;
                     for (sum, v) in self.sum.iter_mut().zip(value) {
                         *sum += v * self.weights[self.tap];
                     }
@@ -151,14 +218,11 @@ impl ImageSampler {
                     break;
                 }
                 let parent = self.stack[self.depth - 1];
-                let (_, _, weight, count, divisor) = self.child(parent, parent.child - 1);
-                for (sum, v) in self.stack[self.depth - 1].sum.iter_mut().zip(value) {
-                    *sum += v * weight;
-                }
-                if parent.child < count {
+                self.stack[self.depth - 1].pixels[parent.child - 1] = value;
+                if parent.child < 4 {
                     break;
                 }
-                value = self.stack[self.depth - 1].sum.map(|v| v / divisor);
+                value = self.reduce(self.stack[self.depth - 1]);
             }
         }
         Ok(if self.tap == 4 {
@@ -168,7 +232,11 @@ impl ImageSampler {
         })
     }
     pub fn sample(&self) -> AreaSample {
-        let p = self.sum.map(|v| v >> 8);
+        let p = if self.level == 0 {
+            Self::bilerp(self.filtered, self.fractions[0], self.fractions[1])
+        } else {
+            self.sum.map(|v| v >> 8)
+        };
         let alpha = p[3];
         AreaSample {
             rgb: std::array::from_fn(|k| {
@@ -258,6 +326,7 @@ mod tests {
                 out.push(sample.alpha.round() as u8);
             }
         }
+        assert_eq!(out.len(), expected.len());
         let mismatch = out.iter().zip(expected).position(|(a, b)| a != b);
         assert_eq!(
             mismatch,

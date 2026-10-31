@@ -1,0 +1,34 @@
+   Compiling asciimorph_engine v0.1.0 (/Users/yuvrajsatyapal/Desktop/Projects/AsciiMorph/rust)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.62s
+     Running unittests src/lib.rs (rust/target/debug/deps/asciimorph_engine-f3e883f16f20c99b)
+
+running 26 tests
+test styles::dither::tests::bounded_rows_exact_budget_and_cancel ... ok
+test styles::dither::tests::diffusion_impulses_clip_borders_keep_f32_and_scale_error ... ok
+test styles::dither::tests::bayer_permutations_and_palette_ties ... ok
+test styles::dither::tests::direct_invalid_native_settings_and_reservation_overflow_return_errors ... ok
+test styles::dither::tests::blue_noise_matches_owned_seeded_highpass_oracle ... ok
+test styles::dither::tests::kernel_impulse_weights_and_luminance_per_channel_rules ... ok
+test styles::dither::tests::partial_alpha_backdrop_starts_with_decoded_premultiplied_bytes ... ok
+test styles::dither::tests::reference_diffusion_starts_odd_rows_at_right_edge ... ok
+test styles::dither::tests::reference_solid_backdrop_is_dither_input ... ok
+test styles::dither::tests::reference_strength_scales_diffusion_error_and_keeps_palette_output ... ok
+test styles::dither::tests::reference_original_samples_source_and_none_clears_dither_input ... ok
+test styles::dither::tests::named_palette_fixture_is_exact_and_custom_boundaries_are_closed ... ok
+test styles::dither::tests::shared_binary_packets_reencode_exactly ... ok
+test styles::dither::tests::reference_default_backdrop_samples_source_before_dithering ... ok
+test styles::dither::tests::source_identity_partial_cells_crop_rotation_and_scale ... ok
+test styles::dither::tests::transparent_cell_keeps_error_and_threshold_bias_is_before_quantization ... ok
+test styles::dither::tests::strength_zero_quantizes_tone_and_ignores_hidden_rgb ... ok
+test styles::dither::tests::wire_roundtrip_and_rejects_malformed_animation_custom_and_numbers ... ok
+test styles::dither::tests::transparent_cell_propagates_error_but_emits_clear_rgba ... ok
+test styles::dither::tests::reference_zero_strength_still_quantizes_for_every_algorithm ... ok
+test styles::dither_sampling::tests::independent_odd_png_partial_alpha_samples_are_exact ... ok
+test styles::dither::tests::prepared_small_scale4_pixel12_keeps_sampler_stack_admitted ... ok
+test styles::dither_sampling::tests::independent_png_image_full_sample_frames_are_exact ... ok
+test styles::dither::tests::full_plane_float32_oracles_cross_recycled_rows_with_fractional_bias ... ok
+test styles::dither::tests::independent_canvas_backdrop_inputs_are_exact_before_quantization ... ok
+test styles::dither::tests::every_algorithm_is_chunk_deterministic_and_preserves_alpha ... ok
+
+test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 57 filtered out; finished in 1.34s
+

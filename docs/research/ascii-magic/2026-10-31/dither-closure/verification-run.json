@@ -1,0 +1,48 @@
+{
+  "date": "2026-10-31",
+  "wasmSha256": "ba485d48ab847a9c1967d0eddf4bed9b4d8c9b844174da848f4f9f5f78469b1a",
+  "wasmBytes": 281642,
+  "sourceSha256": "f3a9f7aceee9d9b099a8fd4cfb26842c462031657acd3563a891787399fb0eb1",
+  "matrices": [
+    {
+      "directory": "dither-seeded",
+      "cases": 56,
+      "manifestSha256": "b46f2b22728b3949d3d63705d682d24221d71579d338d950cc854d73680adaa6",
+      "resultsSha256": "f6d5dfeb282021e483b7db7f4196a06ae4cc4bb4ca4b0594731ddcee13510ab9",
+      "differingRgbaBytes": 0,
+      "alphaErrors": 0,
+      "previewExportDifferences": 0
+    },
+    {
+      "directory": "dither-backdrops",
+      "cases": 14,
+      "manifestSha256": "e12d284001cf03d90080fec848d5e1e3dd38c2777998eaaee10cb53035b96170",
+      "resultsSha256": "eb50f8aa3bea26038e08ea843765777429b2497717e593db83d2c51cde5faba2",
+      "differingRgbaBytes": 0,
+      "alphaErrors": 0,
+      "previewExportDifferences": 0
+    }
+  ],
+  "nativePassed": 201,
+  "javascriptPassed": 854,
+  "javascriptSkipped": 1,
+  "productionBrowserPassed": 39,
+  "productionBrowserSkipped": 9,
+  "productionNote": "20 original desktop/Firefox passes +18 WebKit/mobile passes +1 corrected translucent-hover rerun; 9 deliberate skips. Interrupted combined run resumed against the same production server.",
+  "productionBuild": "pass",
+  "typecheck": "pass",
+  "lintErrors": 0,
+  "existingLintWarnings": 3,
+  "reviews": [
+    {
+      "reviewer": "/root/diffusion_review",
+      "verdict": "accept",
+      "scope": "diffusion/preparation ownership, cooperative execution and browser fixture intent"
+    },
+    {
+      "reviewer": "/root/sampling_review",
+      "verdict": "accept after regression fixes",
+      "scope": "sampling/noise/opacity/premultiplication/stack admission"
+    }
+  ]
+}

@@ -1,3 +1,5 @@
+> Superseded by the accepted static closure in `.handoff/2026-10-31-dither-closed.md` and `docs/verification/dither-parity-2026-10-31.md`. The text below preserves the incoming failing checkpoint.
+
 # Dither in progress — resume here
 
 User objective remains Dither closure, then remaining core styles → stacked effects → text/masks/lighting → animation exports → recipes/library/Flow. Characters is already committed/pushed at e7c723e. Real public3×/4× exports remain deferred. Do not reopen Characters or retry Pro/authentication. Main only; no new branch/worktree. The user subsequently authorized committing and pushing this unfinished checkpoint to main. Preserve all pre-existing untracked research/handoff files.

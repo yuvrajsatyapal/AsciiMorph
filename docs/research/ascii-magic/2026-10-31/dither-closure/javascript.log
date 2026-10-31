@@ -1,0 +1,17 @@
+
+> asciimorph@0.1.0 test
+> vitest run --maxWorkers=2
+
+
+ RUN  v5.0.5 /Users/yuvrajsatyapal/Desktop/Projects/AsciiMorph
+
+
+ Test Files  94 passed | 1 skipped (95)
+      Tests  854 passed | 1 skipped (855)
+   Start at  13:15:14
+   Duration  24.30s (tests 42%, environment 37%, setup 15%, import 5%, transform 1%)
+
+Environment  jsdom was created 95 times · 15.56s total, 37% of tracked time
+             create it once per worker with pool: 'vmThreads' (keeps per-file isolation) or isolate: false (shares it across files)
+             learn more: https://vitest.dev/guide/improving-performance#test-environments
+

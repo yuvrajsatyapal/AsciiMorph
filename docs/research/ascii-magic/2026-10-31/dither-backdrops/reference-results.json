@@ -1,0 +1,128 @@
+[
+  {
+    "file": "dither-backdrop-untouched-1-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-backdrop-untouched-2-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-backdrop-original-1-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-backdrop-original-2-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-backdrop-none-1-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-backdrop-none-2-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-backdrop-solid-1-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-backdrop-solid-2-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-backdrop-blur8-1-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-backdrop-blur8-2-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-backdrop-original50-1-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-backdrop-original50-2-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-backdrop-blur50-1-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-backdrop-blur50-2-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  }
+]

@@ -1,0 +1,327 @@
+{
+  "url": "https://www.ascii-magic.com/app",
+  "browser": "156.0.8078.4",
+  "args": [
+    "--use-angle=swiftshader",
+    "--enable-unsafe-swiftshader",
+    "--disable-accelerated-2d-canvas"
+  ],
+  "backend": {
+    "rectangleAlpha": 38,
+    "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)"
+  },
+  "sourceSha256": "f3a9f7aceee9d9b099a8fd4cfb26842c462031657acd3563a891787399fb0eb1",
+  "complete": true,
+  "cases": [
+    {
+      "name": "untouched",
+      "backdrop": "blur",
+      "backgroundOpacity": 100,
+      "softness": 0,
+      "scale": 1,
+      "file": "dither-backdrop-untouched-1-reference.png",
+      "settings": {
+        "bgMode": "blur",
+        "bgBlur": "0",
+        "bgOpacity": "100",
+        "ditherAlgo": "floyd",
+        "ditherPalette": "mono",
+        "ditherChromaMode": "standard",
+        "ditherScale": "2",
+        "ditherStrength": "100",
+        "ditherContrast": "110",
+        "ditherThreshold": "50",
+        "advBlur-type": "off",
+        "crop-aspect": "free"
+      },
+      "sha256": "ee701e8ad7ee143fc8100c2443645db2fba215583eeb460f0e9e801dbffd6522"
+    },
+    {
+      "name": "untouched",
+      "backdrop": "blur",
+      "backgroundOpacity": 100,
+      "softness": 0,
+      "scale": 2,
+      "file": "dither-backdrop-untouched-2-reference.png",
+      "settings": {
+        "bgMode": "blur",
+        "bgBlur": "0",
+        "bgOpacity": "100",
+        "ditherAlgo": "floyd",
+        "ditherPalette": "mono",
+        "ditherChromaMode": "standard",
+        "ditherScale": "2",
+        "ditherStrength": "100",
+        "ditherContrast": "110",
+        "ditherThreshold": "50",
+        "advBlur-type": "off",
+        "crop-aspect": "free"
+      },
+      "sha256": "36ed6449f78c82ba92811292f28101c2cbd62bbc98b2b23fea2c27399458a59c"
+    },
+    {
+      "name": "original",
+      "backdrop": "original",
+      "backgroundOpacity": 100,
+      "softness": 8,
+      "scale": 1,
+      "file": "dither-backdrop-original-1-reference.png",
+      "settings": {
+        "bgMode": "original",
+        "bgOpacity": "100",
+        "ditherAlgo": "floyd",
+        "ditherPalette": "mono",
+        "ditherChromaMode": "standard",
+        "ditherScale": "2",
+        "ditherStrength": "100",
+        "ditherContrast": "110",
+        "ditherThreshold": "50",
+        "advBlur-type": "off",
+        "crop-aspect": "free"
+      },
+      "sha256": "c1257343ee5f4b63cbee55df1bdb936f867611f6e9616ab048190b117e7bd67e"
+    },
+    {
+      "name": "original",
+      "backdrop": "original",
+      "backgroundOpacity": 100,
+      "softness": 8,
+      "scale": 2,
+      "file": "dither-backdrop-original-2-reference.png",
+      "settings": {
+        "bgMode": "original",
+        "bgOpacity": "100",
+        "ditherAlgo": "floyd",
+        "ditherPalette": "mono",
+        "ditherChromaMode": "standard",
+        "ditherScale": "2",
+        "ditherStrength": "100",
+        "ditherContrast": "110",
+        "ditherThreshold": "50",
+        "advBlur-type": "off",
+        "crop-aspect": "free"
+      },
+      "sha256": "321bf237aa5df60733efe752da241031418e400d244364e6b5b635a3a9e3d18d"
+    },
+    {
+      "name": "none",
+      "backdrop": "none",
+      "backgroundOpacity": 100,
+      "softness": 8,
+      "scale": 1,
+      "file": "dither-backdrop-none-1-reference.png",
+      "settings": {
+        "bgMode": "none",
+        "ditherAlgo": "floyd",
+        "ditherPalette": "mono",
+        "ditherChromaMode": "standard",
+        "ditherScale": "2",
+        "ditherStrength": "100",
+        "ditherContrast": "110",
+        "ditherThreshold": "50",
+        "advBlur-type": "off",
+        "crop-aspect": "free"
+      },
+      "sha256": "1f6184e010611b96d9a943ecf5631de8b972d26bc1e27d587cadb848ccc1c0e6"
+    },
+    {
+      "name": "none",
+      "backdrop": "none",
+      "backgroundOpacity": 100,
+      "softness": 8,
+      "scale": 2,
+      "file": "dither-backdrop-none-2-reference.png",
+      "settings": {
+        "bgMode": "none",
+        "ditherAlgo": "floyd",
+        "ditherPalette": "mono",
+        "ditherChromaMode": "standard",
+        "ditherScale": "2",
+        "ditherStrength": "100",
+        "ditherContrast": "110",
+        "ditherThreshold": "50",
+        "advBlur-type": "off",
+        "crop-aspect": "free"
+      },
+      "sha256": "a497963f06230cbd1bd2831089b309dc72e22fcbac123344c4c2435834b90cd3"
+    },
+    {
+      "name": "solid",
+      "backdrop": "solid",
+      "backgroundOpacity": 100,
+      "softness": 8,
+      "scale": 1,
+      "file": "dither-backdrop-solid-1-reference.png",
+      "settings": {
+        "bgMode": "solid",
+        "ditherAlgo": "floyd",
+        "ditherPalette": "mono",
+        "ditherChromaMode": "standard",
+        "ditherScale": "2",
+        "ditherStrength": "100",
+        "ditherContrast": "110",
+        "ditherThreshold": "50",
+        "advBlur-type": "off",
+        "crop-aspect": "free"
+      },
+      "sha256": "6f5dcb5e3ead7f23a7800afa38d8c411365830cf7f24935b789667b5c6024fb6"
+    },
+    {
+      "name": "solid",
+      "backdrop": "solid",
+      "backgroundOpacity": 100,
+      "softness": 8,
+      "scale": 2,
+      "file": "dither-backdrop-solid-2-reference.png",
+      "settings": {
+        "bgMode": "solid",
+        "ditherAlgo": "floyd",
+        "ditherPalette": "mono",
+        "ditherChromaMode": "standard",
+        "ditherScale": "2",
+        "ditherStrength": "100",
+        "ditherContrast": "110",
+        "ditherThreshold": "50",
+        "advBlur-type": "off",
+        "crop-aspect": "free"
+      },
+      "sha256": "a84c498801f56504ca1cac405a1758414d4dc3fb06cc442976a12159d97a140e"
+    },
+    {
+      "name": "blur8",
+      "backdrop": "blur",
+      "backgroundOpacity": 100,
+      "softness": 8,
+      "scale": 1,
+      "file": "dither-backdrop-blur8-1-reference.png",
+      "settings": {
+        "bgMode": "blur",
+        "bgBlur": "8",
+        "bgOpacity": "100",
+        "ditherAlgo": "floyd",
+        "ditherPalette": "mono",
+        "ditherChromaMode": "standard",
+        "ditherScale": "2",
+        "ditherStrength": "100",
+        "ditherContrast": "110",
+        "ditherThreshold": "50",
+        "advBlur-type": "off",
+        "crop-aspect": "free"
+      },
+      "sha256": "36d355f8b76abbfb7bc1e776607ea81287c79f71857fb61bd2388590a1ef3fa1"
+    },
+    {
+      "name": "blur8",
+      "backdrop": "blur",
+      "backgroundOpacity": 100,
+      "softness": 8,
+      "scale": 2,
+      "file": "dither-backdrop-blur8-2-reference.png",
+      "settings": {
+        "bgMode": "blur",
+        "bgBlur": "8",
+        "bgOpacity": "100",
+        "ditherAlgo": "floyd",
+        "ditherPalette": "mono",
+        "ditherChromaMode": "standard",
+        "ditherScale": "2",
+        "ditherStrength": "100",
+        "ditherContrast": "110",
+        "ditherThreshold": "50",
+        "advBlur-type": "off",
+        "crop-aspect": "free"
+      },
+      "sha256": "735d00094d91b9f126c052e14d109cb1a1f65504dc81e5ab79b988dafb332f6a"
+    },
+    {
+      "name": "original50",
+      "backdrop": "original",
+      "backgroundOpacity": 50,
+      "softness": 8,
+      "scale": 1,
+      "file": "dither-backdrop-original50-1-reference.png",
+      "settings": {
+        "bgMode": "original",
+        "bgOpacity": "50",
+        "ditherAlgo": "floyd",
+        "ditherPalette": "mono",
+        "ditherChromaMode": "standard",
+        "ditherScale": "2",
+        "ditherStrength": "100",
+        "ditherContrast": "110",
+        "ditherThreshold": "50",
+        "advBlur-type": "off",
+        "crop-aspect": "free"
+      },
+      "sha256": "9ca03b8b7273195a7c9e927822c6dff4d29b39dc444d244bc7623cea40133c94"
+    },
+    {
+      "name": "original50",
+      "backdrop": "original",
+      "backgroundOpacity": 50,
+      "softness": 8,
+      "scale": 2,
+      "file": "dither-backdrop-original50-2-reference.png",
+      "settings": {
+        "bgMode": "original",
+        "bgOpacity": "50",
+        "ditherAlgo": "floyd",
+        "ditherPalette": "mono",
+        "ditherChromaMode": "standard",
+        "ditherScale": "2",
+        "ditherStrength": "100",
+        "ditherContrast": "110",
+        "ditherThreshold": "50",
+        "advBlur-type": "off",
+        "crop-aspect": "free"
+      },
+      "sha256": "3a0b779ecbd12cf9d1dbf5ba7fca5fb32b7abf2a53d0cc331e5c81851ec99102"
+    },
+    {
+      "name": "blur50",
+      "backdrop": "blur",
+      "backgroundOpacity": 50,
+      "softness": 8,
+      "scale": 1,
+      "file": "dither-backdrop-blur50-1-reference.png",
+      "settings": {
+        "bgMode": "blur",
+        "bgBlur": "8",
+        "bgOpacity": "50",
+        "ditherAlgo": "floyd",
+        "ditherPalette": "mono",
+        "ditherChromaMode": "standard",
+        "ditherScale": "2",
+        "ditherStrength": "100",
+        "ditherContrast": "110",
+        "ditherThreshold": "50",
+        "advBlur-type": "off",
+        "crop-aspect": "free"
+      },
+      "sha256": "2368be9ae5d58a5ee61c1b5162145bd53e92144e94f6906e808376ad594a9d97"
+    },
+    {
+      "name": "blur50",
+      "backdrop": "blur",
+      "backgroundOpacity": 50,
+      "softness": 8,
+      "scale": 2,
+      "file": "dither-backdrop-blur50-2-reference.png",
+      "settings": {
+        "bgMode": "blur",
+        "bgBlur": "8",
+        "bgOpacity": "50",
+        "ditherAlgo": "floyd",
+        "ditherPalette": "mono",
+        "ditherChromaMode": "standard",
+        "ditherScale": "2",
+        "ditherStrength": "100",
+        "ditherContrast": "110",
+        "ditherThreshold": "50",
+        "advBlur-type": "off",
+        "crop-aspect": "free"
+      },
+      "sha256": "383c21e6ac3b90c3aaed359b159a1522cf39056460b46784394a92f4218f1fcb"
+    }
+  ]
+}

@@ -114,7 +114,7 @@ test("Dither actual Worker controls, whole-look undo and exact PNG/JPEG download
   await page
     .getByLabel("Backdrop", { exact: true })
     .filter({ visible: true })
-    .selectOption("none");
+    .selectOption("original");
   rev = await current(rev);
   const initial = await pixels(page);
   let beforeStrength = initial;

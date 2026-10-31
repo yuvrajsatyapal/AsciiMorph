@@ -1,0 +1,506 @@
+[
+  {
+    "file": "dither-bayer2-100-2-1-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-bayer2-100-2-2-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-bayer4-100-2-1-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-bayer4-100-2-2-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-bayer8-100-2-1-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-bayer8-100-2-2-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-bayer16-100-2-1-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-bayer16-100-2-2-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-halftone-100-2-1-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-halftone-100-2-2-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-radial-100-2-1-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-radial-100-2-2-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-linesH-100-2-1-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-linesH-100-2-2-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-linesV-100-2-1-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-linesV-100-2-2-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-linesD-100-2-1-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-linesD-100-2-2-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-whiteNoise-100-2-1-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-whiteNoise-100-2-2-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-blueNoise-100-2-1-reference.png",
+    "differingBytes": 7776,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": 272,
+    "actual": 0,
+    "expected": 255
+  },
+  {
+    "file": "dither-blueNoise-100-2-2-reference.png",
+    "differingBytes": 31104,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": 544,
+    "actual": 0,
+    "expected": 255
+  },
+  {
+    "file": "dither-floyd-100-2-1-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-floyd-100-2-2-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-atkinson-100-2-1-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-atkinson-100-2-2-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-stucki-100-2-1-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-stucki-100-2-2-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-sierraLite-100-2-1-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-sierraLite-100-2-2-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-bayer2-0-2-1-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-bayer2-0-2-2-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-bayer2-50-2-1-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-bayer2-50-2-2-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-floyd-0-2-1-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-floyd-0-2-2-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-floyd-50-2-1-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-floyd-50-2-2-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-atkinson-0-2-1-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-atkinson-0-2-2-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-atkinson-50-2-1-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-atkinson-50-2-2-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-stucki-0-2-1-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-stucki-0-2-2-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-stucki-50-2-1-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-stucki-50-2-2-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-sierraLite-0-2-1-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-sierraLite-0-2-2-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-sierraLite-50-2-1-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-sierraLite-50-2-2-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-floyd-0-1-1-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-floyd-0-1-2-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-floyd-0-3-1-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-floyd-0-3-2-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-floyd-0-12-1-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  },
+  {
+    "file": "dither-floyd-0-12-2-reference.png",
+    "differingBytes": 0,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": -1,
+    "actual": null,
+    "expected": null
+  }
+]

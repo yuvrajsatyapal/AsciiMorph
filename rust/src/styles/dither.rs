@@ -75,15 +75,7 @@ fn bayer(x: usize, y: usize, n: usize) -> usize {
         4 * bayer(x % (n / 2), y % (n / 2), n / 2) + [[0, 2], [3, 1]][y / (n / 2)][x / (n / 2)]
     }
 }
-fn hash(x: i64, y: i64, seed: u32) -> u32 {
-    let mut v = (x as u32).wrapping_mul(0x9e3779b9) ^ (y as u32).wrapping_mul(0x85ebca6b) ^ seed;
-    v ^= v >> 16;
-    v = v.wrapping_mul(0x7feb352d);
-    v ^= v >> 15;
-    v = v.wrapping_mul(0x846ca68b);
-    v ^ (v >> 16)
-}
-fn pattern(d: &DitherSettings, x: usize, y: usize, seed: u32) -> f64 {
+fn pattern(d: &DitherSettings, x: usize, y: usize, _seed: u32) -> f64 {
     let a = d.angle.to_radians();
     let (s, c) = a.sin_cos();
     let xx = x as f64 * c - y as f64 * s;
@@ -102,30 +94,35 @@ fn pattern(d: &DitherSettings, x: usize, y: usize, seed: u32) -> f64 {
                 / (n * n) as f64
         }
         4 => {
-            let x = ix.rem_euclid(8) as usize;
-            let y = iy.rem_euclid(8) as usize;
-            let dist = |x: usize, y: usize| (2 * x as i32 - 7).pow(2) + (2 * y as i32 - 7).pow(2);
-            let target = (dist(x, y), y * 8 + x);
-            let rank = (0..64)
-                .filter(|i| (dist(i % 8, i / 8), *i) < target)
-                .count();
-            (rank as f64 + 0.5) / 64.
+            const DOTS: [[u8; 8]; 8] = [
+                [24, 10, 12, 26, 35, 47, 49, 37],
+                [8, 0, 2, 14, 45, 59, 61, 51],
+                [22, 6, 4, 16, 43, 57, 63, 53],
+                [30, 20, 18, 28, 33, 41, 55, 39],
+                [34, 46, 48, 36, 25, 11, 13, 27],
+                [44, 58, 60, 50, 9, 1, 3, 15],
+                [42, 56, 62, 52, 23, 7, 5, 17],
+                [32, 40, 54, 38, 31, 21, 19, 29],
+            ];
+            (DOTS[y % 8][x % 8] as f64 + 0.5) / 64.
         }
         5 => {
             let dx = xx.rem_euclid(8.) - 4.;
             let dy = yy.rem_euclid(8.) - 4.;
-            (dx.hypot(dy) / 4.).fract()
+            (dx.hypot(dy) / (0.707 * 8.)).min(1.)
         }
         6 => yy.rem_euclid(8.) / 8.,
         7 => xx.rem_euclid(8.) / 8.,
         8 => (xx + yy).rem_euclid(8.) / 8.,
-        9 => (hash(ix, iy, seed) as f64 + 0.5) / 4294967296.,
-        10 => {
-            (tables::BLUE_RANKS[iy.rem_euclid(16) as usize * 16 + ix.rem_euclid(16) as usize]
-                as f64
-                + 0.5)
-                / 256.
+        9 => {
+            // ECMAScript Number multiplication precedes the bitwise conversion;
+            // integer wrapping multiplication would retain different low bits.
+            let v = (x as u32).wrapping_mul(0x466f45d) ^ (y as u32).wrapping_mul(0x127409f);
+            let v = (v ^ (v >> 13)) as i32;
+            let v = ((v as f64 * 0x4bf19f61u32 as f64).rem_euclid(4294967296.)) as u32;
+            ((v ^ (v >> 16)) & 255) as f64 / 255.
         }
+        10 => tables::BLUE_NOISE[(y % 128) * 128 + x % 128] as f64 / 255.,
         _ => 0.5,
     }
 }
@@ -174,6 +171,9 @@ pub struct DitherJob {
     errors: Vec<[f32; 3]>,
     cols: usize,
     rows: usize,
+    input_ready: bool,
+    initialized_rows: usize,
+    initialize_x: usize,
     x: usize,
     y: usize,
     sampler: Option<ImageSampler>,
@@ -270,7 +270,11 @@ impl DitherJob {
             .checked_add(Self::extra(&s)?)
             .and_then(|n| n.checked_add(excess))
             .ok_or(RenderError::BudgetExceeded)?;
-        let composer = FrameComposer::new(source, s.clone(), layer, composer_other)?;
+        let mut composer = FrameComposer::new(source, s.clone(), layer, composer_other)?;
+        composer.configure_context(crate::style_context::StyleContext {
+            backdrop: 0,
+            ..Default::default()
+        });
         Ok(Self {
             settings: s,
             d,
@@ -281,6 +285,9 @@ impl DitherJob {
             errors,
             cols,
             rows,
+            input_ready: true,
+            initialized_rows: 0,
+            initialize_x: 0,
             x: 0,
             y: 0,
             sampler: None,
@@ -289,7 +296,10 @@ impl DitherJob {
             painting: false,
             done: false,
             cancelled: false,
-            context: crate::style_context::StyleContext::default(),
+            context: crate::style_context::StyleContext {
+                backdrop: 2,
+                ..Default::default()
+            },
         })
     }
     fn bounds(&self) -> [usize; 4] {
@@ -306,19 +316,22 @@ impl DitherJob {
             edge(self.y + 1, self.settings.height, self.rows),
         ]
     }
+    fn tone(&self, rgb: [f64; 3]) -> [f64; 3] {
+        rgb.map(|v| {
+            (((v / 255. - 0.5) * (self.d.contrast / 100.) + 0.5) * 255.)
+                .clamp(0., 255.)
+                .round_ties_even()
+        })
+    }
     fn finish_sample(&mut self) {
         let sample = self.sampler.take().unwrap().sample();
         let row = self.y % 3;
         let ei = row * self.cols + self.x;
         let incoming = self.errors[ei];
         self.errors[ei] = [0.; 3];
-        let mut out = sample.rgb;
-        if sample.alpha > 0. {
-            let base = sample.rgb.map(|v| {
-                ((v - 127.5) * self.d.contrast / 100. + 127.5)
-                    .clamp(0., 255.)
-                    .round_ties_even()
-            });
+        let out;
+        {
+            let base = self.tone(sample.rgb);
             let threshold_bias = (self.d.threshold - 50.) * 2.54;
             let bias = if self.d.algorithm < 11 {
                 let threshold = ((pattern(&self.d, self.x, self.y, self.settings.seed) * 255.
@@ -333,13 +346,11 @@ impl DitherJob {
                 threshold_bias
             };
             let input = std::array::from_fn(|k| {
-                base[k]
-                    + bias
-                    + if self.d.algorithm >= 11 {
-                        incoming[k] as f64
-                    } else {
-                        0.
-                    }
+                if self.d.algorithm >= 11 {
+                    incoming[k] as f64
+                } else {
+                    base[k] + bias
+                }
             });
             let q = quantize(input, &self.palette, self.d.chroma);
             if self.d.algorithm >= 11 {
@@ -370,6 +381,42 @@ impl DitherJob {
         self.paint = 0;
         self.painting = true;
     }
+    fn sampler_at(&self, x: usize, y: usize) -> Result<ImageSampler, RenderError> {
+        if self.prepared_input() {
+            ImageSampler::for_extent(
+                self.settings.width as usize,
+                self.settings.height as usize,
+                self.cols,
+                self.rows,
+                x,
+                y,
+            )
+        } else {
+            ImageSampler::new(&self.geometry, self.cols, self.rows, x, y)
+        }
+    }
+    fn prepared_input(&self) -> bool {
+        self.context.backdrop == 3
+            || self.context.backdrop == 2 && self.context.background_opacity < 100.
+    }
+    fn step_sampler(&mut self, source: &SourceImage) -> Result<JobStatus, RenderError> {
+        let prepared = self.prepared_input();
+        let context = self.context;
+        let composer = &self.composer;
+        let geometry = &self.geometry;
+        let rotation = self.settings.rotation;
+        self.sampler.as_mut().unwrap().step_pixels(1, |x, y| {
+            if context.backdrop == 0 {
+                [0; 4]
+            } else if context.backdrop == 1 {
+                [0, 0, 0, 255]
+            } else if prepared {
+                composer.input_pixel(x, y, context.background_opacity)
+            } else {
+                geometry.pixel(source, rotation, x, y)
+            }
+        })
+    }
     pub fn step(&mut self, source: &SourceImage, work: u32) -> Result<JobStatus, RenderError> {
         if self.cancelled {
             return Ok(JobStatus::Cancelled);
@@ -380,6 +427,11 @@ impl DitherJob {
         }
         let mut remaining = work;
         while remaining > 0 && !self.done {
+            if !self.input_ready {
+                self.input_ready = self.composer.prepare_input(source, 1)?;
+                remaining -= 1;
+                continue;
+            }
             if self.painting {
                 let [x0, y0, x1, y1] = self.bounds();
                 let w = x1 - x0;
@@ -413,27 +465,45 @@ impl DitherJob {
                 }
                 continue;
             }
-            if self.sampler.is_none() {
-                self.sampler = Some(ImageSampler::new(
-                    &self.geometry,
-                    self.cols,
-                    self.rows,
-                    self.x,
-                    self.y,
-                )?);
+            // Initialize the current and two future rows before any error reaches
+            // them. Each neighbor update then rounds base + accumulated error to
+            // f32, just as a full working plane would, without retaining that plane.
+            if self.d.algorithm >= 11 && self.initialized_rows < (self.y + 3).min(self.rows) {
+                if self.sampler.is_none() {
+                    self.sampler = Some(self.sampler_at(self.initialize_x, self.initialized_rows)?);
+                }
+                let status = self.step_sampler(source)?;
+                remaining -= 1;
+                if status == JobStatus::Complete {
+                    let sample = self.sampler.take().unwrap().sample();
+                    let bias = (self.d.threshold - 50.) * 2.54;
+                    let base = self
+                        .tone(sample.rgb)
+                        .map(|v| (v as f32 as f64 + bias) as f32);
+                    self.errors[(self.initialized_rows % 3) * self.cols + self.initialize_x] = base;
+                    self.initialize_x += 1;
+                    if self.initialize_x == self.cols {
+                        self.initialize_x = 0;
+                        self.initialized_rows += 1;
+                    }
+                }
+                continue;
             }
-            let status = self.sampler.as_mut().unwrap().step(
-                source,
-                &self.geometry,
-                self.settings.rotation,
-                1,
-            )?;
+            if self.sampler.is_none() {
+                self.sampler = Some(self.sampler_at(self.x, self.y)?);
+            }
+            let status = self.step_sampler(source)?;
             remaining -= 1;
             if status == JobStatus::Complete {
                 self.finish_sample();
             }
         }
         if self.done {
+            self.composer
+                .configure_context(crate::style_context::StyleContext {
+                    backdrop: 0,
+                    ..Default::default()
+                });
             self.composer.step(source, remaining)
         } else {
             Ok(JobStatus::Pending)
@@ -441,13 +511,10 @@ impl DitherJob {
     }
     pub fn configure_context(&mut self, c: crate::style_context::StyleContext) {
         self.context = c;
-        self.composer
-            .configure_context(if c.backdrop == 2 && c.background_opacity == 100. {
-                crate::style_context::StyleContext { backdrop: 0, ..c }
-            } else {
-                c
-            })
+        self.input_ready = !self.prepared_input();
+        self.composer.configure_context(c);
     }
+
     pub fn storage_bytes(&self) -> usize {
         self.composer.storage_bytes()
             + self.errors.capacity() * 12
@@ -569,6 +636,41 @@ pub(super) mod tests {
         }
     }
     #[test]
+    fn reference_default_backdrop_samples_source_before_dithering() {
+        let source = SourceImage::new(
+            2,
+            1,
+            vec![255, 255, 255, 127, 255, 255, 255, 255],
+            MAX_SOURCE_BYTES,
+        )
+        .unwrap();
+        let s = settings(
+            2,
+            1,
+            DitherSettings {
+                strength: 0.,
+                ..d()
+            },
+        );
+        let mut job = DitherJob::new(&source, s.clone(), 0).unwrap();
+        while job.step(&source, 1).unwrap() != JobStatus::Complete {}
+        assert_eq!(job.take_frame().unwrap().rgba, run(&source, s, 1));
+    }
+    #[test]
+    fn reference_solid_backdrop_is_dither_input() {
+        let source = SourceImage::new(2, 1, [255; 4].repeat(2), MAX_SOURCE_BYTES).unwrap();
+        let mut job = DitherJob::new(&source, settings(2, 1, d()), 0).unwrap();
+        job.configure_context(crate::style_context::StyleContext {
+            backdrop: 1,
+            ..Default::default()
+        });
+        while job.step(&source, 1).unwrap() != JobStatus::Complete {}
+        assert_eq!(
+            job.take_frame().unwrap().rgba,
+            vec![0, 0, 0, 255, 0, 0, 0, 255]
+        );
+    }
+    #[test]
     fn reference_zero_strength_still_quantizes_for_every_algorithm() {
         let source = SourceImage::new(1, 1, vec![90, 100, 110, 255], MAX_SOURCE_BYTES).unwrap();
         for algorithm in 0..15 {
@@ -613,7 +715,10 @@ pub(super) mod tests {
             assert_eq!(job.color, [0, 0, 0, 255]);
             for &(dx, dy, weight) in kernel(algorithm) {
                 if dx >= 0 && dx < 3 {
-                    assert_eq!(job.errors[dy * 3 + dx as usize], [(50. * weight) as f32; 3]);
+                    assert_eq!(
+                        job.errors[dy * 3 + dx as usize],
+                        [(100. + 50. * weight) as f32; 3]
+                    );
                 }
             }
         }
@@ -736,7 +841,7 @@ pub(super) mod tests {
         );
     }
     #[test]
-    fn transparent_cell_absorbs_error_and_threshold_bias_is_before_quantization() {
+    fn transparent_cell_keeps_error_and_threshold_bias_is_before_quantization() {
         let source = SourceImage::new(
             3,
             1,
@@ -763,6 +868,310 @@ pub(super) mod tests {
         );
     }
     #[test]
+    fn transparent_cell_propagates_error_but_emits_clear_rgba() {
+        let source = SourceImage::new(
+            3,
+            1,
+            vec![120, 120, 120, 255, 255, 17, 99, 0, 110, 110, 110, 255],
+            MAX_SOURCE_BYTES,
+        )
+        .unwrap();
+        // 120 -> 0 sends 52.5 into the transparent cell; it sends 22.96875
+        // onward, so the final 110 crosses the mono palette boundary.
+        assert_eq!(
+            run(&source, settings(3, 1, d()), 1),
+            vec![0, 0, 0, 255, 0, 0, 0, 0, 255, 255, 255, 255]
+        );
+    }
+    #[test]
+    fn full_plane_float32_oracles_cross_recycled_rows_with_fractional_bias() {
+        let rgba: Vec<u8> = (0..19)
+            .flat_map(|y| {
+                (0..31).flat_map(move |x| {
+                    [
+                        (x * 29 + y * 17) % 256,
+                        (x * 11 + y * 37) % 256,
+                        (x * 47 + y * 7) % 256,
+                        (x * 13 + y * 31) % 256,
+                    ]
+                    .map(|v| v as u8)
+                })
+            })
+            .collect();
+        let source = SourceImage::new(31, 19, rgba, MAX_SOURCE_BYTES).unwrap();
+        for (algorithm, strength, expected) in [
+            (
+                11,
+                50.,
+                include_bytes!(
+                    "../../../tests/fixtures/render/dither/diffusion-odd31-floyd-50.rgba"
+                )
+                .as_slice(),
+            ),
+            (
+                11,
+                100.,
+                include_bytes!(
+                    "../../../tests/fixtures/render/dither/diffusion-odd31-floyd-100.rgba"
+                )
+                .as_slice(),
+            ),
+            (
+                12,
+                50.,
+                include_bytes!(
+                    "../../../tests/fixtures/render/dither/diffusion-odd31-atkinson-50.rgba"
+                )
+                .as_slice(),
+            ),
+            (
+                12,
+                100.,
+                include_bytes!(
+                    "../../../tests/fixtures/render/dither/diffusion-odd31-atkinson-100.rgba"
+                )
+                .as_slice(),
+            ),
+            (
+                13,
+                50.,
+                include_bytes!(
+                    "../../../tests/fixtures/render/dither/diffusion-odd31-stucki-50.rgba"
+                )
+                .as_slice(),
+            ),
+            (
+                13,
+                100.,
+                include_bytes!(
+                    "../../../tests/fixtures/render/dither/diffusion-odd31-stucki-100.rgba"
+                )
+                .as_slice(),
+            ),
+            (
+                14,
+                50.,
+                include_bytes!(
+                    "../../../tests/fixtures/render/dither/diffusion-odd31-sierraLite-50.rgba"
+                )
+                .as_slice(),
+            ),
+            (
+                14,
+                100.,
+                include_bytes!(
+                    "../../../tests/fixtures/render/dither/diffusion-odd31-sierraLite-100.rgba"
+                )
+                .as_slice(),
+            ),
+        ] {
+            let settings = settings(
+                31,
+                19,
+                DitherSettings {
+                    algorithm,
+                    strength,
+                    pixel_size: 2,
+                    contrast: 110.,
+                    threshold: 37.,
+                    ..d()
+                },
+            );
+            for work in [1, 7, 4096] {
+                assert_eq!(
+                    run(&source, settings.clone(), work),
+                    expected,
+                    "algorithm {algorithm}, strength {strength}, work {work}"
+                );
+            }
+        }
+    }
+    #[test]
+    fn prepared_small_scale4_pixel12_keeps_sampler_stack_admitted() {
+        let source =
+            SourceImage::new(16, 16, [120, 100, 80, 255].repeat(256), MAX_SOURCE_BYTES).unwrap();
+        let mut s = settings(
+            64,
+            64,
+            DitherSettings {
+                pixel_size: 12,
+                ..d()
+            },
+        );
+        s.scale = 4;
+        let mut job = DitherJob::new(&source, s, 0).unwrap();
+        job.configure_context(crate::style_context::StyleContext::default());
+        while job.step(&source, 4096).unwrap() != JobStatus::Complete {}
+        assert_eq!(job.take_frame().unwrap().rgba.len(), 64 * 64 * 4);
+    }
+    #[test]
+    fn independent_canvas_backdrop_inputs_are_exact_before_quantization() {
+        let rgba: Vec<u8> = (0..64)
+            .flat_map(|y| {
+                (0..128).flat_map(move |x| {
+                    [2 * x, 4 * y, 255 - 2 * x, if x < 13 { 0 } else { 255 }].map(|v| v as u8)
+                })
+            })
+            .collect();
+        let source = SourceImage::new(128, 64, rgba, MAX_SOURCE_BYTES).unwrap();
+        let mut failures = 0;
+        for (backdrop, opacity, scale, expected) in [
+            (
+                3,
+                100.,
+                1,
+                include_bytes!("../../../tests/fixtures/render/dither/backdrop-blur8-1.rgba")
+                    .as_slice(),
+            ),
+            (
+                3,
+                100.,
+                2,
+                include_bytes!("../../../tests/fixtures/render/dither/backdrop-blur8-2.rgba")
+                    .as_slice(),
+            ),
+            (
+                2,
+                50.,
+                1,
+                include_bytes!("../../../tests/fixtures/render/dither/backdrop-original50-1.rgba")
+                    .as_slice(),
+            ),
+            (
+                2,
+                50.,
+                2,
+                include_bytes!("../../../tests/fixtures/render/dither/backdrop-original50-2.rgba")
+                    .as_slice(),
+            ),
+            (
+                3,
+                50.,
+                1,
+                include_bytes!("../../../tests/fixtures/render/dither/backdrop-blur50-1.rgba")
+                    .as_slice(),
+            ),
+            (
+                3,
+                50.,
+                2,
+                include_bytes!("../../../tests/fixtures/render/dither/backdrop-blur50-2.rgba")
+                    .as_slice(),
+            ),
+            (
+                2,
+                30.,
+                1,
+                include_bytes!("../../../tests/fixtures/render/dither/backdrop-original30-1.rgba")
+                    .as_slice(),
+            ),
+            (
+                2,
+                30.,
+                2,
+                include_bytes!("../../../tests/fixtures/render/dither/backdrop-original30-2.rgba")
+                    .as_slice(),
+            ),
+            (
+                3,
+                30.,
+                1,
+                include_bytes!("../../../tests/fixtures/render/dither/backdrop-blur30-1.rgba")
+                    .as_slice(),
+            ),
+            (
+                3,
+                30.,
+                2,
+                include_bytes!("../../../tests/fixtures/render/dither/backdrop-blur30-2.rgba")
+                    .as_slice(),
+            ),
+            (
+                2,
+                70.,
+                1,
+                include_bytes!("../../../tests/fixtures/render/dither/backdrop-original70-1.rgba")
+                    .as_slice(),
+            ),
+            (
+                2,
+                70.,
+                2,
+                include_bytes!("../../../tests/fixtures/render/dither/backdrop-original70-2.rgba")
+                    .as_slice(),
+            ),
+            (
+                3,
+                70.,
+                1,
+                include_bytes!("../../../tests/fixtures/render/dither/backdrop-blur70-1.rgba")
+                    .as_slice(),
+            ),
+            (
+                3,
+                70.,
+                2,
+                include_bytes!("../../../tests/fixtures/render/dither/backdrop-blur70-2.rgba")
+                    .as_slice(),
+            ),
+        ] {
+            let mut s = settings(
+                128 * scale,
+                64 * scale,
+                DitherSettings {
+                    pixel_size: 2,
+                    contrast: 110.,
+                    ..d()
+                },
+            );
+            s.scale = scale;
+            let mut job = DitherJob::new(&source, s, 0).unwrap();
+            job.configure_context(crate::style_context::StyleContext {
+                backdrop,
+                background_opacity: opacity,
+                ..Default::default()
+            });
+            while !job.input_ready {
+                job.step(&source, 1).unwrap();
+            }
+            let mut actual = Vec::new();
+            for y in 0..64 * scale {
+                for x in 0..128 * scale {
+                    actual.extend(job.composer.input_pixel(x as usize, y as usize, opacity));
+                }
+            }
+            assert_eq!(actual.len(), expected.len());
+            let first = actual.iter().zip(expected).position(|(a, b)| a != b);
+            if first.is_some() {
+                failures += 1;
+                eprintln!(
+                    "backdrop {backdrop}, opacity {opacity}, scale {scale}: {first:?} {:?} vs {:?}",
+                    first.map(|i| actual[i]),
+                    first.map(|i| expected[i])
+                );
+            }
+        }
+        assert_eq!(failures, 0);
+    }
+    #[test]
+    fn partial_alpha_backdrop_starts_with_decoded_premultiplied_bytes() {
+        let source = SourceImage::new(4, 4, [200, 0, 0, 200].repeat(16), MAX_SOURCE_BYTES).unwrap();
+        for scale in [1, 2] {
+            let mut s = settings(4 * scale, 4 * scale, d());
+            s.scale = scale;
+            let mut job = DitherJob::new(&source, s, 0).unwrap();
+            job.configure_context(crate::style_context::StyleContext {
+                backdrop: 2,
+                background_opacity: 50.,
+                ..Default::default()
+            });
+            while !job.input_ready {
+                job.step(&source, 1).unwrap();
+            }
+            assert_eq!(job.composer.input_pixel(0, 0, 50.), [79, 0, 0, 255]);
+        }
+    }
+    #[test]
     fn bounded_rows_exact_budget_and_cancel() {
         let source = SourceImage::new(17, 13, vec![127; 17 * 13 * 4], MAX_SOURCE_BYTES).unwrap();
         let s = settings(17, 13, d());
@@ -780,49 +1189,25 @@ pub(super) mod tests {
         ));
     }
     #[test]
-    fn blue_noise_is_permutation_with_suppressed_low_frequencies() {
-        let mut tile = tables::BLUE_RANKS;
-        tile.sort();
-        assert_eq!(tile, std::array::from_fn(|i| i as u8));
-        fn energy(v: &[f64]) -> f64 {
-            let mut energy = 0.;
-            for fy in -2i32..=2 {
-                for fx in -2i32..=2 {
-                    if fx == 0 && fy == 0 {
-                        continue;
-                    }
-                    let (mut re, mut im) = (0., 0.);
-                    for y in 0..16 {
-                        for x in 0..16 {
-                            let a =
-                                2. * std::f64::consts::PI * (fx * x as i32 + fy * y as i32) as f64
-                                    / 16.;
-                            re += v[y * 16 + x] * a.cos();
-                            im += v[y * 16 + x] * a.sin();
-                        }
-                    }
-                    energy += re * re + im * im;
-                }
-            }
-            energy
+    fn blue_noise_matches_owned_seeded_highpass_oracle() {
+        let bytes = tables::BLUE_NOISE;
+        assert_eq!(bytes.len(), 128 * 128);
+        assert_eq!(bytes.iter().copied().min(), Some(0));
+        assert_eq!(bytes.iter().copied().max(), Some(255));
+        for (x, y) in [(0, 0), (7, 3), (127, 127), (128, 128), (129, 130)] {
+            assert_eq!(
+                pattern(
+                    &DitherSettings {
+                        algorithm: 10,
+                        ..d()
+                    },
+                    x,
+                    y,
+                    999
+                ),
+                bytes[(y % 128) * 128 + x % 128] as f64 / 255.
+            );
         }
-        let blue: Vec<_> = tables::BLUE_RANKS
-            .iter()
-            .map(|v| if *v < 128 { 1. } else { 0. })
-            .collect();
-        let white: Vec<_> = (0..256)
-            .map(|i| {
-                if hash((i % 16) as i64, (i / 16) as i64, 123) < u32::MAX / 2 {
-                    1.
-                } else {
-                    0.
-                }
-            })
-            .collect();
-        let b = energy(&blue);
-        let w = energy(&white);
-        println!("blue low-frequency energy={b}, white={w}");
-        assert!(b < w * 0.5);
     }
     #[test]
     fn wire_roundtrip_and_rejects_malformed_animation_custom_and_numbers() {
@@ -971,10 +1356,11 @@ pub(super) mod tests {
             while !job.painting {
                 job.step(&source, 1).unwrap();
             }
-            let mut expected = vec![[0f32; 3]; 9];
+            let mut expected = vec![[100f32; 3]; 9];
+            expected[0] = [0.; 3];
             for &(dx, dy, w) in kernel(algorithm) {
                 if dx >= 0 && dx < 3 {
-                    expected[dy * 3 + dx as usize] = [(100. * w) as f32; 3];
+                    expected[dy * 3 + dx as usize] = [(100. + 100. * w) as f32; 3];
                 }
             }
             assert_eq!(job.errors, expected, "kernel {algorithm}");
@@ -999,7 +1385,12 @@ pub(super) mod tests {
                 half.errors,
                 expected
                     .iter()
-                    .map(|v| v.map(|c| c * 0.5))
+                    .enumerate()
+                    .map(|(i, v)| if i == 0 {
+                        [0.; 3]
+                    } else {
+                        v.map(|c| (100. + (c as f64 - 100.) * 0.5) as f32)
+                    })
                     .collect::<Vec<_>>()
             );
             assert_eq!(half.color, [0, 0, 0, 255]);

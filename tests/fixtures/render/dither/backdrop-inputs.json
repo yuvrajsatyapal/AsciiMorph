@@ -1,0 +1,67 @@
+{
+  "browser": "156.0.8078.4",
+  "args": [
+    "--use-angle=swiftshader",
+    "--enable-unsafe-swiftshader",
+    "--disable-accelerated-2d-canvas"
+  ],
+  "sourceSha256": "f3a9f7aceee9d9b099a8fd4cfb26842c462031657acd3563a891787399fb0eb1",
+  "cases": [
+    {
+      "file": "backdrop-blur8-1.rgba",
+      "sha256": "01eccf7032e497460532158db10ac6fb8df644bee817b0f906af97a93164a38c"
+    },
+    {
+      "file": "backdrop-blur8-2.rgba",
+      "sha256": "75e574b680dae74cc8903e577735864a77dd47f8f0a6abe6dfde3e10a35b79c6"
+    },
+    {
+      "file": "backdrop-original50-1.rgba",
+      "sha256": "947f30ae3bf47ff74443224163cf6f6e6cc5853bf0562b9047fede74f498e812"
+    },
+    {
+      "file": "backdrop-original50-2.rgba",
+      "sha256": "32865b10f45a2b08e909a638b2484e295707ce1b4cfd2123b47960dfadff6d78"
+    },
+    {
+      "file": "backdrop-blur50-1.rgba",
+      "sha256": "2ff1ee0f78a687625c111724bc54e2ddb354fdc7f9a0747b114fd2e10a145821"
+    },
+    {
+      "file": "backdrop-blur50-2.rgba",
+      "sha256": "227c49c09a86f4ca7e94c5e8a56c815a4c551437ecf34d2c662e0b60e8807fec"
+    },
+    {
+      "file": "backdrop-original30-1.rgba",
+      "sha256": "c97600a3a27fe8d5e3e08187c337db77cd2055bbb6eedc251cc6f7323aa0752f"
+    },
+    {
+      "file": "backdrop-original30-2.rgba",
+      "sha256": "98e902f26bf30d255e8d2193af7c24add3a31c8baadd0ad13aab51ef5e201688"
+    },
+    {
+      "file": "backdrop-blur30-1.rgba",
+      "sha256": "334fa0379de974ca822a60c52a11a6d8c2ec73af5a093b42b7f23626718fa784"
+    },
+    {
+      "file": "backdrop-blur30-2.rgba",
+      "sha256": "64a38f604986567fe10c3f7d7cb55e2389eb6afe963ee37323232781a38649fd"
+    },
+    {
+      "file": "backdrop-original70-1.rgba",
+      "sha256": "18807527c16bd73fcb389e63b5d75a62b2261284b8c21a5851f5ed331eacd442"
+    },
+    {
+      "file": "backdrop-original70-2.rgba",
+      "sha256": "7d5a3cd901431594af5719f5d12e823795cad8e8459145a4a14387b9a179abe8"
+    },
+    {
+      "file": "backdrop-blur70-1.rgba",
+      "sha256": "241a15bf1a0c206385a8ac35dce675dcf3c34953c37e9a44fade6107435e52b5"
+    },
+    {
+      "file": "backdrop-blur70-2.rgba",
+      "sha256": "3c7ec7b34f5e0484576c92ea9c2b153395d89fc7e361ad55e145d4c2e24b4c03"
+    }
+  ]
+}

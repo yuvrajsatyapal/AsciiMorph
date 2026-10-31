@@ -34,6 +34,37 @@ try {
   page = await browser.newPage({
     viewport: { width: 1920, height: 1080 },
   });
+  const randomSeed =
+    process.env.DITHER_RANDOM_SEED === undefined
+      ? null
+      : Number(process.env.DITHER_RANDOM_SEED);
+  if (randomSeed !== null) {
+    if (
+      !Number.isInteger(randomSeed) ||
+      randomSeed <= 0 ||
+      randomSeed > 0xffffffff
+    )
+      throw Error("DITHER_RANDOM_SEED must be a nonzero uint32");
+    // Give each Math.random caller its own reproducible stream. Unrelated UI
+    // draws cannot shift the noise tile's stream. No app code/state is accessed.
+    await page.addInitScript((seed) => {
+      const streams = new Map();
+      Math.random = function controlledRandom() {
+        const caller = new Error().stack.split("\n")[2].trim();
+        const stream = streams.get(caller) ?? { state: seed, count: 0 };
+        let value = stream.state;
+        value ^= value << 13;
+        value ^= value >>> 17;
+        value ^= value << 5;
+        stream.state = value >>> 0;
+        stream.count++;
+        streams.set(caller, stream);
+        return stream.state / 4294967296;
+      };
+      window.__ditherRandomStreams = () =>
+        Array.from(streams, ([caller, value]) => ({ caller, ...value }));
+    }, randomSeed);
+  }
   const backend = await page.evaluate(() => {
     const c = document.createElement("canvas");
     c.width = 128;
@@ -284,6 +315,17 @@ try {
             backend,
             sourceSha256: createHash("sha256").update(source).digest("hex"),
             sourceProof,
+            randomness:
+              randomSeed === null
+                ? null
+                : {
+                    algorithm: "xorshift32",
+                    seed: randomSeed,
+                    scope: "per-callsite",
+                    streams: await page.evaluate(() =>
+                      window.__ditherRandomStreams(),
+                    ),
+                  },
             baselineControls,
             sourceAlphaVerified,
             complete:

@@ -1,0 +1,12 @@
+
+> asciimorph@0.1.0 lint
+> eslint .
+
+
+/Users/yuvrajsatyapal/Desktop/Projects/AsciiMorph/.planning/design/screens/ascii-magic-rebuild/prototype.js
+  23:35   warning  'title' is assigned a value but never used                             @typescript-eslint/no-unused-vars
+  30:221  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  35:371  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+
+✖ 3 problems (0 errors, 3 warnings)
+

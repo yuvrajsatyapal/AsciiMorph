@@ -145,11 +145,16 @@ test("translucent hover displays against stage background and restores accepted 
   test.skip(info.project.name !== "desktop");
   await page.goto("/app");
   await upload(page, 2, 128);
-  await readyTile(page, "Pixel Art");
+  // Dither with Original input retains source alpha. Pixel and Mosaic ink
+  // intentionally use layer opacity, so they are not translucency fixtures.
+  const withBackdrop = await pixels(page, "Rendered Characters preview");
+  await page.getByLabel("Backdrop", { exact: true }).filter({ visible: true }).selectOption("original");
+  await expect.poll(() => pixels(page, "Rendered Characters preview")).not.toEqual(withBackdrop);
+  await readyTile(page, "Dither");
   const accepted = page.getByLabel("Rendered Characters preview");
   const before = await pixels(page, "Rendered Characters preview");
   const hover = page.getByLabel("Transient style hover preview");
-  await page.getByRole("button", { name: "Pixel Art — available" }).first().hover();
+  await page.getByRole("button", { name: "Dither — available" }).first().hover();
   await expect(hover).toBeVisible();
   await expect(accepted).toBeHidden();
   await expect.poll(() => hover.evaluate((canvas: HTMLCanvasElement) => {

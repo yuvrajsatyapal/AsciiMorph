@@ -1,0 +1,26 @@
+  ✓   1 [desktop] › tests/e2e/dither.spec.ts:40:5 › Dither actual Worker controls, whole-look undo and exact PNG/JPEG downloads (2.8s)
+  ✓   2 [desktop] › tests/e2e/initial-renderer-families.spec.ts:198:5 › Pixel Art runs through the production Worker and changes source pixels (748ms)
+  ✓   3 [desktop] › tests/e2e/initial-renderer-families.spec.ts:312:5 › raster controls change real pixels and cross-style history restores output (1.9s)
+  ✓   4 [desktop] › tests/e2e/initial-renderer-families.spec.ts:408:5 › Pixel and Mosaic export real full-frame PNG and JPEG (1.4s)
+  ✓   5 [desktop] › tests/e2e/initial-renderer-families.spec.ts:427:5 › desktop widths and coarse tablet/fine narrow sheets preserve a shared project (4.0s)
+  ✓   6 [desktop] › tests/e2e/initial-renderer-families.spec.ts:473:5 › Braille uses a measured atlas through crop, rotation, threshold and equal PNG export (2.1s)
+  ✓   7 [desktop] › tests/e2e/initial-renderer-families.spec.ts:550:5 › mobile crop ratios, invalid draft and Escape preserve a usable source (978ms)
+  ✓   8 [desktop] › tests/e2e/styles/dither-worker.spec.ts:29:5 › all15 actual-worker algorithms, immutable capture, thumbnails and PNG readback (1.9s)
+  ✓   9 [desktop] › tests/e2e/thumbnails.spec.ts:71:5 › real current-source thumbnails, transient hover, stale rejection and canonical export (1.3s)
+  ✘  10 [desktop] › tests/e2e/thumbnails.spec.ts:144:5 › translucent hover displays against stage background and restores accepted canvas (5.8s)
+  ✓  11 [desktop] › tests/e2e/thumbnails.spec.ts:181:5 › 1000-square source keeps catalog output bounded to 192 and reports owned canvas capacity (1.4s)
+  ✓  12 [desktop] › tests/e2e/thumbnails.spec.ts:204:5 › coarse tablet and narrow layouts keep thumbnail selection usable (1.8s)
+  ✓  13 [firefox] › tests/e2e/dither.spec.ts:40:5 › Dither actual Worker controls, whole-look undo and exact PNG/JPEG downloads (4.0s)
+  ✓  14 [firefox] › tests/e2e/initial-renderer-families.spec.ts:198:5 › Pixel Art runs through the production Worker and changes source pixels (849ms)
+  ✓  15 [firefox] › tests/e2e/initial-renderer-families.spec.ts:312:5 › raster controls change real pixels and cross-style history restores output (1.9s)
+  ✓  16 [firefox] › tests/e2e/initial-renderer-families.spec.ts:408:5 › Pixel and Mosaic export real full-frame PNG and JPEG (1.7s)
+  ✓  17 [firefox] › tests/e2e/initial-renderer-families.spec.ts:427:5 › desktop widths and coarse tablet/fine narrow sheets preserve a shared project (5.3s)
+  ✓  18 [firefox] › tests/e2e/initial-renderer-families.spec.ts:473:5 › Braille uses a measured atlas through crop, rotation, threshold and equal PNG export (2.7s)
+  ✓  19 [firefox] › tests/e2e/initial-renderer-families.spec.ts:550:5 › mobile crop ratios, invalid draft and Escape preserve a usable source (2.0s)
+  ✓  20 [firefox] › tests/e2e/styles/dither-worker.spec.ts:29:5 › all15 actual-worker algorithms, immutable capture, thumbnails and PNG readback (2.6s)
+  ✓  21 [firefox] › tests/e2e/thumbnails.spec.ts:71:5 › real current-source thumbnails, transient hover, stale rejection and canonical export (1.8s)
+  -  22 [firefox] › tests/e2e/thumbnails.spec.ts:144:5 › translucent hover displays against stage background and restores accepted canvas
+  -  23 [firefox] › tests/e2e/thumbnails.spec.ts:181:5 › 1000-square source keeps catalog output bounded to 192 and reports owned canvas capacity
+  -  24 [firefox] › tests/e2e/thumbnails.spec.ts:204:5 › coarse tablet and narrow layouts keep thumbnail selection usable
+
+The stale translucent Pixel fixture above failed. The corrected Dither Original fixture passed its focused rerun; see production-translucent-hover.log.

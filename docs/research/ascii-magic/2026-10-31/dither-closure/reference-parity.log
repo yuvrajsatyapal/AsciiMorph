@@ -1,0 +1,9 @@
+
+Running 2 tests using 1 worker
+
+(node:99905) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 tests/e2e/styles/dither-parity.spec.ts:41:5 › pinned Dither reference RGBA and same-scale preview/export are exact (19.8s)
+  ✓  2 tests/e2e/styles/dither-parity.spec.ts:356:5 › Dither untouched default and selected backdrops match exact reference RGBA (3.2s)
+
+  2 passed (23.9s)

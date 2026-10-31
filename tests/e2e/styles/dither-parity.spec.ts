@@ -1,6 +1,18 @@
 import { expect, test } from "@playwright/test";
 import { resolve } from "node:path";
 import type { ViteDevServer } from "vite";
+type ReferenceCase = {
+  file: string;
+  algorithm: string;
+  strength: number;
+  pixelSize: number;
+  scale: number;
+  rgba: number[];
+  name?: string;
+  backdrop?: string;
+  softness?: number;
+  backgroundOpacity?: number;
+};
 let server: ViteDevServer;
 let base: string;
 test.beforeAll(async () => {
@@ -35,12 +47,23 @@ test("pinned Dither reference RGBA and same-scale preview/export are exact", asy
   const sharp = (await import("sharp")).default;
   const dir = resolve(
     process.env.DITHER_REFERENCE_DIR ??
-      "docs/research/ascii-magic/2026-10-31/dither-verified",
+      "docs/research/ascii-magic/2026-10-31/dither-seeded",
   );
   const manifest = JSON.parse(
     await readFile(resolve(dir, "reference-manifest.json"), "utf8"),
   );
   expect(manifest.complete).toBe(true);
+  expect(manifest.randomness).toMatchObject({
+    algorithm: "xorshift32",
+    seed: 123,
+    scope: "per-callsite",
+  });
+  expect(
+    manifest.randomness.streams.some(
+      (s: { count: number; state: number }) =>
+        s.count === 16384 && s.state === 2164097990,
+    ),
+  ).toBe(true);
   expect(manifest.sourceAlphaVerified).toBe(true);
   expect(manifest.baselineControls).toMatchObject({
     bgMode: "original",
@@ -185,7 +208,24 @@ test("pinned Dither reference RGBA and same-scale preview/export are exact", asy
   )!;
   for (let i = 3; i < sourceRgba.length; i += 4)
     expect(alphaCase.rgba[i]).toBe(sourceRgba[i]);
-  const output = await page.evaluate(
+  const output = await compareCases(page, cases, sourceRgba);
+  await writeFile(
+    resolve(dir, "reference-results.json"),
+    JSON.stringify(output, null, 2) + "\n",
+  );
+  for (const c of output) {
+    expect.soft(c.differingBytes, c.file).toBe(0);
+    expect.soft(c.previewExportDifferences, c.file + " preview/export").toBe(0);
+  }
+});
+
+// Shared actual-worker path for both independently captured reference matrices.
+async function compareCases(
+  page: import("@playwright/test").Page,
+  cases: ReferenceCase[],
+  sourceRgba: number[],
+) {
+  return await page.evaluate(
     async ({ cases, sourceRgba }) => {
       const serviceUrl = "/src/render/service.ts",
         contextUrl = "/src/render/style-context.ts";
@@ -230,7 +270,16 @@ test("pinned Dither reference RGBA and same-scale preview/export are exact", asy
               rotation: 0,
               seed: 123,
               timeUs: 0,
-              styleContext: { ...STYLE_CONTEXT_DEFAULTS, backdrop: "original" },
+              ...(c.name === "untouched"
+                ? {}
+                : {
+                    styleContext: {
+                      ...STYLE_CONTEXT_DEFAULTS,
+                      backdrop: c.backdrop ?? "original",
+                      softness: c.softness ?? 8,
+                      backgroundOpacity: c.backgroundOpacity ?? 100,
+                    },
+                  }),
               parameters: {
                 fontSize: 3,
                 brightness: 0,
@@ -301,6 +350,75 @@ test("pinned Dither reference RGBA and same-scale preview/export are exact", asy
       }
     },
     { cases, sourceRgba },
+  );
+}
+
+test("Dither untouched default and selected backdrops match exact reference RGBA", async ({
+  page,
+  browser,
+}) => {
+  const { readFile, writeFile } = await import("node:fs/promises");
+  const { createHash } = await import("node:crypto");
+  const sharp = (await import("sharp")).default;
+  const dir = resolve("docs/research/ascii-magic/2026-10-31/dither-backdrops");
+  const manifest = JSON.parse(
+    await readFile(resolve(dir, "reference-manifest.json"), "utf8"),
+  );
+  expect(manifest.complete).toBe(true);
+  expect(manifest.browser).toBe(browser.version());
+  expect(
+    manifest.cases
+      .map((c: { name: string; scale: number }) => `${c.name}-${c.scale}`)
+      .sort(),
+  ).toEqual(
+    ["untouched", "original", "none", "solid", "blur8", "original50", "blur50"]
+      .flatMap((name) => [1, 2].map((scale) => `${name}-${scale}`))
+      .sort(),
+  );
+  const source = await readFile(resolve("tests/fixtures/gradient.png"));
+  expect(createHash("sha256").update(source).digest("hex")).toBe(
+    manifest.sourceSha256,
+  );
+  const cases = [];
+  for (const c of manifest.cases) {
+    expect(c.settings).toMatchObject({
+      bgMode: c.backdrop,
+      ...(c.settings.bgOpacity !== undefined
+        ? { bgOpacity: String(c.backgroundOpacity) }
+        : {}),
+      ...(c.backdrop === "blur" ? { bgBlur: String(c.softness) } : {}),
+      ditherAlgo: "floyd",
+      ditherStrength: "100",
+      ditherScale: "2",
+      ditherPalette: "mono",
+      ditherChromaMode: "standard",
+      ditherContrast: "110",
+      ditherThreshold: "50",
+    });
+    const bytes = await readFile(resolve(dir, c.file));
+    expect(createHash("sha256").update(bytes).digest("hex")).toBe(c.sha256);
+    const decoded = await sharp(bytes)
+      .ensureAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    expect([
+      decoded.info.width,
+      decoded.info.height,
+      decoded.info.channels,
+    ]).toEqual([128 * c.scale, 64 * c.scale, 4]);
+    cases.push({
+      ...c,
+      algorithm: "floyd",
+      strength: 100,
+      pixelSize: 2,
+      rgba: Array.from(decoded.data),
+    });
+  }
+  await page.goto(base);
+  const output = await compareCases(
+    page,
+    cases,
+    Array.from(await sharp(source).ensureAlpha().raw().toBuffer()),
   );
   await writeFile(
     resolve(dir, "reference-results.json"),

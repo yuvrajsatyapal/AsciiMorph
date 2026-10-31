@@ -22,7 +22,7 @@ Every row requires exact parameter capture, owned fixtures, real renderer output
 | --- | --- | --- | --- | --- | --- |
 | `characters` | Characters | characters | Four-control sampling/tone/placement evidence captured; full controls remain incomplete | Rust fixed-context full RGBA, measured atlas, exact adapter and actual worker fixtures pass; accepted `/app` four-control UI with real PNG/JPEG and strict source/lifecycle checks (`ad52bb9`); full controls and reference pixel acceptance pending | Open |
 | `asciiStudio` | ASCII Studio | asciiStudio | Static catalog; runtime pending; parameters unknown | Pending | Open |
-| `dither` | Dither | dither | [Independent 15-algorithm profile verified](dither-profile.md), recovered palette literals | Ready after native capability negotiation; static controls/thumbnails/PNG/JPEG verified; reference pixel equivalence and animation remain open | Local static profile complete |
+| `dither` | Dither | dither | [Exact 56-case seeded matrix + 14 backdrop cases](dither-parity-2026-10-31.md), 1×/2× RGBA | All 70 alpha and preview/export pairs exact; static controls/worker/PNG/JPEG verified; independent review accepted | Static captured reference gate passed; animation and real 3×/4× comparisons remain open |
 | `block-chars` | Block | block-chars | Static descriptor/branch evidence recorded in [family contracts](../research/ascii-magic/2026-10-20/initial-family-contracts.md); required algorithm/default gates open | Payload unfrozen; unavailable; no runtime parity claim | Open |
 | `dots` | Dots | dots | Static descriptor/branch evidence recorded in [family contracts](../research/ascii-magic/2026-10-20/initial-family-contracts.md); required algorithm/default gates open | Payload unfrozen; unavailable; no runtime parity claim | Open |
 | `frostedglass` | Frosted Glass | frostedglass | Static catalog; runtime pending; parameters unknown | Pending | Open |
@@ -125,7 +125,7 @@ Tile variants require their own saved defaults and visual fixture even when they
 | --- | --- | --- | --- |
 | `characters` | `characters` | ascii | Pending |
 | `asciiStudio` | `asciiStudio` | ascii | Pending |
-| `dither` | `dither` | print | Local static profile verified; animation/reference equivalence pending |
+| `dither` | `dither` | print | Static 1×/2× reference gate accepted (70 exact cases); animation remains pending |
 | `block-chars` | `block-chars` | ascii | Pending |
 | `dots` | `dots` | ascii | Pending |
 | `frostedglass` | `frostedglass` | glass | Pending |

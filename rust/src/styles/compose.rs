@@ -7,6 +7,11 @@ use crate::{
     source::SourceImage,
 };
 
+// SkPaint converts unit alpha to a byte with half-up rounding; the image
+// blitter then uses SkAlpha255To256 and truncates the channel product.
+fn image_alpha_scale(opacity: f64) -> u32 {
+    ((opacity as f32 * 255. / 100.) + 0.5).floor() as u32 + 1
+}
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Phase {
     Resize,
@@ -32,6 +37,7 @@ pub struct FrameComposer {
     cursor: usize,
     pass: usize,
     blur: crate::canvas_blur::CanvasBlur,
+    preparing_input: bool,
 }
 impl FrameComposer {
     pub fn estimated_peak_bytes(
@@ -106,6 +112,7 @@ impl FrameComposer {
             cursor: 0,
             pass: 0,
             blur: crate::canvas_blur::CanvasBlur::new(8.),
+            preparing_input: false,
         })
     }
     pub(crate) fn configure_context(&mut self, c: crate::style_context::StyleContext) {
@@ -152,6 +159,69 @@ impl FrameComposer {
             None
         }
     }
+    /// Prepare an input backdrop without compositing the family layer over it.
+    pub(crate) fn prepare_input(
+        &mut self,
+        source: &SourceImage,
+        work: u32,
+    ) -> Result<bool, RenderError> {
+        self.preparing_input = true;
+        for _ in 0..work {
+            if self.phase == Phase::Composite {
+                return Ok(true);
+            }
+            self.step(source, 1)?;
+        }
+        Ok(self.phase == Phase::Composite)
+    }
+    pub(crate) fn input_pixel(&self, x: usize, y: usize, opacity: f64) -> [u8; 4] {
+        let p = self.a[y * self.width + x];
+        let mut out = [0, 0, 0, 255];
+        let opacity = if self.context.backdrop == 3 {
+            100.
+        } else {
+            opacity
+        };
+        let scale = image_alpha_scale(opacity);
+        for k in 0..3 {
+            out[k] = ((p[k] as u32 * scale) >> 8).min(255) as u8;
+        }
+
+        out
+    }
+    fn resize_input_pixel(&mut self, source: &SourceImage) {
+        let (width, height) = self.geometry.extent();
+        let scale = self.scale as f64;
+        let x = ((self.cursor % self.width) as f64 + 0.5) / scale - 0.5;
+        let y = ((self.cursor / self.width) as f64 + 0.5) / scale - 0.5;
+        let (ix, iy) = (x.floor(), y.floor());
+        let (fx, fy) = (x - ix, y - iy);
+        let mut value = [0.; 4];
+        for (dx, dy, weight) in [
+            (0., 0., (1. - fx) * (1. - fy)),
+            (1., 0., fx * (1. - fy)),
+            (0., 1., (1. - fx) * fy),
+            (1., 1., fx * fy),
+        ] {
+            let p = self.geometry.pixel(
+                source,
+                self.rotation as u32,
+                (ix + dx).clamp(0., (width - 1) as f64) as usize,
+                (iy + dy).clamp(0., (height - 1) as f64) as usize,
+            );
+            // PNG decoding serializes premultiplied bytes before image filtering.
+            for k in 0..3 {
+                value[k] += ((p[k] as u32 * p[3] as u32 + 127) / 255) as f64 * weight;
+            }
+            value[3] += p[3] as f64 * weight;
+        }
+        self.a[self.cursor] = [
+            value[0].floor() as f32,
+            value[1].floor() as f32,
+            value[2].floor() as f32,
+            value[3].floor() as f32 / 255.,
+        ];
+    }
     pub fn step(&mut self, source: &SourceImage, max_work: u32) -> Result<JobStatus, RenderError> {
         if self.status() != JobStatus::Pending {
             return Ok(self.status());
@@ -166,14 +236,26 @@ impl FrameComposer {
         for _ in 0..max_work {
             match self.phase {
                 Phase::Resize => {
-                    resize_pixel_into(
-                        &mut self.a,
-                        self.cursor,
-                        source,
-                        &self.geometry.inner,
-                        self.rotation,
-                        self.scale,
-                    );
+                    if self.preparing_input {
+                        self.resize_input_pixel(source);
+                        if self.context.backdrop == 3 {
+                            let scale = image_alpha_scale(self.context.background_opacity);
+                            for k in 0..3 {
+                                self.a[self.cursor][k] =
+                                    ((self.a[self.cursor][k] as u32 * scale) >> 8) as f32;
+                            }
+                            self.a[self.cursor][3] *= scale as f32 / 256.;
+                        }
+                    } else {
+                        resize_pixel_into(
+                            &mut self.a,
+                            self.cursor,
+                            source,
+                            &self.geometry.inner,
+                            self.rotation,
+                            self.scale,
+                        );
+                    }
                     self.cursor += 1;
                     if self.cursor == self.a.len() {
                         self.cursor = 0;

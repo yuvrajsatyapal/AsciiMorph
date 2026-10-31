@@ -1,29 +1,39 @@
-# Dither evidence checkpoint — not closed
+# Dither static parity evidence — 31 October 2026
 
-`dither-verified` is the accepted source/settings capture matrix: 56 genuine public PNG exports (28 numerical identities at 1×/2×), pinned Chromium software Canvas and SwiftShader. The manifest binds the synthetic PNG hash, independently checked opaque Original source export/hash, all exposed control values before/after Dither selection, and an independent retained source-alpha check using genuine pixel-size-1 output. Both black and white opaque output must exist. Original at 100% selects the retained Image as Dither input; the strict gate now requests local Original as well. The runtime backend is probed by the test before rendering.
+The incoming checkpoint matched 32/56 genuine public PNGs. The controlled closure matrix in `dither-seeded/` now matches **56/56 complete RGBA buffers**, and `dither-backdrops/` matches **14/14** additional default/selected backdrop cases. All 70 alpha buffers and same-scale preview/export pairs match exactly. The final verification and review record is [Dither closure](../../../verification/dither-parity-2026-10-31.md).
 
-`dither-original` is the earlier nonblank 56-case capture with less complete provenance. It preserves `reference-results-before-correction.json` against the unchanged Characters-era WASM. Its numerical diagnostic used local None versus public Original to isolate raw-source dithering, so this report is NOT an accepted same-settings closure gate. It proves the Strength 0 mismatch: Floyd/pixel2/1× differs22,400 bytes, including128 alpha bytes; actualRGB26 versus reference0 at byte48. Strength0 reference opaque colors contain only black and white.
+## Capture provenance
 
-`dither-software` is a REJECTED blank capture/diagnostic directory. Public Backdrop None changes the sampled effect frame to transparent. These files cannot establish quantization parity. No historical PNG was replaced to manufacture a pass.
+Both matrices use the owned 128×64 gradient, Chromium 156.0.8078.4, software Canvas and SwiftShader. Manifests bind source/PNG hashes, dimensions and visible settings. The 56-case matrix additionally retains an independently checked Original source proof and a genuine pixel-size-1 alpha check.
 
-Current `dither-verified/reference-results.json`: candidate WASM matches32/56 complete RGBA images, all56 alpha buffers, all56 same-scale preview/export pairs. Passing: Bayer2/4/8/16, LinesH/V/D, every captured Strength0 case including pixel sizes1/2/3/12, and Bayer2 Strength50. Open: four diffusion kernels at Strength50/100, Halftone, Radial, White Noise, Blue Noise. Dither remains open; later styles/workflows have not started.
+The user approved a new capture with controlled randomness. The capture overrides the standard Math.random primitive with xorshift32 seed 123 per callsite, so unrelated UI consumption cannot advance the noise stream. Its manifest records exactly 16,384 draws at the reference's noise generator. The local 128×128 tile is generated independently from float32 white noise minus its toroidal 5×5 mean, then normalized to bytes. It is fixed for deterministic preview/export.
 
-## Independent sampling evidence
+The untouched Dither UI exposes Blur 0 and samples the retained source. Additional cases explicitly select Original, None, Solid, Blur 8, Original 50% and Blur 50%, each at 1×/2×. These selected backdrops are prepared before quantization.
 
-`scripts/generate-dither-sampling-fixtures.mjs` generates both Canvas-source and decoded PNG Image-source oracles without running reference application code. They differ on this backend. The native candidate matches all four complete128×64 Image-source sample buffers, sizes1/2/3/12. An independent reviewer verified mip box reduction, float32 inverse scale, four-bit bilinear fractions and truncation. The old area sampler first failed at pixel-size2 alpha128 versus127. The candidate uses a fixed inline stack, visits one base source pixel per work unit, and allocates no mipmap pyramid. Existing admission accounts for inline metadata via StyleJob size.
+## Historical diagnostics
 
-An added31×19 partial-alpha Image-source oracle is deliberately RED. Float32 normalization/reciprocal fixes the pixel-size1 unpremultiplication half-boundary (15premul/30alpha becomes127, not128). Pixel-size2 then exposes a separate filter path: four-bit filtering first produces alpha19 while reference is20. Independent continuous bilinear with rounded premultiplied output matches all160alpha samples but leaves7–8RGB errors. The first residual is(x0,y1), premulred17 versus18 at alpha79. Do not guess decoder math: independent reconstruction confirms decoder premultiplication for all1767source RGB bytes. Odd-dimension mip filtering at sizes3/12 still needs investigation.
+`dither-verified/` preserves the original unseeded 56 PNGs and incoming 32/56 report. The intermediate `reference-results-after-diffusion-correction.json` records 54/56; its two unseeded Blue Noise images cannot be regenerated from recorded settings alone. The seeded capture replaces the closure matrix with the user's approval; no old PNG was overwritten.
 
-Reviewer diagnosis scripts: `/tmp/review-dither-image-sampler.mjs`; review agent `/root/dither_evidence_review` (read-only, no repository edits). Sampling metadata includes source hashes, runtime backend, browser and output hashes. Only the source hash/provenance recorded in each directory applies to its fixtures.
+`dither-original/` is an earlier nonblank capture with weaker provenance. Its pre-correction report used public Original versus local None, so it is a diagnostic rather than a same-settings acceptance gate. `dither-software/` is the rejected blank None-backdrop capture. None genuinely yields clear Dither output.
 
-## Repeat commands
+## Independent numerical fixtures
+
+Primitive-only Canvas scripts generate even128×64 and odd31×19 samples, prepared backdrop buffers, and an independent full-plane Float32 diffusion oracle. Native tests compare complete outputs. The odd fixture records sequential draws at pixel sizes 1→2→3→12. Chromium's decode cache makes odd-size output depend on preceding draws: a fresh first31×19→3×2 draw differs. The renderer uses a deterministic ceil-mip policy matching the recorded sequence, not arbitrary incidental cache state.
+
+Prepared-input fixtures also cover 30%/70% opacity. Review found and fixed half-way alpha conversion, PNG premultiplication before filtering, and the maximum admitted fixed-stack depth. Admission and cooperative cancellation retain their existing limits.
+
+## Reproduction
 
 ```sh
-node scripts/capture-dither-software-reference.mjs docs/research/ascii-magic/2026-10-31/dither-verified
+DITHER_RANDOM_SEED=123 node scripts/capture-dither-software-reference.mjs docs/research/ascii-magic/2026-10-31/dither-seeded
+node scripts/capture-dither-backdrops.mjs
 node scripts/generate-dither-sampling-fixtures.mjs
-cargo test --manifest-path rust/Cargo.toml --offline styles::dither --lib
+node scripts/generate-dither-blue-noise.mjs --check
+node scripts/generate-dither-backdrop-fixtures.mjs --check
+node scripts/generate-dither-diffusion-fixtures.mjs --check
+cargo test --manifest-path rust/Cargo.toml --offline
 npm run build:wasm
 npx playwright test --config playwright.dither-parity.config.ts
 ```
 
-The native test command currently includes the intentional odd/partial-alpha failure. Do not close Dither, commit unreviewed corrections, weaken the exact gate, or call later stages complete. Real public3×/4× exports remain deferred.
+Real public 3×/4× export comparison remains deferred. Remaining core styles, stacked effects, text/masks/lighting, animation exports, then recipes/library/Flow remain in that order.
