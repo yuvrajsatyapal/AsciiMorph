@@ -2,6 +2,7 @@ pub mod braille;
 pub mod compose;
 pub mod contract;
 pub mod dither;
+mod dither_sampling;
 pub mod geometry;
 mod job;
 pub mod mosaic;

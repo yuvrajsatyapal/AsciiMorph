@@ -1,0 +1,506 @@
+[
+  {
+    "file": "dither-bayer2-100-2-1-reference.png",
+    "differingBytes": 1868,
+    "alphaErrors": 128,
+    "previewExportDifferences": 0,
+    "first": 51,
+    "actual": 128,
+    "expected": 127
+  },
+  {
+    "file": "dither-bayer2-100-2-2-reference.png",
+    "differingBytes": 7472,
+    "alphaErrors": 512,
+    "previewExportDifferences": 0,
+    "first": 99,
+    "actual": 128,
+    "expected": 127
+  },
+  {
+    "file": "dither-bayer4-100-2-1-reference.png",
+    "differingBytes": 2048,
+    "alphaErrors": 128,
+    "previewExportDifferences": 0,
+    "first": 51,
+    "actual": 128,
+    "expected": 127
+  },
+  {
+    "file": "dither-bayer4-100-2-2-reference.png",
+    "differingBytes": 8192,
+    "alphaErrors": 512,
+    "previewExportDifferences": 0,
+    "first": 99,
+    "actual": 128,
+    "expected": 127
+  },
+  {
+    "file": "dither-bayer8-100-2-1-reference.png",
+    "differingBytes": 2384,
+    "alphaErrors": 128,
+    "previewExportDifferences": 0,
+    "first": 51,
+    "actual": 128,
+    "expected": 127
+  },
+  {
+    "file": "dither-bayer8-100-2-2-reference.png",
+    "differingBytes": 9536,
+    "alphaErrors": 512,
+    "previewExportDifferences": 0,
+    "first": 99,
+    "actual": 128,
+    "expected": 127
+  },
+  {
+    "file": "dither-bayer16-100-2-1-reference.png",
+    "differingBytes": 2252,
+    "alphaErrors": 128,
+    "previewExportDifferences": 0,
+    "first": 51,
+    "actual": 128,
+    "expected": 127
+  },
+  {
+    "file": "dither-bayer16-100-2-2-reference.png",
+    "differingBytes": 9008,
+    "alphaErrors": 512,
+    "previewExportDifferences": 0,
+    "first": 99,
+    "actual": 128,
+    "expected": 127
+  },
+  {
+    "file": "dither-halftone-100-2-1-reference.png",
+    "differingBytes": 10160,
+    "alphaErrors": 128,
+    "previewExportDifferences": 0,
+    "first": 48,
+    "actual": 255,
+    "expected": 0
+  },
+  {
+    "file": "dither-halftone-100-2-2-reference.png",
+    "differingBytes": 40640,
+    "alphaErrors": 512,
+    "previewExportDifferences": 0,
+    "first": 96,
+    "actual": 255,
+    "expected": 0
+  },
+  {
+    "file": "dither-radial-100-2-1-reference.png",
+    "differingBytes": 10520,
+    "alphaErrors": 128,
+    "previewExportDifferences": 0,
+    "first": 51,
+    "actual": 128,
+    "expected": 127
+  },
+  {
+    "file": "dither-radial-100-2-2-reference.png",
+    "differingBytes": 42080,
+    "alphaErrors": 512,
+    "previewExportDifferences": 0,
+    "first": 99,
+    "actual": 128,
+    "expected": 127
+  },
+  {
+    "file": "dither-linesH-100-2-1-reference.png",
+    "differingBytes": 824,
+    "alphaErrors": 128,
+    "previewExportDifferences": 0,
+    "first": 51,
+    "actual": 128,
+    "expected": 127
+  },
+  {
+    "file": "dither-linesH-100-2-2-reference.png",
+    "differingBytes": 3296,
+    "alphaErrors": 512,
+    "previewExportDifferences": 0,
+    "first": 99,
+    "actual": 128,
+    "expected": 127
+  },
+  {
+    "file": "dither-linesV-100-2-1-reference.png",
+    "differingBytes": 1952,
+    "alphaErrors": 128,
+    "previewExportDifferences": 0,
+    "first": 48,
+    "actual": 255,
+    "expected": 0
+  },
+  {
+    "file": "dither-linesV-100-2-2-reference.png",
+    "differingBytes": 7808,
+    "alphaErrors": 512,
+    "previewExportDifferences": 0,
+    "first": 96,
+    "actual": 255,
+    "expected": 0
+  },
+  {
+    "file": "dither-linesD-100-2-1-reference.png",
+    "differingBytes": 1952,
+    "alphaErrors": 128,
+    "previewExportDifferences": 0,
+    "first": 48,
+    "actual": 255,
+    "expected": 0
+  },
+  {
+    "file": "dither-linesD-100-2-2-reference.png",
+    "differingBytes": 7808,
+    "alphaErrors": 512,
+    "previewExportDifferences": 0,
+    "first": 96,
+    "actual": 255,
+    "expected": 0
+  },
+  {
+    "file": "dither-whiteNoise-100-2-1-reference.png",
+    "differingBytes": 10448,
+    "alphaErrors": 128,
+    "previewExportDifferences": 0,
+    "first": 51,
+    "actual": 128,
+    "expected": 127
+  },
+  {
+    "file": "dither-whiteNoise-100-2-2-reference.png",
+    "differingBytes": 41792,
+    "alphaErrors": 512,
+    "previewExportDifferences": 0,
+    "first": 99,
+    "actual": 128,
+    "expected": 127
+  },
+  {
+    "file": "dither-blueNoise-100-2-1-reference.png",
+    "differingBytes": 8816,
+    "alphaErrors": 128,
+    "previewExportDifferences": 0,
+    "first": 51,
+    "actual": 128,
+    "expected": 127
+  },
+  {
+    "file": "dither-blueNoise-100-2-2-reference.png",
+    "differingBytes": 35264,
+    "alphaErrors": 512,
+    "previewExportDifferences": 0,
+    "first": 99,
+    "actual": 128,
+    "expected": 127
+  },
+  {
+    "file": "dither-floyd-100-2-1-reference.png",
+    "differingBytes": 11420,
+    "alphaErrors": 128,
+    "previewExportDifferences": 0,
+    "first": 51,
+    "actual": 128,
+    "expected": 127
+  },
+  {
+    "file": "dither-floyd-100-2-2-reference.png",
+    "differingBytes": 45680,
+    "alphaErrors": 512,
+    "previewExportDifferences": 0,
+    "first": 99,
+    "actual": 128,
+    "expected": 127
+  },
+  {
+    "file": "dither-atkinson-100-2-1-reference.png",
+    "differingBytes": 9776,
+    "alphaErrors": 128,
+    "previewExportDifferences": 0,
+    "first": 51,
+    "actual": 128,
+    "expected": 127
+  },
+  {
+    "file": "dither-atkinson-100-2-2-reference.png",
+    "differingBytes": 39104,
+    "alphaErrors": 512,
+    "previewExportDifferences": 0,
+    "first": 99,
+    "actual": 128,
+    "expected": 127
+  },
+  {
+    "file": "dither-stucki-100-2-1-reference.png",
+    "differingBytes": 9164,
+    "alphaErrors": 128,
+    "previewExportDifferences": 0,
+    "first": 51,
+    "actual": 128,
+    "expected": 127
+  },
+  {
+    "file": "dither-stucki-100-2-2-reference.png",
+    "differingBytes": 36656,
+    "alphaErrors": 512,
+    "previewExportDifferences": 0,
+    "first": 99,
+    "actual": 128,
+    "expected": 127
+  },
+  {
+    "file": "dither-sierraLite-100-2-1-reference.png",
+    "differingBytes": 9620,
+    "alphaErrors": 128,
+    "previewExportDifferences": 0,
+    "first": 51,
+    "actual": 128,
+    "expected": 127
+  },
+  {
+    "file": "dither-sierraLite-100-2-2-reference.png",
+    "differingBytes": 38480,
+    "alphaErrors": 512,
+    "previewExportDifferences": 0,
+    "first": 99,
+    "actual": 128,
+    "expected": 127
+  },
+  {
+    "file": "dither-bayer2-0-2-1-reference.png",
+    "differingBytes": 22400,
+    "alphaErrors": 128,
+    "previewExportDifferences": 0,
+    "first": 48,
+    "actual": 26,
+    "expected": 0
+  },
+  {
+    "file": "dither-bayer2-0-2-2-reference.png",
+    "differingBytes": 89600,
+    "alphaErrors": 512,
+    "previewExportDifferences": 0,
+    "first": 96,
+    "actual": 26,
+    "expected": 0
+  },
+  {
+    "file": "dither-bayer2-50-2-1-reference.png",
+    "differingBytes": 21532,
+    "alphaErrors": 128,
+    "previewExportDifferences": 0,
+    "first": 48,
+    "actual": 8,
+    "expected": 0
+  },
+  {
+    "file": "dither-bayer2-50-2-2-reference.png",
+    "differingBytes": 86128,
+    "alphaErrors": 512,
+    "previewExportDifferences": 0,
+    "first": 96,
+    "actual": 8,
+    "expected": 0
+  },
+  {
+    "file": "dither-floyd-0-2-1-reference.png",
+    "differingBytes": 22400,
+    "alphaErrors": 128,
+    "previewExportDifferences": 0,
+    "first": 48,
+    "actual": 26,
+    "expected": 0
+  },
+  {
+    "file": "dither-floyd-0-2-2-reference.png",
+    "differingBytes": 89600,
+    "alphaErrors": 512,
+    "previewExportDifferences": 0,
+    "first": 96,
+    "actual": 26,
+    "expected": 0
+  },
+  {
+    "file": "dither-floyd-50-2-1-reference.png",
+    "differingBytes": 21756,
+    "alphaErrors": 128,
+    "previewExportDifferences": 0,
+    "first": 48,
+    "actual": 8,
+    "expected": 0
+  },
+  {
+    "file": "dither-floyd-50-2-2-reference.png",
+    "differingBytes": 87024,
+    "alphaErrors": 512,
+    "previewExportDifferences": 0,
+    "first": 96,
+    "actual": 8,
+    "expected": 0
+  },
+  {
+    "file": "dither-atkinson-0-2-1-reference.png",
+    "differingBytes": 22400,
+    "alphaErrors": 128,
+    "previewExportDifferences": 0,
+    "first": 48,
+    "actual": 26,
+    "expected": 0
+  },
+  {
+    "file": "dither-atkinson-0-2-2-reference.png",
+    "differingBytes": 89600,
+    "alphaErrors": 512,
+    "previewExportDifferences": 0,
+    "first": 96,
+    "actual": 26,
+    "expected": 0
+  },
+  {
+    "file": "dither-atkinson-50-2-1-reference.png",
+    "differingBytes": 21700,
+    "alphaErrors": 128,
+    "previewExportDifferences": 0,
+    "first": 48,
+    "actual": 8,
+    "expected": 0
+  },
+  {
+    "file": "dither-atkinson-50-2-2-reference.png",
+    "differingBytes": 86800,
+    "alphaErrors": 512,
+    "previewExportDifferences": 0,
+    "first": 96,
+    "actual": 8,
+    "expected": 0
+  },
+  {
+    "file": "dither-stucki-0-2-1-reference.png",
+    "differingBytes": 22400,
+    "alphaErrors": 128,
+    "previewExportDifferences": 0,
+    "first": 48,
+    "actual": 26,
+    "expected": 0
+  },
+  {
+    "file": "dither-stucki-0-2-2-reference.png",
+    "differingBytes": 89600,
+    "alphaErrors": 512,
+    "previewExportDifferences": 0,
+    "first": 96,
+    "actual": 26,
+    "expected": 0
+  },
+  {
+    "file": "dither-stucki-50-2-1-reference.png",
+    "differingBytes": 21800,
+    "alphaErrors": 128,
+    "previewExportDifferences": 0,
+    "first": 48,
+    "actual": 8,
+    "expected": 0
+  },
+  {
+    "file": "dither-stucki-50-2-2-reference.png",
+    "differingBytes": 87200,
+    "alphaErrors": 512,
+    "previewExportDifferences": 0,
+    "first": 96,
+    "actual": 8,
+    "expected": 0
+  },
+  {
+    "file": "dither-sierraLite-0-2-1-reference.png",
+    "differingBytes": 22400,
+    "alphaErrors": 128,
+    "previewExportDifferences": 0,
+    "first": 48,
+    "actual": 26,
+    "expected": 0
+  },
+  {
+    "file": "dither-sierraLite-0-2-2-reference.png",
+    "differingBytes": 89600,
+    "alphaErrors": 512,
+    "previewExportDifferences": 0,
+    "first": 96,
+    "actual": 26,
+    "expected": 0
+  },
+  {
+    "file": "dither-sierraLite-50-2-1-reference.png",
+    "differingBytes": 21832,
+    "alphaErrors": 128,
+    "previewExportDifferences": 0,
+    "first": 48,
+    "actual": 8,
+    "expected": 0
+  },
+  {
+    "file": "dither-sierraLite-50-2-2-reference.png",
+    "differingBytes": 87328,
+    "alphaErrors": 512,
+    "previewExportDifferences": 0,
+    "first": 96,
+    "actual": 8,
+    "expected": 0
+  },
+  {
+    "file": "dither-floyd-0-1-1-reference.png",
+    "differingBytes": 21965,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": 52,
+    "actual": 26,
+    "expected": 0
+  },
+  {
+    "file": "dither-floyd-0-1-2-reference.png",
+    "differingBytes": 87860,
+    "alphaErrors": 0,
+    "previewExportDifferences": 0,
+    "first": 104,
+    "actual": 26,
+    "expected": 0
+  },
+  {
+    "file": "dither-floyd-0-3-1-reference.png",
+    "differingBytes": 22464,
+    "alphaErrors": 192,
+    "previewExportDifferences": 0,
+    "first": 48,
+    "actual": 27,
+    "expected": 0
+  },
+  {
+    "file": "dither-floyd-0-3-2-reference.png",
+    "differingBytes": 89856,
+    "alphaErrors": 768,
+    "previewExportDifferences": 0,
+    "first": 96,
+    "actual": 27,
+    "expected": 0
+  },
+  {
+    "file": "dither-floyd-0-12-1-reference.png",
+    "differingBytes": 24744,
+    "alphaErrors": 1536,
+    "previewExportDifferences": 0,
+    "first": 3,
+    "actual": 0,
+    "expected": 17
+  },
+  {
+    "file": "dither-floyd-0-12-2-reference.png",
+    "differingBytes": 98904,
+    "alphaErrors": 6144,
+    "previewExportDifferences": 0,
+    "first": 3,
+    "actual": 0,
+    "expected": 17
+  }
+]

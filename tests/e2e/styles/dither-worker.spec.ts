@@ -60,7 +60,7 @@ test("all15 actual-worker algorithms, immutable capture, thumbnails and PNG read
       source,
       style: switchStyle(base.style, "dither"),
     };
-    project.style.parameters.bgMode = "none";
+    project.style.parameters.bgMode = "original";
     let seq = 0;
     const results = [];
     const same = (a: ArrayLike<number>, b: ArrayLike<number>) =>

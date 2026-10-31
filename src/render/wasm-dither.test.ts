@@ -36,7 +36,7 @@ it("reads all fifteen actual WASM algorithms, thumbnails, and chunk-invariant fr
         {
           ...project.style.parameters,
           ditherAlgorithm: algorithm,
-          bgMode: "none",
+          bgMode: "original",
         },
       );
       const s = bindStyleProject(project, 1);
